@@ -1,0 +1,12 @@
+namespace Infrastructure.Data.Configurations;
+
+public class AppUserConfiguration : IEntityTypeConfiguration<AppUser> {
+    public void Configure(EntityTypeBuilder<AppUser> builder) {
+        builder.Property(u => u.FullName).HasMaxLength(256).IsRequired();
+        
+        builder.HasDiscriminator<string>("UserType")
+            .HasValue<Patient>("Patient")
+            .HasValue<Pharmacist>("Pharmacist")
+            .HasValue<SystemAdmin>("SystemAdmin");
+    }
+}
