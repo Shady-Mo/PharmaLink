@@ -1,3 +1,7 @@
+using Application.Services;
+using Infrastructure;
+using Infrastructure.Services;
+
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
@@ -5,6 +9,10 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
+
+builder.Services.AddInfrastructureService(builder.Configuration);
+
+builder.Services.AddScoped<IDrugService, DrugService>();
 
 var app = builder.Build();
 
