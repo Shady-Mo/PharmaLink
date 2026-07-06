@@ -2,7 +2,8 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
-
+using Application.Services;
+using Infrastructure.Services;
 
 namespace Infrastructure
 {

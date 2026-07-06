@@ -13,6 +13,7 @@ builder.Services.AddOpenApi();
 builder.Services.AddInfrastructureService(builder.Configuration);
 
 builder.Services.AddScoped<IDrugService, DrugService>();
+builder.Services.AddScoped<IGeoLookupService, GeoLookupService>();
 
 var app = builder.Build();
 
