@@ -72,7 +72,9 @@ namespace Infrastructure.Services
             return await (
                 from b in context.PharmacyBranches
                 let distanceMeters = b.GeoLocation!.Distance(patientLocation)
-                where b.GeoLocation != null && distanceMeters <= radiusMeters
+                where b.GeoLocation != null 
+                   && distanceMeters <= radiusMeters
+                   && distanceMeters <= (double)b.ServiceRadiusKm * 1000.0
                 orderby distanceMeters
                 select new NearbyBranchResult
                 {
