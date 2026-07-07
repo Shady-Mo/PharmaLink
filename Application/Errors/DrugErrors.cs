@@ -1,5 +1,3 @@
-using Application.Common;
-using Microsoft.AspNetCore.Http;
 
 namespace Application.Errors;
 

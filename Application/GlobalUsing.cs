@@ -4,3 +4,8 @@ global using Application.Common;
 global using Application.DTOs;
 global using Application.DTOs.Drug.Requests;
 global using Application.DTOs.Drug.Responses;
+global using Mapster;
+global using FluentValidation;
+global using System.Reflection;
+global using Domain.Entities;
+global using Microsoft.AspNetCore.Http;

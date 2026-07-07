@@ -47,12 +47,20 @@ public static class DependencyInjection
 
         services.AddSwaggerGen(options =>
         {
-            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-
-            if (File.Exists(xmlPath))
+            var xmlFiles = new[]
             {
-                options.IncludeXmlComments(xmlPath);
+                "API.xml",
+                "Application.xml"
+            };
+
+            foreach (var xmlFile in xmlFiles)
+            {
+                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+                if (File.Exists(xmlPath))
+                {
+                    options.IncludeXmlComments(xmlPath);
+                }
             }
 
             options.SwaggerDoc("v1",

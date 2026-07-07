@@ -1,8 +1,3 @@
-using Application.DTOs.Drug.Requests;
-using Application.DTOs.Drug.Responses;
-using Domain.Entities;
-using Mapster;
-
 namespace Application.Mappings;
 
 public class MapsterConfig : IRegister

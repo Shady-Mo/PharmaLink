@@ -12,3 +12,7 @@ global using Scalar.AspNetCore;
 global using Microsoft.AspNetCore.Mvc;
 global using Domain.Constants;
 global using Microsoft.AspNetCore.Authorization;
+global using Application.DTOs;
+global using Application.DTOs.Drug.Requests;
+global using Application.DTOs.Drug.Responses;
+global using Infrastructure.Persistence.Seeders;

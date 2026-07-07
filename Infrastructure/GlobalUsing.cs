@@ -1,4 +1,4 @@
-global using Domain.Entities;
+﻿global using Domain.Entities;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.EntityFrameworkCore.Metadata.Builders;
 global using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -19,3 +19,5 @@ global using Application.Errors;
 global using Infrastructure.Extensions;
 global using System.Linq.Dynamic.Core;
 global using Mapster;
+global using System.Text.Json.Serialization;
+global using Infrastructure.Persistence.Seeders;

@@ -10,6 +10,10 @@ public class DrugDto
     public string NdcCode { get; set; } = string.Empty;
     public string Strength { get; set; } = string.Empty;
     public string Form { get; set; } = string.Empty;
+    public decimal Price { get; set; }
+    public string Manufacturer { get; set; } = string.Empty;
+    public string ArabicName { get; set; } = string.Empty;
+    public string DrugClass { get; set; } = string.Empty;
     public bool RequiresPrescription { get; set; }
     public bool IsActive { get; set; }
 }

@@ -22,6 +22,8 @@ public static class DependencyInjection
             .AddDefaultTokenProviders();
 
         services.AddScoped<IDrugService, DrugService>();
+        
+        services.AddScoped<DrugSeeder>();
 
         return services;
     }
