@@ -1,85 +1,85 @@
-﻿namespace API;
+﻿using FluentValidation.AspNetCore;
+
+namespace API;
 
 public static class DependencyInjection
 {
-    extension(IServiceCollection services)
+    public static IServiceCollection AddApiServices(this IServiceCollection services)
     {
-        public IServiceCollection AddApiServices()
-        {
-            services
-                .AddControllers()
-                .AddJsonOptions(options =>
-                {
-                    options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-                });
-
-            services.AddOpenApi();
-
-            services
-                .AddSwaggerServices()
-                .AddCorsServices();
-
-
-            return services;
-        }
-
-        private IServiceCollection AddCorsServices()
-        {
-            services.AddCors(options =>
+        services
+            .AddControllers()
+            .AddJsonOptions(options =>
             {
-                options.AddDefaultPolicy(policy =>
-                {
-                    policy
-                        .WithOrigins("http://localhost:4200")
-                        .AllowAnyHeader()
-                        .AllowAnyMethod()
-                        .AllowCredentials();
-                });
+                options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
             });
 
-            return services;
-        }
+        services.AddFluentValidationAutoValidation();
 
-        private IServiceCollection AddSwaggerServices()
+        services.AddOpenApi();
+
+        services
+            .AddSwaggerServices()
+            .AddCorsServices();
+
+        return services;
+    }
+
+    private static IServiceCollection AddCorsServices(this IServiceCollection services)
+    {
+        services.AddCors(options =>
         {
-            services.AddEndpointsApiExplorer();
-
-            services.AddSwaggerGen(options =>
+            options.AddDefaultPolicy(policy =>
             {
-                var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
-                var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
-
-                if (File.Exists(xmlPath))
-                {
-                    options.IncludeXmlComments(xmlPath);
-                }
-
-                options.SwaggerDoc("v1",
-                    new OpenApiInfo
-                    {
-                        Title = "Pharma Link API",
-                        Version = "v1",
-                        Contact = new OpenApiContact
-                        {
-                            Name = "Pharma Link API Support",
-                            Email = "ziadhani64@gmail.com"
-                        }
-                    });
-
-                options.AddSecurityDefinition("bearer",
-                    new OpenApiSecurityScheme
-                    {
-                        Type = SecuritySchemeType.Http,
-                        Scheme = "bearer",
-                        BearerFormat = "JWT",
-                        Description = "JWT Authorization header using the Bearer scheme."
-                    });
-
-                options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
-                    { [new OpenApiSecuritySchemeReference("bearer", document)] = [] });
+                policy
+                    .WithOrigins("http://localhost:4200")
+                    .AllowAnyHeader()
+                    .AllowAnyMethod()
+                    .AllowCredentials();
             });
+        });
 
-            return services;
-        }
+        return services;
+    }
+
+    private static IServiceCollection AddSwaggerServices(this IServiceCollection services)
+    {
+        services.AddEndpointsApiExplorer();
+
+        services.AddSwaggerGen(options =>
+        {
+            var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+            var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+
+            if (File.Exists(xmlPath))
+            {
+                options.IncludeXmlComments(xmlPath);
+            }
+
+            options.SwaggerDoc("v1",
+                new OpenApiInfo
+                {
+                    Title = "Pharma Link API",
+                    Version = "v1",
+                    Contact = new OpenApiContact
+                    {
+                        Name = "Pharma Link API Support",
+                        Email = "ziadhani64@gmail.com"
+                    }
+                });
+
+            options.AddSecurityDefinition("bearer",
+                new OpenApiSecurityScheme
+                {
+                    Type = SecuritySchemeType.Http,
+                    Scheme = "bearer",
+                    BearerFormat = "JWT",
+                    Description = "JWT Authorization header using the Bearer scheme."
+                });
+
+            options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+                { [new OpenApiSecuritySchemeReference("bearer", document)] = [] });
+        });
+
+        return services;
     }
 }

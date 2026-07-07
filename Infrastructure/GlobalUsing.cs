@@ -1,4 +1,4 @@
-﻿global using Domain.Entities;
+global using Domain.Entities;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.EntityFrameworkCore.Metadata.Builders;
 global using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -11,3 +11,11 @@ global using Application.DTOs.Drug;
 global using Application.Services;
 global using Microsoft.Extensions.Logging;
 global using Infrastructure.Services;
+global using Application.Common;
+global using Application.DTOs;
+global using Application.DTOs.Drug.Requests;
+global using Application.DTOs.Drug.Responses;
+global using Application.Errors;
+global using Infrastructure.Extensions;
+global using System.Linq.Dynamic.Core;
+global using Mapster;
