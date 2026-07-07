@@ -1,12 +1,15 @@
-using Domain.Enums;
-
 namespace Domain.Entities;
 
-public class Order {
-    public Guid OrderID { get; set; }
-    public Guid PatientUserID { get; set; }
-    public Guid DeliveryAddressID { get; set; }
+public class Order
+{
+    public Guid OrderId { get; set; }
+    
+    public Guid PatientUserId { get; set; }
+    
+    public Guid DeliveryAddressId { get; set; }
+
     public FulfillmentMode FulfillmentMode { get; set; }
+
     public OrderStatus OrderStatus { get; set; }
     public decimal TotalAmount { get; set; }
 

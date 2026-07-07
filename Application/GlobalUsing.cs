@@ -1,5 +1,2 @@
-﻿namespace Application {
-    public class GlobalUsing {
-
-    }
-}
+﻿global using Microsoft.Extensions.DependencyInjection;
+global using System.Text.Json.Serialization;

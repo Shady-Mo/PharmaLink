@@ -53,14 +53,14 @@ public class DrugService(AppDbContext context, ILogger<DrugService> logger) : ID
 
             drugsToAdd.Add(new Drug
             {
-                DrugID = Guid.NewGuid(),
+                DrugId = Guid.NewGuid(),
                 BrandName = item.Name,
                 GenericName = item.ActiveIngredient,
                 Form = item.DosageForm,
                 NdcCode = item.Barcode,
                 IsActive = true,
-                DrugBankID = "NF",
-                RxNormCUI = "NF",
+                DrugBankId = "NF",
+                RxNormCui = "NF",
                 Strength = "NF",
                 RequiresPrescription = false
             });

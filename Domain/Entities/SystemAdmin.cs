@@ -1,4 +1,5 @@
 namespace Domain.Entities;
 
-public class SystemAdmin : AppUser {
+public class SystemAdmin : AppUser
+{
 }
