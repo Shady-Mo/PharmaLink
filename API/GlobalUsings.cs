@@ -1,0 +1,6 @@
+﻿global using Application.Services;
+global using Infrastructure;
+global using Infrastructure.Services;
+global using API;
+global using Infrastructure.Data;
+global using Microsoft.EntityFrameworkCore;
