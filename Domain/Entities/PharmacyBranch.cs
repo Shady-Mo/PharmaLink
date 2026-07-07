@@ -1,14 +1,20 @@
+using NetTopologySuite.Geometries;
+
 namespace Domain.Entities;
 
-public class PharmacyBranch {
-    public Guid BranchID { get; set; }
-    public Guid PharmacyID { get; set; }
+public class PharmacyBranch
+{
+    public Guid BranchId { get; set; }
+    public Guid PharmacyId { get; set; }
     public string BranchName { get; set; } = string.Empty;
     public string City { get; set; } = string.Empty;
     public string Governorate { get; set; } = string.Empty;
-    public NetTopologySuite.Geometries.Point? GeoLocation { get; set; }
+    
+    public Point? GeoLocation { get; set; }
     public decimal ServiceRadiusKm { get; set; }
+    
     public bool SupportsDelivery { get; set; }
+    
     public bool SupportsPickup { get; set; }
 
     public Pharmacy Pharmacy { get; set; } = null!;

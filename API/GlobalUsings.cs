@@ -1,0 +1,14 @@
+﻿global using Application.Services;
+global using Infrastructure;
+global using API;
+global using Infrastructure.Data;
+global using Microsoft.EntityFrameworkCore;
+global using System.Reflection;
+global using System.Text.Json.Serialization;
+global using Microsoft.OpenApi;
+global using API.Extensions;
+global using Application;
+global using Scalar.AspNetCore;
+global using Microsoft.AspNetCore.Mvc;
+global using Domain.Constants;
+global using Microsoft.AspNetCore.Authorization;

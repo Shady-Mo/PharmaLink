@@ -1,80 +1,85 @@
-﻿using Application.DTOs.Drug;
-using Application.Services;
-using Infrastructure.Data;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Text.Json;
+﻿namespace Infrastructure.Services;
 
-namespace Infrastructure.Services
+public class DrugService(AppDbContext context, ILogger<DrugService> logger) : IDrugService
 {
-    public class DrugService : IDrugService
+    public async Task SeedDrugsAsync(
+        string jsonFilePath,
+        CancellationToken cancellationToken = default)
     {
-        private readonly AppDbContext context;
-        private readonly ILogger<DrugService> logger;
-
-        public DrugService(AppDbContext context, ILogger<DrugService> logger)
+        if (!File.Exists(jsonFilePath))
         {
-            this.context = context;
-            this.logger = logger;
+            logger.LogError("Seed file not found at path: {Path}", jsonFilePath);
+            return;
         }
-        public async Task SeedDrugsAsync(string jsonFilePath, CancellationToken cancellationToken = default)
+
+        var jsonContent = await File.ReadAllTextAsync(jsonFilePath, cancellationToken);
+
+        DrugSeedRoot? data;
+
+        try
         {
-            if (!File.Exists(jsonFilePath))
-            {
-                logger.LogError($"Seed file not found at path: {jsonFilePath}");
-                return;
-            }
-
-            var jsonContent = await File.ReadAllTextAsync(jsonFilePath, cancellationToken);
-
-            var data = JsonSerializer.Deserialize<DrugSeedRoot>(jsonContent);
-
-            if (data?.Data is null || data.Data.Count == 0)
-            {
-                logger.LogWarning("No data found in the JSON file");
-                return;
-            }
-
-            var ngCodes = new HashSet<string>(
-                await context.Drugs.Select(d => d.NdcCode).ToListAsync()
-                );
-            foreach (var item in data.Data)
-            {
-
-                if (string.IsNullOrEmpty(item.Barcode) || ngCodes.Contains(item.Barcode))
-                {
-                    logger.LogWarning($"Duplicate detected: Drug with NdcCode/Barcode '{item.Barcode}' already exists.");
-                    continue;
-                }
-
-                var drug = new Drug
-                {
-                    DrugID = Guid.NewGuid(),
-                    BrandName = item.Name,
-                    GenericName = item.ActiveIngredient,
-                    Form = item.DosageForm,
-                    NdcCode = item.Barcode,
-                    IsActive = true,
-                    DrugBankID = "NF",
-                    RxNormCUI = "NF",
-                    Strength = "NF",
-                    RequiresPrescription = false
-                };
-
-                context.Drugs.Add(drug);
-                ngCodes.Add(drug.NdcCode);
-                
-            }
-
-            var count = await context.SaveChangesAsync();
-
-            if(count==0)
-            {
-                logger.LogInformation("Catalog is already up-to-date. No new drugs were seeded.");
-            }
-
+            data = JsonSerializer.Deserialize<DrugSeedRoot>(jsonContent);
         }
+        catch (JsonException ex)
+        {
+            logger.LogError(ex, "Failed to deserialize the drug seed file.");
+            return;
+        }
+
+        if (data?.Data is null || !data.Data.Any())
+        {
+            logger.LogWarning("No data found in the JSON seed file.");
+            return;
+        }
+
+        var ndcCodes = new HashSet<string>(
+            await context.Drugs
+                .AsNoTracking()
+                .Select(d => d.NdcCode)
+                .ToListAsync(cancellationToken));
+
+        var drugsToAdd = new List<Drug>();
+
+        foreach (var item in data.Data)
+        {
+            if (string.IsNullOrWhiteSpace(item.Barcode) || ndcCodes.Contains(item.Barcode))
+            {
+                logger.LogWarning(
+                    "Duplicate detected. Drug with NdcCode '{NdcCode}' already exists.",
+                    item.Barcode);
+
+                continue;
+            }
+
+            drugsToAdd.Add(new Drug
+            {
+                DrugId = Guid.NewGuid(),
+                BrandName = item.Name,
+                GenericName = item.ActiveIngredient,
+                Form = item.DosageForm,
+                NdcCode = item.Barcode,
+                IsActive = true,
+                DrugBankId = "NF",
+                RxNormCui = "NF",
+                Strength = "NF",
+                RequiresPrescription = false
+            });
+
+            ndcCodes.Add(item.Barcode);
+        }
+
+        if (!drugsToAdd.Any())
+        {
+            logger.LogInformation("Catalog is already up to date. No new drugs were seeded.");
+            return;
+        }
+
+        await context.Drugs.AddRangeAsync(drugsToAdd, cancellationToken);
+
+        var insertedCount = await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation(
+            "{Count} drug(s) were successfully seeded into the catalog.",
+            insertedCount);
     }
 }
