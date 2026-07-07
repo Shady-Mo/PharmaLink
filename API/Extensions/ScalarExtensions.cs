@@ -10,13 +10,13 @@ public static class ScalarExtensions
         {
             options
                 .WithOpenApiRoutePattern("/swagger/{documentName}/swagger.json")
-                .WithTitle("PharmaLink API Reference")
+                .WithTitle("Pharma Link API Reference")
                 .WithTheme(ScalarTheme.BluePlanet)
                 .SortTagsAlphabetically()
                 .AlwaysShowDeveloperTools()
                 .HideModels = false;
 
-            options.AddDocument("v1", "PharmaLink v1",
+            options.AddDocument("v1", "Pharma Link v1",
                 $"/swagger/v1/swagger.json");
 
             options.AddPreferredSecuritySchemes("bearer")

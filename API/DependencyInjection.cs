@@ -57,12 +57,12 @@ public static class DependencyInjection
                 options.SwaggerDoc("v1",
                     new OpenApiInfo
                     {
-                        Title = "QuickBite API",
+                        Title = "Pharma Link API",
                         Version = "v1",
                         Contact = new OpenApiContact
                         {
-                            Name = "QuickBite API Support",
-                            Email = "support@quickbite.com"
+                            Name = "Pharma Link API Support",
+                            Email = "ziadhani64@gmail.com"
                         }
                     });
 

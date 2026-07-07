@@ -10,3 +10,4 @@ global using System.Text.Json;
 global using Application.DTOs.Drug;
 global using Application.Services;
 global using Microsoft.Extensions.Logging;
+global using Infrastructure.Services;

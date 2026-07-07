@@ -1,6 +1,4 @@
-﻿using Infrastructure.Services;
-
-namespace Infrastructure;
+﻿namespace Infrastructure;
 
 public static class DependencyInjection
 {
