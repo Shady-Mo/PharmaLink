@@ -1,85 +1,94 @@
-﻿namespace Infrastructure.Services;
+namespace Infrastructure.Services;
 
-public class DrugService(AppDbContext context, ILogger<DrugService> logger) : IDrugService
+public class DrugService(AppDbContext context) : IDrugService
 {
-    public async Task SeedDrugsAsync(
-        string jsonFilePath,
+    public async Task<Result<PaginatedList<DrugDto>>> SearchCatalogAsync(
+        DrugSearchRequest filters,
         CancellationToken cancellationToken = default)
     {
-        if (!File.Exists(jsonFilePath))
+        var query = context.Drugs.AsNoTracking().Where(d => d.IsActive);
+
+        if (!string.IsNullOrWhiteSpace(filters.SearchValue))
         {
-            logger.LogError("Seed file not found at path: {Path}", jsonFilePath);
-            return;
+            var searchTerm = filters.SearchValue.Trim();
+            query = query.Where(d => d.GenericName.Contains(searchTerm) || d.BrandName.Contains(searchTerm));
         }
 
-        var jsonContent = await File.ReadAllTextAsync(jsonFilePath, cancellationToken);
-
-        DrugSeedRoot? data;
-
-        try
+        if (!string.IsNullOrWhiteSpace(filters.Form))
         {
-            data = JsonSerializer.Deserialize<DrugSeedRoot>(jsonContent);
-        }
-        catch (JsonException ex)
-        {
-            logger.LogError(ex, "Failed to deserialize the drug seed file.");
-            return;
+            var formTerm = filters.Form.Trim();
+            query = query.Where(d => d.Form == formTerm);
         }
 
-        if (data?.Data is null || !data.Data.Any())
+        if (!string.IsNullOrWhiteSpace(filters.SortColumn))
         {
-            logger.LogWarning("No data found in the JSON seed file.");
-            return;
+            var direction = string.Equals(filters.SortDirection, "desc", StringComparison.OrdinalIgnoreCase)
+                ? "desc"
+                : "asc";
+            query = query.OrderBy($"{filters.SortColumn} {direction}");
+        }
+        else
+        {
+            query = query.OrderBy(x => x.BrandName);
         }
 
-        var ndcCodes = new HashSet<string>(
-            await context.Drugs
-                .AsNoTracking()
-                .Select(d => d.NdcCode)
-                .ToListAsync(cancellationToken));
+        var resultQuery = query.ProjectToType<DrugDto>();
 
-        var drugsToAdd = new List<Drug>();
+        return Result.Success(
+            await resultQuery.ToPaginatedListAsync(filters.PageNumber, filters.PageSize, cancellationToken));
+    }
 
-        foreach (var item in data.Data)
-        {
-            if (string.IsNullOrWhiteSpace(item.Barcode) || ndcCodes.Contains(item.Barcode))
-            {
-                logger.LogWarning(
-                    "Duplicate detected. Drug with NdcCode '{NdcCode}' already exists.",
-                    item.Barcode);
+    public async Task<Result<DrugDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var drug = await context.Drugs.AsNoTracking()
+            .Where(d => d.IsActive && d.DrugId == id)
+            .ProjectToType<DrugDto>()
+            .FirstOrDefaultAsync(cancellationToken);
 
-                continue;
-            }
+        return drug is null ? Result.Failure<DrugDto>(DrugErrors.DrugNotFound) : Result.Success(drug);
+    }
 
-            drugsToAdd.Add(new Drug
-            {
-                DrugId = Guid.NewGuid(),
-                BrandName = item.Name,
-                GenericName = item.ActiveIngredient,
-                Form = item.DosageForm,
-                NdcCode = item.Barcode,
-                IsActive = true,
-                DrugBankId = "NF",
-                RxNormCui = "NF",
-                Strength = "NF",
-                RequiresPrescription = false
-            });
+    public async Task<Result<DrugDto>> CreateAsync(CreateDrugDto dto, CancellationToken cancellationToken = default)
+    {
+        var drug = dto.Adapt<Drug>();
 
-            ndcCodes.Add(item.Barcode);
-        }
+        drug.DrugId = Guid.NewGuid();
 
-        if (!drugsToAdd.Any())
-        {
-            logger.LogInformation("Catalog is already up to date. No new drugs were seeded.");
-            return;
-        }
+        drug.IsActive = true;
 
-        await context.Drugs.AddRangeAsync(drugsToAdd, cancellationToken);
+        context.Drugs.Add(drug);
 
-        var insertedCount = await context.SaveChangesAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation(
-            "{Count} drug(s) were successfully seeded into the catalog.",
-            insertedCount);
+        return Result.Success(drug.Adapt<DrugDto>());
+    }
+
+    public async Task<Result<DrugDto>> UpdateAsync(Guid id, UpdateDrugDto dto,
+        CancellationToken cancellationToken = default)
+    {
+        var drug = await context.Drugs.FirstOrDefaultAsync(d => d.DrugId == id && d.IsActive, cancellationToken);
+
+        if (drug is null)
+            return Result.Failure<DrugDto>(DrugErrors.DrugNotFound);
+
+        dto.Adapt(drug);
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(drug.Adapt<DrugDto>());
+    }
+
+    public async Task<Result> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var drug = await context.Drugs.FirstOrDefaultAsync(d => d.DrugId == id && d.IsActive, cancellationToken);
+
+        if (drug is null)
+            return Result.Failure(DrugErrors.DrugNotFound);
+
+        drug.IsActive = false;
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Result.Success();
     }
 }

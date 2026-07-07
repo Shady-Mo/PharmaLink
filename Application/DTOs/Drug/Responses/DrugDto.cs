@@ -1,6 +1,6 @@
-namespace Domain.Entities;
+namespace Application.DTOs.Drug.Responses;
 
-public class Drug
+public class DrugDto
 {
     public Guid DrugId { get; set; }
     public string GenericName { get; set; } = string.Empty;
@@ -10,15 +10,10 @@ public class Drug
     public string NdcCode { get; set; } = string.Empty;
     public string Strength { get; set; } = string.Empty;
     public string Form { get; set; } = string.Empty;
-    
     public decimal Price { get; set; }
     public string Manufacturer { get; set; } = string.Empty;
     public string ArabicName { get; set; } = string.Empty;
     public string DrugClass { get; set; } = string.Empty;
-
     public bool RequiresPrescription { get; set; }
     public bool IsActive { get; set; }
-
-    public ICollection<PharmacyInventory> Inventories { get; set; } = new HashSet<PharmacyInventory>();
-    public ICollection<OrderItem> OrderItems { get; set; } = new HashSet<OrderItem>();
 }

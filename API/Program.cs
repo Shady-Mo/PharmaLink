@@ -7,7 +7,7 @@ builder.Services
 
 var app = builder.Build();
 
-app.ApplyMigrations();
+await app.ApplyMigrationsAsync();
 
 app.UseSwaggerDocs();
 
