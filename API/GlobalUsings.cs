@@ -4,3 +4,6 @@ global using Infrastructure.Services;
 global using API;
 global using Infrastructure.Data;
 global using Microsoft.EntityFrameworkCore;
+global using System.Reflection;
+global using System.Text.Json.Serialization;
+global using Microsoft.OpenApi;

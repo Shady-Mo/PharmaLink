@@ -1,20 +1,30 @@
+using API.Extensions;
+using Application;
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
     .AddApiServices()
+    .AddApplicationServices()
     .AddInfrastructureServices(builder.Configuration);
 
 var app = builder.Build();
 
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    dbContext.Database.Migrate();
-}
+app.ApplyMigrations();
 
-app.MapOpenApi();
+app.UseSwaggerDocs();
+
+app.UseScalarDocs();
 
 app.UseHttpsRedirection();
+
+app.UseDefaultFiles();
+
+app.UseStaticFiles();
+
+app.UseCors();
+
+app.UseAuthentication();
 
 app.UseAuthorization();
 

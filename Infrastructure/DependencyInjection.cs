@@ -1,4 +1,6 @@
-﻿namespace Infrastructure;
+﻿using Infrastructure.Services;
+
+namespace Infrastructure;
 
 public static class DependencyInjection
 {
@@ -20,6 +22,8 @@ public static class DependencyInjection
         services.AddIdentity<AppUser, IdentityRole<Guid>>()
             .AddEntityFrameworkStores<AppDbContext>()
             .AddDefaultTokenProviders();
+
+        services.AddScoped<IDrugService, DrugService>();
 
         return services;
     }
