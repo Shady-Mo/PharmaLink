@@ -6,7 +6,7 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
     {
         builder
             .Property(u => u.FullName)
-            .HasMaxLength(256)
+            .HasMaxLength(100)
             .IsRequired();
 
         builder.HasDiscriminator<string>("UserType")

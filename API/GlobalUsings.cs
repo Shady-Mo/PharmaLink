@@ -1,4 +1,4 @@
-﻿global using Application.Services;
+global using Application.Services;
 global using Infrastructure;
 global using API;
 global using Infrastructure.Data;
@@ -15,4 +15,6 @@ global using Microsoft.AspNetCore.Authorization;
 global using Application.DTOs;
 global using Application.DTOs.Drug.Requests;
 global using Application.DTOs.Drug.Responses;
+global using Application.DTOs.Auth.Requests;
+global using Application.DTOs.Auth.Responses;
 global using Infrastructure.Persistence.Seeders;

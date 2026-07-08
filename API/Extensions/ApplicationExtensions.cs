@@ -1,4 +1,4 @@
-﻿namespace API.Extensions;
+namespace API.Extensions;
 
 public static class ApplicationExtensions
 {
@@ -10,6 +10,10 @@ public static class ApplicationExtensions
 
         await dbContext.Database.MigrateAsync();
 
+        var roleSeeder = scope.ServiceProvider.GetRequiredService<RoleSeeder>();
+
+        await roleSeeder.SeedAsync();
+
         // var seeder = scope.ServiceProvider.GetRequiredService<DrugSeeder>();
         //
         // var env = scope.ServiceProvider.GetRequiredService<IWebHostEnvironment>();
@@ -20,4 +24,4 @@ public static class ApplicationExtensions
 
         return app;
     }
-}
+}

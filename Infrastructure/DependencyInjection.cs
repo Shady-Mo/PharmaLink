@@ -1,4 +1,4 @@
-﻿namespace Infrastructure;
+namespace Infrastructure;
 
 public static class DependencyInjection
 {
@@ -22,8 +22,10 @@ public static class DependencyInjection
             .AddDefaultTokenProviders();
 
         services.AddScoped<IDrugService, DrugService>();
+        services.AddScoped<IAuthService, AuthService>();
         
         services.AddScoped<DrugSeeder>();
+        services.AddScoped<RoleSeeder>();
 
         return services;
     }
