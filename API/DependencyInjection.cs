@@ -1,4 +1,9 @@
-﻿using FluentValidation.AspNetCore;
+﻿using API.Authorization;
+using FluentValidation.AspNetCore;
+using Infrastructure.Options;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.Tokens;
+using System.Text;
 
 namespace API;
 
@@ -20,6 +25,10 @@ public static class DependencyInjection
         services
             .AddSwaggerServices()
             .AddCorsServices();
+            
+
+            
+            
 
         return services;
     }
@@ -87,6 +96,23 @@ public static class DependencyInjection
             options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
                 { [new OpenApiSecuritySchemeReference("bearer", document)] = [] });
         });
+
+        return services;
+    }
+
+
+
+
+
+    public static IServiceCollection AddJwtAuthorization(
+        this IServiceCollection services)
+    {
+        
+        services.AddAuthorization();
+
+        // this is for customizing authorization
+        services.AddSingleton<IAuthorizationMiddlewareResultHandler,
+            AppAuthorizationMiddlewareResultHandler>();
 
         return services;
     }
