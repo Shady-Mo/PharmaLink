@@ -1,4 +1,6 @@
-﻿global using Domain.Entities;
+global using Domain.Entities;
+global using Domain.Enums;
+global using Domain.Constants;
 global using Microsoft.EntityFrameworkCore;
 global using Microsoft.EntityFrameworkCore.Metadata.Builders;
 global using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
@@ -15,6 +17,8 @@ global using Application.Common;
 global using Application.DTOs;
 global using Application.DTOs.Drug.Requests;
 global using Application.DTOs.Drug.Responses;
+global using Application.DTOs.Auth.Requests;
+global using Application.DTOs.Auth.Responses;
 global using Application.Errors;
 global using Infrastructure.Extensions;
 global using System.Linq.Dynamic.Core;
