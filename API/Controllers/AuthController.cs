@@ -1,7 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-using Application.Services;
-
 namespace API.Controllers;
 
 /// <summary>
@@ -41,8 +37,8 @@ public class AuthController(IAuthService authService) : BaseApiController
 
         // AC #6: 201 Created with the new UserID.
         return CreatedAtAction(
-            actionName:  nameof(Register),
+            actionName: nameof(Register),
             routeValues: new { },
-            value:       result.Value);
+            value: result.Value);
     }
 }
