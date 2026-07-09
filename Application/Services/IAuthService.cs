@@ -19,4 +19,11 @@ public interface IAuthService
     Task<Result<RegisterResponseDTO>> RegisterPatientAsync(
         RegisterRequestDTO request,
         CancellationToken cancellationToken = default);
+
+
+    Task<Result<LoginResponseDTO>> LoginAsync(
+
+        LoginRequestDTO request,
+        CancellationToken cancellationToken = default
+        );
 }

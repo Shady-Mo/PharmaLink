@@ -24,4 +24,4 @@ public static class ApplicationExtensions
 
         return app;
     }
-}
+}

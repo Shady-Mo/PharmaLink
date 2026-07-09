@@ -2,6 +2,7 @@ using Application.DTOs.Auth.Requests;
 using Application.DTOs.Auth.Responses;
 using Application.Errors;
 using Domain.Constants;
+using System.Security.Claims;
 
 namespace Infrastructure.Services;
 
@@ -18,7 +19,9 @@ namespace Infrastructure.Services;
 /// </list>
 /// </remarks>
 public class AuthService(
-    UserManager<AppUser> userManager,
+    UserManager<AppUser> userManager, 
+    IJwtTokenGeneratorService tokenGenerator,
+    AppDbContext dbContext,
     ILogger<AuthService> logger) : IAuthService
 {
     public async Task<Result<RegisterResponseDTO>> RegisterPatientAsync(
@@ -74,4 +77,99 @@ public class AuthService(
 
         return Result.Success(new RegisterResponseDTO { UserId = patient.Id });
     }
+
+
+    public async Task<Result<LoginResponseDTO>> LoginAsync(
+         LoginRequestDTO request,
+         CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByEmailAsync(request.Email.Trim().ToLowerInvariant());
+
+        if (user is null || !await userManager.CheckPasswordAsync(user, request.Password))
+        {
+            logger.LogWarning("Failed login attempt for {Email}", request.Email);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+        }
+
+        if (user.Status == UserStatus.Suspended)
+        {
+            logger.LogWarning("Login attempt on suspended account {UserId}", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.AccountSuspended);
+        }
+
+        var roles = await userManager.GetRolesAsync(user);
+        var roleName = roles.FirstOrDefault();
+
+        if (roleName is null)
+        {
+            logger.LogError("User {UserId} has no assigned role.", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+        }
+
+        var claims = new List<Claim>
+        {
+            new(JwtClaimTypes.UserId, user.Id.ToString()),
+            new(JwtClaimTypes.RoleName, roleName),
+        };
+
+        switch (roleName)
+        {
+            case AppRoles.Pharmacist:
+                await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
+                break;
+
+            case AppRoles.Admin:
+                claims.Add(new Claim(JwtClaimTypes.Scope, JwtClaimTypes.PlatformScope));
+                break;
+
+            case AppRoles.Patient:
+                // No branch/platform claims — scope is implicitly the Patient's own UserID.
+                break;
+        }
+
+        var (token, expiresAtUtc) = tokenGenerator.GenerateToken(claims);
+
+        logger.LogInformation("User {UserId} logged in as {Role}", user.Id, roleName);
+
+        return Result.Success(new LoginResponseDTO
+        {
+            FullName=user.FullName,
+            Email=user.Email,
+            UserId=user.Id,
+            AccessToken = token,
+            ExpiresAtUtc = expiresAtUtc,
+            RoleName = roleName
+        });
+    }
+
+    private async Task AddPharmacistClaimsAsync(
+        Guid pharmacistId,
+        List<Claim> claims,
+        CancellationToken cancellationToken)
+    {
+        var ownedPharmacies = await dbContext.Pharmacies
+            .Where(p => p.OwnerUserId == pharmacistId
+                        && p.VerificationStatus == VerificationStatus.Verified)
+            .Select(p => new
+            {
+                p.PharmacyId,
+                BranchIds = p.Branches.Select(b => b.BranchId)
+            })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        foreach (var pharmacy in ownedPharmacies)
+        {
+            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+
+            claims.AddRange(pharmacy.BranchIds.Select(
+                branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+        }
+
+        // Edge case: a Pharmacist account with zero verified pharmacies still gets
+        // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
+        // so every branch-ownership check downstream will correctly reject them
+        // until they have at least one verified pharmacy.
+    }
+
 }
