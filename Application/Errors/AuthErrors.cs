@@ -20,4 +20,13 @@ public static class AuthErrors
         new("Auth.RegistrationFailed",
             "Account registration failed due to a server error. Please try again.",
             StatusCodes.Status500InternalServerError);
+
+    public static readonly Error InvalidCredentials = new("Auth.InvalidCredentials", 
+        "The email or password is incorrect.", 
+        StatusCodes.Status401Unauthorized);
+
+    public static readonly Error AccountSuspended =
+    new("Auth.AccountSuspended",
+        "This account has been suspended.",
+        StatusCodes.Status403Forbidden);
 }
