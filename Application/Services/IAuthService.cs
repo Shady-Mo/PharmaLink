@@ -1,6 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-
 namespace Application.Services;
 
 public interface IAuthService
@@ -20,10 +17,7 @@ public interface IAuthService
         RegisterRequestDTO request,
         CancellationToken cancellationToken = default);
 
-
     Task<Result<LoginResponseDTO>> LoginAsync(
-
         LoginRequestDTO request,
-        CancellationToken cancellationToken = default
-        );
+        CancellationToken cancellationToken = default);
 }

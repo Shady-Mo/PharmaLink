@@ -31,6 +31,7 @@ public static class DependencyInjection
 
         services.AddScoped<IDrugService, DrugService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<IInventoryService, InventoryService>();
         
         services.AddScoped<DrugSeeder>();
         services.AddScoped<RoleSeeder>();

@@ -1,9 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-using Application.Errors;
-using Domain.Constants;
-using System.Security.Claims;
-
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -34,17 +28,20 @@ public class AuthService(
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (existingUserProp is not null) {
-            if (existingUserProp.Email == request.Email) {
-                logger.LogWarning(
-                    "Attempted registration with existing email: {Email}",
-                    request.Email);
+        if (existingUserProp is not null)
+        {
+            if (existingUserProp.Email == request.Email)
+            {
+                logger.LogWarning("Attempted registration with existing email: {Email}", request.Email);
+
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.EmailAlreadyExists);
             }
-            if (existingUserProp.PhoneNumber == request.PhoneNumber) {
-                logger.LogWarning(
-                    "Attempted registration with existing phone number: {PhoneNumber}",
+
+            if (existingUserProp.PhoneNumber == request.PhoneNumber)
+            {
+                logger.LogWarning("Attempted registration with existing phone number: {PhoneNumber}",
                     request.PhoneNumber);
+
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.PhoneAlreadyExists);
             }
         }
@@ -56,7 +53,9 @@ public class AuthService(
         if (!createResult.Succeeded)
         {
             var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+
             logger.LogError("Identity failed to create patient account. Errors: {Errors}", errors);
+
             return Result.Failure<RegisterResponseDTO>(AuthErrors.RegistrationFailed);
         }
 
@@ -65,18 +64,20 @@ public class AuthService(
         if (!roleResult.Succeeded)
         {
             await userManager.DeleteAsync(patient);
+
             var errors = string.Join("; ", roleResult.Errors.Select(e => e.Description));
-            logger.LogError(
-                "Failed to assign Patient role to user '{UserId}'. Rolled back. Errors: {Errors}",
+
+            logger.LogError("Failed to assign Patient role to user '{UserId}'. Rolled back. Errors: {Errors}",
                 patient.Id, errors);
+
             return Result.Failure<RegisterResponseDTO>(AuthErrors.RegistrationFailed);
         }
 
-        logger.LogInformation(
-            "Patient account created successfully. UserId: {UserId}", patient.Id);
+        logger.LogInformation("Patient account created successfully. UserId: {UserId}", patient.Id);
 
         return Result.Success(new RegisterResponseDTO { UserId = patient.Id });
     }
+}
 
 
     public async Task<Result<LoginResponseDTO>> LoginAsync(

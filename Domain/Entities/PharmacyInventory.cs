@@ -16,8 +16,7 @@ public class PharmacyInventory
     public DateOnly ExpiryDate { get; set; }
 
     public DateTime LastSyncedAt { get; set; }
-    public byte[] RowVersion { get; set; } = [];
-
+    public byte[] RowVersion { get; set; } = null!;
     public PharmacyBranch Branch { get; set; } = null!;
     public Drug Drug { get; set; } = null!;
 }
