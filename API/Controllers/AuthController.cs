@@ -90,17 +90,7 @@ public class AuthController(IAuthService authService) : BaseApiController
         // AC: 200 OK with the role-scoped JWT.
         return Ok(result.Value);
     }
-    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
-    [HttpGet("test")]
-    public IActionResult TestAuth()
-    {
-        var pharmacies = User
-    .FindAll(JwtClaimTypes.PharmacyId)
-    .Select(c => c.Value)
-    .ToList();
-
-        return Ok(pharmacies);
-    }
+    
 
 
 }
