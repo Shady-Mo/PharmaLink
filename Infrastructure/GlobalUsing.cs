@@ -1,4 +1,4 @@
-global using Domain.Entities;
+﻿global using Domain.Entities;
 global using Domain.Enums;
 global using Domain.Constants;
 global using Microsoft.EntityFrameworkCore;
@@ -9,7 +9,6 @@ global using Microsoft.AspNetCore.Identity;
 global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
 global using System.Text.Json;
-global using Application.DTOs.Drug;
 global using Application.Services;
 global using Microsoft.Extensions.Logging;
 global using Infrastructure.Services;

@@ -41,7 +41,7 @@ public class AuthController(IAuthService authService) : BaseApiController
             routeValues: new { },
             value: result.Value);
     }
-}
+
 
     /// <summary>
     /// Authenticates a user and issues a role-scoped JWT.
@@ -79,23 +79,18 @@ public class AuthController(IAuthService authService) : BaseApiController
     {
         var result = await authService.LoginAsync(request, cancellationToken);
 
-        if (result.IsFailure)
-            return result.ToProblem();
-
-        // AC: 200 OK with the role-scoped JWT.
-        return Ok(result.Value);
+        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
+
     [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
     [HttpGet("test")]
     public IActionResult TestAuth()
     {
         var pharmacies = User
-    .FindAll(JwtClaimTypes.PharmacyId)
-    .Select(c => c.Value)
-    .ToList();
+            .FindAll(JwtClaimTypes.PharmacyId)
+            .Select(c => c.Value)
+            .ToList();
 
         return Ok(pharmacies);
     }
-
-
 }

@@ -1,3 +1,5 @@
+using System.Security.Claims;
+
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -13,7 +15,7 @@ namespace Infrastructure.Services;
 /// </list>
 /// </remarks>
 public class AuthService(
-    UserManager<AppUser> userManager, 
+    UserManager<AppUser> userManager,
     IJwtTokenGeneratorService tokenGenerator,
     AppDbContext dbContext,
     ILogger<AuthService> logger) : IAuthService
@@ -77,12 +79,11 @@ public class AuthService(
 
         return Result.Success(new RegisterResponseDTO { UserId = patient.Id });
     }
-}
 
 
     public async Task<Result<LoginResponseDTO>> LoginAsync(
-         LoginRequestDTO request,
-         CancellationToken cancellationToken = default)
+        LoginRequestDTO request,
+        CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByEmailAsync(request.Email.Trim().ToLowerInvariant());
 
@@ -134,9 +135,9 @@ public class AuthService(
 
         return Result.Success(new LoginResponseDTO
         {
-            FullName=user.FullName,
-            Email=user.Email,
-            UserId=user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            UserId = user.Id,
             AccessToken = token,
             ExpiresAtUtc = expiresAtUtc,
             RoleName = roleName
@@ -163,8 +164,8 @@ public class AuthService(
         {
             claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
 
-            claims.AddRange(pharmacy.BranchIds.Select(
-                branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+            claims.AddRange(
+                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
         }
 
         // Edge case: a Pharmacist account with zero verified pharmacies still gets
@@ -172,5 +173,4 @@ public class AuthService(
         // so every branch-ownership check downstream will correctly reject them
         // until they have at least one verified pharmacy.
     }
-
 }
