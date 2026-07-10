@@ -31,4 +31,23 @@ public static class InventoryErrors
         "Inventory.InvalidIdentifier",
         "Branch identifier and drug identifier must be valid non-empty values.",
         StatusCodes.Status400BadRequest);
+
+    public static readonly Error AlreadyExist = new(
+        "Inventory.AlreadyExist",
+        "This drug already exist",
+        StatusCodes.Status409Conflict
+        );
+
+    public static readonly Error DifferentBranch = new(
+        "Inventory.DifferentBranch",
+        "You do not have permission to manage inventory for this branch",
+        StatusCodes.Status403Forbidden
+        );
+
+    public static readonly Error StockLowerThanReserved = new(
+    "Inventory.StockLowerThanReserved",
+    "Cannot set stock quantity lower than currently reserved quantity.",
+    StatusCodes.Status400BadRequest
+    );
+
 }

@@ -28,6 +28,8 @@ public static class DependencyInjection
 
         services.AddJwtServices(configuration);
 
+        services.AddHttpContextAccessor();
+
 
         services.AddScoped<IDrugService, DrugService>();
         services.AddScoped<IAuthService, AuthService>();

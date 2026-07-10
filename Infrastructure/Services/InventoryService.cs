@@ -1,6 +1,10 @@
+﻿using Application.DTOs.PharmacyInventory.Request;
+using Application.DTOs.PharmacyInventory.Response;
+using Microsoft.AspNetCore.Http;
+
 namespace Infrastructure.Services;
 
-public class InventoryService(AppDbContext context, ILogger<InventoryService> logger) : IInventoryService
+public class InventoryService(AppDbContext context, ILogger<InventoryService> logger, IHttpContextAccessor httpContextAccessor) : IInventoryService
 {
     public async Task<Result> ReserveStockAsync(Guid branchId, Guid drugId, int quantity,
         CancellationToken cancellationToken = default)
@@ -124,4 +128,130 @@ public class InventoryService(AppDbContext context, ILogger<InventoryService> lo
         FindInventoryAsync(Guid branchId, Guid drugId, CancellationToken cancellationToken) =>
         context.PharmacyInventories.FirstOrDefaultAsync(i => i.BranchId == branchId && i.DrugId == drugId,
             cancellationToken);
+
+    public async Task<Result<PharmacyInventoryDto>> CreateAsync(AddPharmacyInventoryDto dto, CancellationToken cancellationToken = default)
+    {
+        var isFound = context.PharmacyInventories.Where(i => i.BranchId == dto.BranchId && i.DrugId == dto.DrugId).Any();
+
+        if(isFound)
+            return Result.Failure<PharmacyInventoryDto>(InventoryErrors.AlreadyExist);
+
+
+        var user = httpContextAccessor.HttpContext?.User;
+
+
+        var branchIds = user.FindAll(JwtClaimTypes.BranchId)
+                                      .Select(c => Guid.Parse(c.Value))
+                                      .ToList();
+
+        if (!branchIds.Contains(dto.BranchId))
+        {
+            var userId = user.FindFirst(JwtClaimTypes.UserId)?.Value;
+            logger.LogWarning("User {UserId} attempted to add inventory to unauthorized Branch {BranchId}", userId, dto.BranchId);
+
+            return Result.Failure<PharmacyInventoryDto>(InventoryErrors.DifferentBranch);
+        }
+
+        var pharmacyInventory = dto.Adapt<PharmacyInventory>();
+
+        pharmacyInventory.InventoryId = Guid.NewGuid();
+
+
+        context.PharmacyInventories.Add(pharmacyInventory);
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(pharmacyInventory.Adapt<PharmacyInventoryDto>());
+    }
+
+
+    public async Task<Result<PharmacyInventoryDto>> UpdateAsync(UpdatePharmacyInventoryDto dto, CancellationToken cancellationToken = default)
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+
+        var branchIds = user?.FindAll(JwtClaimTypes.BranchId)
+                            .Select(c => Guid.Parse(c.Value))
+                            .ToList() ?? new List<Guid>();
+
+        if (!branchIds.Contains(dto.BranchId))
+        {
+            var userId = user?.FindFirst(JwtClaimTypes.UserId)?.Value;
+            logger.LogWarning("User {UserId} attempted to update inventory in unauthorized Branch {BranchId}", userId, dto.BranchId);
+
+            return Result.Failure<PharmacyInventoryDto>(InventoryErrors.DifferentBranch);
+        }
+
+        var inventory = await context.PharmacyInventories
+            .FirstOrDefaultAsync(i => i.BranchId == dto.BranchId && i.DrugId == dto.DrugId, cancellationToken);
+
+        if (inventory is null)
+            return Result.Failure<PharmacyInventoryDto>(InventoryErrors.InventoryNotFound);
+
+        if (dto.StockQuantity < inventory.ReservedQuantity)
+        {
+            logger.LogWarning(
+                "Cannot update stock to {NewStock}. There are {Reserved} units already reserved for BranchId: {BranchId}, DrugId: {DrugId}",
+                dto.StockQuantity, inventory.ReservedQuantity, dto.BranchId, dto.DrugId);
+
+            return Result.Failure<PharmacyInventoryDto>(InventoryErrors.StockLowerThanReserved);
+        }
+
+        inventory.StockQuantity = dto.StockQuantity;
+        inventory.UnitPrice = dto.UnitPrice;
+        inventory.ExpiryDate = dto.ExpiryDate;
+
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(inventory.Adapt<PharmacyInventoryDto>());
+    }
+
+    public async Task<Result<PaginatedList<PharmacyInventoryDto>>> GetInventoryAsync(GetPharmacyInventoryParamRequest parameters, CancellationToken cancellationToken = default)
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+
+        var isAdmin = user.IsInRole(AppRoles.Admin);
+
+        var query = context.PharmacyInventories.AsNoTracking().AsQueryable();
+
+        if (!isAdmin)
+        {
+            var branchIds = user.FindAll(JwtClaimTypes.BranchId)
+                                .Select(c => Guid.Parse(c.Value))
+                                .ToList();
+
+            if (!branchIds.Any())
+            {
+                return Result.Success(new PaginatedList<PharmacyInventoryDto>(
+                    [],
+                    parameters.PageNumber,
+                    0,
+                    parameters.PageSize
+                ));
+            }
+
+            query = query.Where(i => branchIds.Contains(i.BranchId));
+        }
+        else
+        {
+            var adminId = user.FindFirst(JwtClaimTypes.UserId)?.Value;
+            logger.LogInformation("System Admin {AdminId} accessed global inventory records at {Time}", adminId, DateTime.UtcNow);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(i => i.InventoryId)
+            .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+            .Take(parameters.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var result = new PaginatedList<PharmacyInventoryDto>(
+            items.Adapt<List<PharmacyInventoryDto>>(),
+            parameters.PageNumber,
+            totalCount,
+            parameters.PageSize
+        );
+
+        return Result.Success(result);
+    }
 }

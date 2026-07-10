@@ -11,18 +11,18 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\Domain\Domain.csproj"/>
+        <ProjectReference Include="..\Domain\Domain.csproj" />
     </ItemGroup>
 
     <ItemGroup>
-        <Folder Include="DTOs\Drug\Responses\"/>
+        <Folder Include="DTOs\Drug\Responses\" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1"/>
-        <PackageReference Include="Mapster" Version="10.0.10"/>
-        <PackageReference Include="Mapster.DependencyInjection" Version="10.0.10"/>
-        <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.11"/>
+        <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="12.1.1" />
+        <PackageReference Include="Mapster" Version="10.0.10" />
+        <PackageReference Include="Mapster.DependencyInjection" Version="10.0.10" />
+        <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.11" />
     </ItemGroup>
 
 </Project>
