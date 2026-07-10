@@ -78,7 +78,7 @@ namespace Infrastructure.Services
                 orderby distanceMeters
                 select new NearbyBranchResult
                 {
-                    BranchID = b.BranchID,
+                    BranchID = b.BranchId,
                     BranchName = b.BranchName,
                     DistanceKm = distanceMeters / 1000.0,
                     SupportsDelivery = b.SupportsDelivery,

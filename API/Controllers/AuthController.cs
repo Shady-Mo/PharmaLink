@@ -82,6 +82,7 @@ public class AuthController(IAuthService authService) : BaseApiController
         return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
 
+
     [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
     [HttpGet("test")]
     public IActionResult TestAuth()

@@ -6,8 +6,9 @@
 
         public (string Token, DateTime ExpiresAtUtc) GenerateToken(IEnumerable<Claim> claims)
         {
-            var expires = DateTime.UtcNow.AddMinutes(_options.ExpiryMinutes);
-
+            var expires = DateTime.Now.AddMinutes(_options.ExpiryMinutes);
+            Console.WriteLine(expires);
+            Console.WriteLine("hellllo gen token");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
