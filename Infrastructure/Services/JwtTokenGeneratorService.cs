@@ -1,13 +1,4 @@
-﻿using Infrastructure.Options;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-
-namespace Infrastructure.Services
+﻿namespace Infrastructure.Services
 {
     public class JwtTokenGeneratorService(IOptions<JwtOptions> options):IJwtTokenGeneratorService
     {
@@ -15,8 +6,9 @@ namespace Infrastructure.Services
 
         public (string Token, DateTime ExpiresAtUtc) GenerateToken(IEnumerable<Claim> claims)
         {
-            var expires = DateTime.UtcNow.AddMinutes(_options.ExpiryMinutes);
-
+            var expires = DateTime.Now.AddMinutes(_options.ExpiryMinutes);
+            Console.WriteLine(expires);
+            Console.WriteLine("hellllo gen token");
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_options.SigningKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

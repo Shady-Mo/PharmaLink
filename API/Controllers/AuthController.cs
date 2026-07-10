@@ -1,9 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-using Application.Services;
-using Domain.Entities;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-
 namespace API.Controllers;
 
 /// <summary>
@@ -43,10 +37,11 @@ public class AuthController(IAuthService authService) : BaseApiController
 
         // AC #6: 201 Created with the new UserID.
         return CreatedAtAction(
-            actionName:  nameof(Register),
+            actionName: nameof(Register),
             routeValues: new { },
-            value:       result.Value);
+            value: result.Value);
     }
+
 
     /// <summary>
     /// Authenticates a user and issues a role-scoped JWT.
@@ -70,7 +65,7 @@ public class AuthController(IAuthService authService) : BaseApiController
     /// <returns>
     /// **200 OK** with the access token, its expiry, and the caller's role name on success.  
     /// **401 Unauthorized** if the email or password is incorrect.  
-    /// **403 Forbidden** if the account is suspended.  
+    /// **403 Forbidden** if the account is suspended, or if the patient's phone number is not yet verified.  
     /// **400 Bad Request** if validation fails.
     /// </returns>
     [HttpPost("login")]
@@ -84,13 +79,19 @@ public class AuthController(IAuthService authService) : BaseApiController
     {
         var result = await authService.LoginAsync(request, cancellationToken);
 
-        if (result.IsFailure)
-            return result.ToProblem();
-
-        // AC: 200 OK with the role-scoped JWT.
-        return Ok(result.Value);
+        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
-    
 
 
+    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
+    [HttpGet("test")]
+    public IActionResult TestAuth()
+    {
+        var pharmacies = User
+            .FindAll(JwtClaimTypes.PharmacyId)
+            .Select(c => c.Value)
+            .ToList();
+
+        return Ok(pharmacies);
+    }
 }

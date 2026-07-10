@@ -1,8 +1,6 @@
-using Infrastructure.Options;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -28,10 +26,15 @@ public static class DependencyInjection
 
         services.AddJwtServices(configuration);
 
+        services.AddHttpContextAccessor();
+
 
         services.AddScoped<IDrugService, DrugService>();
         services.AddScoped<IAuthService, AuthService>();
-        
+        services.AddScoped<IInventoryService, InventoryService>();
+        services.AddScoped<IOtpService, OtpService>();
+
+
         services.AddScoped<DrugSeeder>();
         services.AddScoped<RoleSeeder>();
 
@@ -64,10 +67,12 @@ public static class DependencyInjection
                 ValidateIssuer = true,
                 ValidateAudience = true,
                 ValidateLifetime = true,
+                
                 ValidateIssuerSigningKey = true,
                 ValidIssuer = jwtOptions.Issuer,
                 ValidAudience = jwtOptions.Audience,
                 IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
+                ClockSkew = TimeSpan.Zero,
 
                 // Critical: map ASP.NET's [Authorize(Roles = "...")] to your RoleName claim
                 RoleClaimType = JwtClaimTypes.RoleName,

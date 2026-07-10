@@ -1,9 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-using Application.Errors;
-using Domain.Constants;
-using System.Security.Claims;
-
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -19,7 +13,7 @@ namespace Infrastructure.Services;
 /// </list>
 /// </remarks>
 public class AuthService(
-    UserManager<AppUser> userManager, 
+    UserManager<AppUser> userManager,
     IJwtTokenGeneratorService tokenGenerator,
     AppDbContext dbContext,
     ILogger<AuthService> logger) : IAuthService
@@ -34,17 +28,20 @@ public class AuthService(
             .AsNoTracking()
             .FirstOrDefaultAsync(cancellationToken);
 
-        if (existingUserProp is not null) {
-            if (existingUserProp.Email == request.Email) {
-                logger.LogWarning(
-                    "Attempted registration with existing email: {Email}",
-                    request.Email);
+        if (existingUserProp is not null)
+        {
+            if (existingUserProp.Email == request.Email)
+            {
+                logger.LogWarning("Attempted registration with existing email: {Email}", request.Email);
+
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.EmailAlreadyExists);
             }
-            if (existingUserProp.PhoneNumber == request.PhoneNumber) {
-                logger.LogWarning(
-                    "Attempted registration with existing phone number: {PhoneNumber}",
+
+            if (existingUserProp.PhoneNumber == request.PhoneNumber)
+            {
+                logger.LogWarning("Attempted registration with existing phone number: {PhoneNumber}",
                     request.PhoneNumber);
+
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.PhoneAlreadyExists);
             }
         }
@@ -56,7 +53,9 @@ public class AuthService(
         if (!createResult.Succeeded)
         {
             var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+
             logger.LogError("Identity failed to create patient account. Errors: {Errors}", errors);
+
             return Result.Failure<RegisterResponseDTO>(AuthErrors.RegistrationFailed);
         }
 
@@ -65,23 +64,24 @@ public class AuthService(
         if (!roleResult.Succeeded)
         {
             await userManager.DeleteAsync(patient);
+
             var errors = string.Join("; ", roleResult.Errors.Select(e => e.Description));
-            logger.LogError(
-                "Failed to assign Patient role to user '{UserId}'. Rolled back. Errors: {Errors}",
+
+            logger.LogError("Failed to assign Patient role to user '{UserId}'. Rolled back. Errors: {Errors}",
                 patient.Id, errors);
+
             return Result.Failure<RegisterResponseDTO>(AuthErrors.RegistrationFailed);
         }
 
-        logger.LogInformation(
-            "Patient account created successfully. UserId: {UserId}", patient.Id);
+        logger.LogInformation("Patient account created successfully. UserId: {UserId}", patient.Id);
 
         return Result.Success(new RegisterResponseDTO { UserId = patient.Id });
     }
 
 
     public async Task<Result<LoginResponseDTO>> LoginAsync(
-         LoginRequestDTO request,
-         CancellationToken cancellationToken = default)
+        LoginRequestDTO request,
+        CancellationToken cancellationToken = default)
     {
         var user = await userManager.FindByEmailAsync(request.Email.Trim().ToLowerInvariant());
 
@@ -104,6 +104,13 @@ public class AuthService(
         {
             logger.LogError("User {UserId} has no assigned role.", user.Id);
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+        }
+
+        if (roleName == AppRoles.Patient && !user.PhoneNumberConfirmed)
+        {
+            logger.LogWarning(
+                "Login blocked — phone not verified. UserId: {UserId}", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.PhoneNotVerified);
         }
 
         var claims = new List<Claim>
@@ -133,9 +140,9 @@ public class AuthService(
 
         return Result.Success(new LoginResponseDTO
         {
-            FullName=user.FullName,
-            Email=user.Email,
-            UserId=user.Id,
+            FullName = user.FullName,
+            Email = user.Email,
+            UserId = user.Id,
             AccessToken = token,
             ExpiresAtUtc = expiresAtUtc,
             RoleName = roleName
@@ -162,8 +169,8 @@ public class AuthService(
         {
             claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
 
-            claims.AddRange(pharmacy.BranchIds.Select(
-                branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+            claims.AddRange(
+                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
         }
 
         // Edge case: a Pharmacist account with zero verified pharmacies still gets
@@ -171,5 +178,4 @@ public class AuthService(
         // so every branch-ownership check downstream will correctly reject them
         // until they have at least one verified pharmacy.
     }
-
 }

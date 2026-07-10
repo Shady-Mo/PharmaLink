@@ -1,7 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-using Application.Errors;
-
 namespace Application.Errors;
 
 public static class AuthErrors
@@ -29,4 +25,9 @@ public static class AuthErrors
     new("Auth.AccountSuspended",
         "This account has been suspended.",
         StatusCodes.Status403Forbidden);
+
+    public static readonly Error PhoneNotVerified =
+        new("Auth.PhoneNotVerified",
+            "Your phone number has not been verified. Please verify your phone number before logging in.",
+            StatusCodes.Status403Forbidden);
 }

@@ -25,11 +25,12 @@ public class DrugService(AppDbContext context) : IDrugService
             var direction = string.Equals(filters.SortDirection, "desc", StringComparison.OrdinalIgnoreCase)
                 ? "desc"
                 : "asc";
+
             query = query.OrderBy($"{filters.SortColumn} {direction}");
         }
         else
         {
-            query = query.OrderBy(x => x.BrandName);
+            query = query.OrderBy(nameof(Drug.BrandName));
         }
 
         var resultQuery = query.ProjectToType<DrugDto>();

@@ -1,6 +1,7 @@
 ﻿using API.Authorization;
 using FluentValidation.AspNetCore;
 using Infrastructure.Options;
+using Infrastructure.Services.Order;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -24,11 +25,8 @@ public static class DependencyInjection
 
         services
             .AddSwaggerServices()
-            .AddCorsServices();
-            
-
-            
-            
+            .AddCorsServices()
+            .AddOrdersServices();
 
         return services;
     }
@@ -100,10 +98,6 @@ public static class DependencyInjection
         return services;
     }
 
-
-
-
-
     public static IServiceCollection AddJwtAuthorization(
         this IServiceCollection services)
     {
@@ -114,6 +108,12 @@ public static class DependencyInjection
         services.AddSingleton<IAuthorizationMiddlewareResultHandler,
             AppAuthorizationMiddlewareResultHandler>();
 
+        return services;
+    }
+
+    public static IServiceCollection AddOrdersServices(this IServiceCollection services)
+    {
+        services.AddScoped<IOrderService, OrderService>();
         return services;
     }
 }

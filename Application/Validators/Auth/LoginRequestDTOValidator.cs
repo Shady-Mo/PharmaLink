@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Validators.Auth
+﻿namespace Application.Validators.Auth
 {
     public class LoginRequestDTOValidator:AbstractValidator<LoginRequestDTO>
     {

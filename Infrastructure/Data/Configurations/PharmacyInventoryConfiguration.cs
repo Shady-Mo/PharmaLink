@@ -5,13 +5,17 @@ public class PharmacyInventoryConfiguration : IEntityTypeConfiguration<PharmacyI
     public void Configure(EntityTypeBuilder<PharmacyInventory> builder)
     {
         builder.HasKey(i => i.InventoryId);
-        
+
         builder
             .Property(i => i.UnitPrice)
             .HasColumnType("decimal(18,2)");
-        
+
         builder
             .Property(i => i.RowVersion)
             .IsRowVersion();
+
+        builder
+            .HasIndex(i => new { i.BranchId, i.DrugId })
+            .IsUnique();
     }
 }
