@@ -1,3 +1,5 @@
+using Application.DTOs.PharmacyInventory.Response;
+
 namespace Application.Mappings;
 
 public class MapsterConfig : IRegister

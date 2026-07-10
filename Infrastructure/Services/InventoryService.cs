@@ -205,7 +205,7 @@ public class InventoryService(AppDbContext context, ILogger<InventoryService> lo
         return Result.Success(inventory.Adapt<PharmacyInventoryDto>());
     }
 
-    public async Task<Result<PaginatedList<PharmacyInventoryDto>>> GetInventoryAsync(GetPharmacyInventoryParamRequest parameters, CancellationToken cancellationToken = default)
+    public async Task<Result<PaginatedList<GetPharmacyInventoryDTO>>> GetInventoryAsync(GetPharmacyInventoryParamRequest parameters, CancellationToken cancellationToken = default)
     {
         var user = httpContextAccessor.HttpContext?.User;
 
@@ -221,7 +221,7 @@ public class InventoryService(AppDbContext context, ILogger<InventoryService> lo
 
             if (!branchIds.Any())
             {
-                return Result.Success(new PaginatedList<PharmacyInventoryDto>(
+                return Result.Success(new PaginatedList<GetPharmacyInventoryDTO>(
                     [],
                     parameters.PageNumber,
                     0,
@@ -240,13 +240,14 @@ public class InventoryService(AppDbContext context, ILogger<InventoryService> lo
         var totalCount = await query.CountAsync(cancellationToken);
 
         var items = await query
+            .Include(i => i.Drug)
             .OrderBy(i => i.InventoryId)
             .Skip((parameters.PageNumber - 1) * parameters.PageSize)
             .Take(parameters.PageSize)
             .ToListAsync(cancellationToken);
 
-        var result = new PaginatedList<PharmacyInventoryDto>(
-            items.Adapt<List<PharmacyInventoryDto>>(),
+        var result = new PaginatedList<GetPharmacyInventoryDTO>(
+            items.Adapt<List<GetPharmacyInventoryDTO>>(),
             parameters.PageNumber,
             totalCount,
             parameters.PageSize
