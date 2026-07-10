@@ -29,7 +29,7 @@ namespace Infrastructure.Services.Order
                 return Result.Failure<OrderCreatedResponseDTO>(
                     OrderErrors.CreateInvalidDrugIdsError(invalidDrugIds));
 
-            var totalAmount = CalculateTotalAmount(createOrderDTO.Items);
+            var totalAmount = await CalculateTotalAmount(createOrderDTO.Items);
 
             var order = new Domain.Entities.Order
             {
@@ -100,12 +100,30 @@ namespace Infrastructure.Services.Order
             return Result.Success(paginatedResult);
         }
 
-        private decimal CalculateTotalAmount(ICollection<OrderItemRequestDTO> items)
+        private async Task<decimal> CalculateTotalAmount(ICollection<OrderItemRequestDTO> items)
         {
             if (items is null || items.Count == 0)
                 return 0;
 
-            decimal total = items.Sum(item => item.UnitPrice * item.QuantityNeeded);
+            var drugIds = items.Select(i => i.DrugId).Distinct().ToList();
+
+            var drugPrices = await context.Drugs
+                            .Where(d => drugIds.Contains(d.DrugId))
+                            .Select(d => new
+                            {
+                                DrugId = d.DrugId,
+                                UnitPrice = d.Price
+                            }).ToListAsync();
+
+            decimal total = 0;
+            foreach (var item in items)
+            {
+                var drugPrice = drugPrices.FirstOrDefault(dp => dp.DrugId == item.DrugId);
+                if(drugPrice is not null)
+                {
+                    total += drugPrice.UnitPrice * item.QuantityNeeded;
+                }
+            }
 
             return total;
         }
