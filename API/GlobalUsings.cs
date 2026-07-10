@@ -18,3 +18,4 @@ global using Application.DTOs.Drug.Responses;
 global using Application.DTOs.Auth.Requests;
 global using Application.DTOs.Auth.Responses;
 global using Infrastructure.Persistence.Seeders;
+global using Application.Common;

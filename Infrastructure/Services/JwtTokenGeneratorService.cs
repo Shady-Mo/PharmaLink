@@ -1,13 +1,4 @@
-﻿using Infrastructure.Options;
-using Microsoft.Extensions.Options;
-using Microsoft.IdentityModel.Tokens;
-using System;
-using System.Collections.Generic;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Text;
-
-namespace Infrastructure.Services
+﻿namespace Infrastructure.Services
 {
     public class JwtTokenGeneratorService(IOptions<JwtOptions> options):IJwtTokenGeneratorService
     {

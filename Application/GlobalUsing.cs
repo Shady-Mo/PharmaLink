@@ -11,3 +11,4 @@ global using FluentValidation;
 global using System.Reflection;
 global using Domain.Entities;
 global using Microsoft.AspNetCore.Http;
+global using System.Security.Claims;

@@ -1,8 +1,6 @@
-using Infrastructure.Options;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
+
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
-
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -32,7 +30,8 @@ public static class DependencyInjection
         services.AddScoped<IDrugService, DrugService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IInventoryService, InventoryService>();
-        
+        services.AddScoped<IOtpService, OtpService>();
+
         services.AddScoped<DrugSeeder>();
         services.AddScoped<RoleSeeder>();
 

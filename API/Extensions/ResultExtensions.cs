@@ -1,5 +1,3 @@
-using Application.Common;
-
 namespace API.Extensions;
 
 public static class ResultExtensions
