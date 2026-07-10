@@ -106,6 +106,13 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
         }
 
+        if (roleName == AppRoles.Patient && !user.PhoneNumberConfirmed)
+        {
+            logger.LogWarning(
+                "Login blocked — phone not verified. UserId: {UserId}", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.PhoneNotVerified);
+        }
+
         var claims = new List<Claim>
         {
             new(JwtClaimTypes.UserId, user.Id.ToString()),
