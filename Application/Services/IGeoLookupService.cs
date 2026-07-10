@@ -1,17 +1,12 @@
 using Application.DTOs.Geo;
 using NetTopologySuite.Geometries;
-using System.Collections.Generic;
-using System.Threading;
-using System.Threading.Tasks;
 
-namespace Application.Services
+namespace Application.Services;
+
+public interface IGeoLookupService
 {
-
-    public interface IGeoLookupService
-    {
-        Task<List<NearbyBranchResult>> FindNearbyBranchesAsync(
-            Point patientLocation,
-            double initialRadiusKm = 5.0,
-            CancellationToken cancellationToken = default);
-    }
+    Task<List<NearbyBranchResult>> FindNearbyBranchesAsync(
+        Point patientLocation,
+        double initialRadiusKm = 5.0,
+        CancellationToken cancellationToken = default);
 }

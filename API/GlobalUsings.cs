@@ -23,3 +23,5 @@ global using Infrastructure.Persistence.Seeders;
 global using Application.Common;
 global using System.Security.Claims;
 global using Application.Services.Order;
+global using Application.DTOs.PharmacyInventory.Request;
+global using Application.DTOs.PharmacyInventory.Response;
