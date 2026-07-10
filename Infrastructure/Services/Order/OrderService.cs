@@ -6,7 +6,7 @@ namespace Infrastructure.Services.Order
 {
     public class OrderService(AppDbContext context) : IOrderService
     {
-        public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId, CreateOrderDTO createOrderDTO)
+        public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId, CreateOrderDTO createOrderDTO , IFulfillmentEngineService _fulfillmentEngineService)
         {
             if (createOrderDTO.Items is null || createOrderDTO.Items.Count == 0)
                 return Result.Failure<OrderCreatedResponseDTO>(OrderErrors.OrderMustContainItems);
@@ -56,6 +56,11 @@ namespace Infrastructure.Services.Order
             context.OrderItems.AddRange(orderItems);
 
             await context.SaveChangesAsync();
+
+            //////////////// --- moshady21  
+            await _fulfillmentEngineService.ProcessOrderFulfillmentAsync(order.OrderId);
+
+            ///////////////////////////
 
             var response = new OrderCreatedResponseDTO
             {

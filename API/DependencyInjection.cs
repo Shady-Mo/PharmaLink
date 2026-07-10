@@ -114,6 +114,18 @@ public static class DependencyInjection
     public static IServiceCollection AddOrdersServices(this IServiceCollection services)
     {
         services.AddScoped<IOrderService, OrderService>();
+
         return services;
     }
+
+
+    public static IServiceCollection FulFillmentEngignService (this IServiceCollection services)
+    {
+        //moshady21
+        services.AddScoped<IFulfillmentEngineService, FulfillmentEngineService>();
+
+        return services;
+
+    }
+
 }

@@ -1,9 +1,11 @@
+using Infrastructure.Services;
+
 namespace API.Controllers;
 
 /// <summary>
 /// Handles order operations for patients including order creation, retrieval, and listing.
 /// </summary>
-public class OrdersController(IOrderService orderService) : BaseApiController
+public class OrdersController(IOrderService orderService, IFulfillmentEngineService _fulfillmentEngineService) : BaseApiController
 {
     /// <summary>
     /// Creates a new order with multiple drugs for the authenticated patient.
@@ -40,7 +42,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
         if (patientIdClaim is null || !Guid.TryParse(patientIdClaim.Value, out var patientId))
             return Unauthorized(new { message = "Invalid or missing user ID in token." });
 
-        var result = await orderService.CreateOrder(patientId, createOrderDTO);
+        var result = await orderService.CreateOrder(patientId, createOrderDTO , _fulfillmentEngineService);
 
         if (result.IsFailure)
             return result.ToProblem();

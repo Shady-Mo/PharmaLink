@@ -33,7 +33,8 @@ public enum ItemStatus : byte
 {
     Pending = 1,
     Fulfilled = 2,
-    Cancelled = 3
+    Cancelled = 3,
+    Unavailable = 4
 }
 
 public enum LegType : byte
