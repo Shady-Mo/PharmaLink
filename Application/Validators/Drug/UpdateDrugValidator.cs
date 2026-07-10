@@ -1,6 +1,3 @@
-using FluentValidation;
-using Application.DTOs.Drug.Requests;
-
 namespace Application.Validators.Drug;
 
 public class UpdateDrugValidator : AbstractValidator<UpdateDrugDto>

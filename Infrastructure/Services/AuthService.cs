@@ -1,5 +1,3 @@
-using System.Security.Claims;
-
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -106,6 +104,13 @@ public class AuthService(
         {
             logger.LogError("User {UserId} has no assigned role.", user.Id);
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+        }
+
+        if (roleName == AppRoles.Patient && !user.PhoneNumberConfirmed)
+        {
+            logger.LogWarning(
+                "Login blocked — phone not verified. UserId: {UserId}", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.PhoneNotVerified);
         }
 
         var claims = new List<Claim>

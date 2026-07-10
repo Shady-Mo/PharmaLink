@@ -65,7 +65,7 @@ public class AuthController(IAuthService authService) : BaseApiController
     /// <returns>
     /// **200 OK** with the access token, its expiry, and the caller's role name on success.  
     /// **401 Unauthorized** if the email or password is incorrect.  
-    /// **403 Forbidden** if the account is suspended.  
+    /// **403 Forbidden** if the account is suspended, or if the patient's phone number is not yet verified.  
     /// **400 Bad Request** if validation fails.
     /// </returns>
     [HttpPost("login")]
@@ -81,6 +81,7 @@ public class AuthController(IAuthService authService) : BaseApiController
 
         return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
+
 
     [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
     [HttpGet("test")]

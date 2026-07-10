@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260709163228_AddPhoneVerificationOtpDomainModel")]
+    partial class AddPhoneVerificationOtpDomainModel
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,7 +65,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -219,7 +222,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs", (string)null);
+                    b.ToTable("Drugs");
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -249,7 +252,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -282,7 +285,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs", (string)null);
+                    b.ToTable("OrderFulfillmentLegs");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -291,7 +294,7 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<Guid?>("BranchId")
+                    b.Property<Guid>("BranchId")
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("DrugId")
@@ -314,7 +317,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("Domain.Entities.Pharmacy", b =>
@@ -343,7 +346,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OwnerUserId");
 
-                    b.ToTable("Pharmacies", (string)null);
+                    b.ToTable("Pharmacies");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -386,7 +389,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches", (string)null);
+                    b.ToTable("PharmacyBranches");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -429,7 +432,40 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories", (string)null);
+                    b.ToTable("PharmacyInventories");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("AttemptCount")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(512)
+                        .HasColumnType("nvarchar(512)");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime?>("LastAttemptAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("PhoneVerificationOtps", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -638,7 +674,8 @@ namespace Infrastructure.Migrations
                     b.HasOne("Domain.Entities.PharmacyBranch", "Branch")
                         .WithMany("SuppliedOrderItems")
                         .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Restrict);
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
 
                     b.HasOne("Domain.Entities.Drug", "Drug")
                         .WithMany("OrderItems")
@@ -698,6 +735,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Drug");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
+                {
+                    b.HasOne("Domain.Entities.AppUser", "User")
+                        .WithOne()
+                        .HasForeignKey("Domain.Entities.PhoneVerificationOtp", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>

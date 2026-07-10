@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260709174106_branchID_Allow_Null")]
+    partial class branchID_Allow_Null
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,7 +65,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -219,7 +222,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs", (string)null);
+                    b.ToTable("Drugs");
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -249,7 +252,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -282,7 +285,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs", (string)null);
+                    b.ToTable("OrderFulfillmentLegs");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -314,7 +317,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("Domain.Entities.Pharmacy", b =>
@@ -343,7 +346,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OwnerUserId");
 
-                    b.ToTable("Pharmacies", (string)null);
+                    b.ToTable("Pharmacies");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -386,7 +389,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches", (string)null);
+                    b.ToTable("PharmacyBranches");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -429,7 +432,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories", (string)null);
+                    b.ToTable("PharmacyInventories");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>

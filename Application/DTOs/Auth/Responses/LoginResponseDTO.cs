@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.DTOs.Auth.Responses
+﻿namespace Application.DTOs.Auth.Responses
 {
     public class LoginResponseDTO
     {

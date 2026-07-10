@@ -1,3 +1,4 @@
+
 var hasher = new Microsoft.AspNetCore.Identity.PasswordHasher<Domain.Entities.AppUser>();
 var dummyUser = new Domain.Entities.AppUser { Email = "test@test.com" };
 var hash = hasher.HashPassword(dummyUser, "P@ssword123");
@@ -13,8 +14,6 @@ builder.Services
     
 
 var app = builder.Build();
-
-await app.ApplyMigrationsAsync();
 
 app.UseSwaggerDocs();
 

@@ -15,5 +15,8 @@ public class MapsterConfig : IRegister
 
         config.NewConfig<PharmacyInventory, GetPharmacyInventoryDTO>()
             .Map(dest => dest.DrugName, src => src.Drug.BrandName);
+        // Order Mappings
+        config.NewConfig<Order, GetOrderDTO>();
+        config.NewConfig<OrderItem, OrderItemResponseDTO>();
     }
 }

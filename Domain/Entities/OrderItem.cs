@@ -8,7 +8,7 @@ public class OrderItem
     
     public Guid DrugId { get; set; }
     
-    public Guid BranchId { get; set; }
+    public Guid? BranchId { get; set; }
     
     public int QuantityNeeded { get; set; }
     
