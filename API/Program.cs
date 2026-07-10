@@ -14,7 +14,7 @@ builder.Services
 
 var app = builder.Build();
 
-await app.ApplyMigrationsAsync();
+builder.Services.AddScoped<IDrugService, DrugService>();
 
 app.UseSwaggerDocs();
 
