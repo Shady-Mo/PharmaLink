@@ -62,7 +62,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("Addresses", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -219,7 +219,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs");
+                    b.ToTable("Drugs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -249,7 +249,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -282,7 +282,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs");
+                    b.ToTable("OrderFulfillmentLegs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -314,7 +314,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Pharmacy", b =>
@@ -343,7 +343,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OwnerUserId");
 
-                    b.ToTable("Pharmacies");
+                    b.ToTable("Pharmacies", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -386,7 +386,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches");
+                    b.ToTable("PharmacyBranches", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -429,40 +429,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("AttemptCount")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int")
-                        .HasDefaultValue(0);
-
-                    b.Property<string>("CodeHash")
-                        .IsRequired()
-                        .HasMaxLength(512)
-                        .HasColumnType("nvarchar(512)");
-
-                    b.Property<DateTime>("ExpiresAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("LastAttemptAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("UserId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("UserId")
-                        .IsUnique();
-
-                    b.ToTable("PhoneVerificationOtps", (string)null);
+                    b.ToTable("PharmacyInventories", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -731,17 +698,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Drug");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
-                {
-                    b.HasOne("Domain.Entities.AppUser", "User")
-                        .WithOne()
-                        .HasForeignKey("Domain.Entities.PhoneVerificationOtp", "UserId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
