@@ -1,5 +1,3 @@
-using NetTopologySuite.Geometries;
-
 namespace Domain.Entities;
 
 public class PharmacyBranch

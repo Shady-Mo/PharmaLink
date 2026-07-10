@@ -1,7 +1,3 @@
-using Application.DTOs.Auth.Requests;
-using Application.DTOs.Auth.Responses;
-using Application.Errors;
-
 namespace Application.Errors;
 
 public static class AuthErrors

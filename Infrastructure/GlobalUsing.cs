@@ -1,4 +1,4 @@
-﻿global using Domain.Entities;
+global using Domain.Entities;
 global using Domain.Enums;
 global using Domain.Constants;
 global using Microsoft.EntityFrameworkCore;
@@ -24,3 +24,11 @@ global using System.Linq.Dynamic.Core;
 global using Mapster;
 global using System.Text.Json.Serialization;
 global using Infrastructure.Persistence.Seeders;
+global using Microsoft.EntityFrameworkCore.Design;
+global using System.Security.Claims;
+global using Microsoft.Extensions.Options;
+global using Infrastructure.Options;
+global using Microsoft.IdentityModel.Tokens;
+global using System.IdentityModel.Tokens.Jwt;
+global using System.Text;
+global using Microsoft.AspNetCore.Authentication.JwtBearer;

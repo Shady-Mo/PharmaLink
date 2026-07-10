@@ -1,4 +1,3 @@
-
 namespace Application.Errors;
 
 public static class DrugErrors
