@@ -12,5 +12,8 @@ public class MapsterConfig : IRegister
         config.NewConfig<RegisterRequestDTO, Patient>()
             .Map(dest => dest.UserName, src => src.Email.ToLowerInvariant())
             .Map(dest => dest.Email, src => src.Email.ToLowerInvariant());
+
+        config.NewConfig<PharmacyInventory, GetPharmacyInventoryDTO>()
+            .Map(dest => dest.DrugName, src => src.Drug.BrandName);
     }
 }
