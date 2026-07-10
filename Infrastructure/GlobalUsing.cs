@@ -10,6 +10,7 @@ global using Microsoft.Extensions.Configuration;
 global using Microsoft.Extensions.DependencyInjection;
 global using System.Text.Json;
 global using Application.Services;
+global using Application.Settings;
 global using Microsoft.Extensions.Logging;
 global using Infrastructure.Services;
 global using Application.Common;

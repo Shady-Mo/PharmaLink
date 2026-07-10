@@ -28,7 +28,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// **403 Forbidden** if the user is not a Patient.
     /// </returns>
     [HttpPost("")]
-    [Authorize]
+    [Authorize(Roles = AppRoles.Patient)]
     [ProducesResponseType(typeof(OrderCreatedResponseDTO), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -68,7 +68,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// **403 Forbidden** if attempting to access another patient's order.
     /// </returns>
     [HttpGet("{id}")]
-    [Authorize]
+    [Authorize(Roles = AppRoles.Patient)]
     [ProducesResponseType(typeof(GetOrderDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -106,7 +106,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// **400 Bad Request** if pagination parameters are invalid.
     /// </returns>
     [HttpGet("")]
-    [Authorize]
+    [Authorize(Roles = AppRoles.Patient)]
     [ProducesResponseType(typeof(PaginatedList<GetOrderDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetOrders(
