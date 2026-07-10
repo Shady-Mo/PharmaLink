@@ -1,4 +1,4 @@
-using Application.DTOs.PharmacyInventory.Request;
+﻿using Application.DTOs.PharmacyInventory.Request;
 using Application.DTOs.PharmacyInventory.Response;
 using Microsoft.AspNetCore.Http;
 
@@ -203,5 +203,55 @@ public class InventoryService(AppDbContext context, ILogger<InventoryService> lo
         await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success(inventory.Adapt<PharmacyInventoryDto>());
+    }
+
+    public async Task<Result<PaginatedList<PharmacyInventoryDto>>> GetInventoryAsync(GetPharmacyInventoryParamRequest parameters, CancellationToken cancellationToken = default)
+    {
+        var user = httpContextAccessor.HttpContext?.User;
+
+        var isAdmin = user.IsInRole(AppRoles.Admin);
+
+        var query = context.PharmacyInventories.AsNoTracking().AsQueryable();
+
+        if (!isAdmin)
+        {
+            var branchIds = user.FindAll(JwtClaimTypes.BranchId)
+                                .Select(c => Guid.Parse(c.Value))
+                                .ToList();
+
+            if (!branchIds.Any())
+            {
+                return Result.Success(new PaginatedList<PharmacyInventoryDto>(
+                    [],
+                    parameters.PageNumber,
+                    0,
+                    parameters.PageSize
+                ));
+            }
+
+            query = query.Where(i => branchIds.Contains(i.BranchId));
+        }
+        else
+        {
+            var adminId = user.FindFirst(JwtClaimTypes.UserId)?.Value;
+            logger.LogInformation("System Admin {AdminId} accessed global inventory records at {Time}", adminId, DateTime.UtcNow);
+        }
+
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var items = await query
+            .OrderBy(i => i.InventoryId)
+            .Skip((parameters.PageNumber - 1) * parameters.PageSize)
+            .Take(parameters.PageSize)
+            .ToListAsync(cancellationToken);
+
+        var result = new PaginatedList<PharmacyInventoryDto>(
+            items.Adapt<List<PharmacyInventoryDto>>(),
+            parameters.PageNumber,
+            totalCount,
+            parameters.PageSize
+        );
+
+        return Result.Success(result);
     }
 }
