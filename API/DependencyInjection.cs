@@ -1,10 +1,6 @@
 ﻿using API.Authorization;
 using FluentValidation.AspNetCore;
-using Infrastructure.Options;
-using Infrastructure.Services.Order;
-using Microsoft.AspNetCore.Authentication.JwtBearer;
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
+using Infrastructure.Services;
 
 namespace API;
 
@@ -101,7 +97,6 @@ public static class DependencyInjection
     public static IServiceCollection AddJwtAuthorization(
         this IServiceCollection services)
     {
-        
         services.AddAuthorization();
 
         // this is for customizing authorization

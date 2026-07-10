@@ -1,8 +1,6 @@
-﻿
-namespace Application.Services
+﻿namespace Application.Services;
+
+public interface IJwtTokenGeneratorService
 {
-    public interface IJwtTokenGeneratorService
-    {
-        (string Token, DateTime ExpiresAtUtc) GenerateToken(IEnumerable<Claim> claims);
-    }
+    (string Token, DateTime ExpiresAtUtc) GenerateToken(IEnumerable<Claim> claims);
 }
