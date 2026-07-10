@@ -1,6 +1,3 @@
-
-using Microsoft.IdentityModel.Tokens;
-using System.Text;
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -30,6 +27,20 @@ public static class DependencyInjection
         services.AddScoped<IDrugService, DrugService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IInventoryService, InventoryService>();
+
+        var webhookSettings = configuration
+            .GetSection(OtpWebhookSettings.SectionName)
+            .Get<OtpWebhookSettings>() ?? new OtpWebhookSettings();
+
+        services.Configure<OtpWebhookSettings>(
+            configuration.GetSection(OtpWebhookSettings.SectionName));
+
+        services.AddHttpClient(WebhookOtpDispatcher.HttpClientName, client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds);
+        });
+
+        services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
         services.AddScoped<IOtpService, OtpService>();
 
         services.AddScoped<DrugSeeder>();
