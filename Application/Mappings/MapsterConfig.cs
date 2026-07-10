@@ -10,5 +10,9 @@ public class MapsterConfig : IRegister
         config.NewConfig<RegisterRequestDTO, Patient>()
             .Map(dest => dest.UserName, src => src.Email.ToLowerInvariant())
             .Map(dest => dest.Email, src => src.Email.ToLowerInvariant());
+
+        // Order Mappings
+        config.NewConfig<Order, GetOrderDTO>();
+        config.NewConfig<OrderItem, OrderItemResponseDTO>();
     }
 }
