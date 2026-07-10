@@ -10,4 +10,5 @@ global using Mapster;
 global using FluentValidation;
 global using System.Reflection;
 global using Domain.Entities;
+global using Domain.Enums;
 global using Microsoft.AspNetCore.Http;

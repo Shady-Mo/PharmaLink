@@ -20,4 +20,5 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderFulfillmentLeg> OrderFulfillmentLegs { get; set; }
+    public DbSet<OrderFulfillmentLegStatusAudit> OrderFulfillmentLegStatusAudits { get; set; }
 }

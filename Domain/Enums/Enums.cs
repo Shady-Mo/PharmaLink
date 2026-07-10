@@ -25,7 +25,7 @@ public enum OrderStatus : byte
     Pending = 1,
     Processing = 2,
     Shipped = 3,
-    Delivered = 4,
+    Completed = 4,
     Cancelled = 5
 }
 
@@ -44,8 +44,10 @@ public enum LegType : byte
 
 public enum LegStatus : byte
 {
-    Pending = 1,
-    InProgress = 2,
+    Assigned = 1,
+    Preparing = 2,
     Completed = 3,
-    Cancelled = 4
+    Cancelled = 4,
+    ReadyForPickup = 5,
+    PickedUpByCourier = 6
 }
