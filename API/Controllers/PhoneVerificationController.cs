@@ -37,7 +37,7 @@ public class PhoneVerificationController(IOtpService otpService) : BaseApiContro
 
         return result.IsFailure
             ? result.ToProblem()
-            : Ok(new { message = $"Verification code sent to your registered phone number {result.Value}." });
+            : Ok(new { message = $"Verification code sent to your registered phone number." });
     }
 
     /// <summary>

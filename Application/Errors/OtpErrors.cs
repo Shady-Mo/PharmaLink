@@ -19,16 +19,16 @@ public static class OtpErrors
 
     /// <summary>
     /// Returned for both incorrect code AND expired code.
-    /// Using a single error intentionally prevents an attacker from
-    /// distinguishing between "wrong code" and "timed out".
+    /// A single error intentionally prevents an attacker from distinguishing
+    /// between "wrong code" and "timed out".
     /// </summary>
     public static readonly Error InvalidOrExpired =
         new("Otp.InvalidOrExpired",
             "The OTP code is invalid or has expired.",
             StatusCodes.Status400BadRequest);
 
-    public static readonly Error SmsFailed =
-        new("Otp.SmsFailed",
-            "Failed to send the verification SMS. Please try again later.",
+    public static readonly Error WebhookFailed =
+        new("Otp.WebhookFailed",
+            "Failed to dispatch the verification code. Please try again later.",
             StatusCodes.Status503ServiceUnavailable);
 }

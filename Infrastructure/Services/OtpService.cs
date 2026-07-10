@@ -2,13 +2,13 @@ namespace Infrastructure.Services;
 
 /// <summary>
 /// Implements the full OTP lifecycle: generation, rate-limit enforcement,
-/// BCrypt hashing, Twilio dispatch, expiry validation, and phone confirmation.
+/// BCrypt hashing, webhook dispatch, expiry validation, and phone confirmation.
 /// </summary>
 /// <remarks>
 /// Security decisions:
 /// <list type="bullet">
 ///   <item>Code generated via <see cref="System.Security.Cryptography.RandomNumberGenerator"/> — CSPRNG, not <c>System.Random</c>.</item>
-///   <item>Only a BCrypt hash of the code is persisted — the plaintext is discarded immediately after SMS dispatch.</item>
+///   <item>Only a BCrypt hash of the code is persisted — the plaintext is discarded immediately after webhook dispatch.</item>
 ///   <item>Rate-limit: max 5 attempts within a rolling 15-minute window, enforced on both /request and /verify.</item>
 ///   <item>Attempt counter is incremented <em>before</em> the validity check so every guess (valid or not) counts.</item>
 ///   <item>Expiry and code-mismatch return the same <c>InvalidOrExpired</c> error to prevent timing oracle attacks.</item>
@@ -17,6 +17,7 @@ namespace Infrastructure.Services;
 public class OtpService(
     AppDbContext context,
     UserManager<AppUser> userManager,
+    IWebhookOtpDispatcher dispatcher,
     ILogger<OtpService> logger) : IOtpService
 {
     private const int OtpLifetimeMinutes     = 5;
@@ -75,21 +76,18 @@ public class OtpService(
 
         await context.SaveChangesAsync(cancellationToken);
 
-        //try
-        //{
-        //    await smsService.SendAsync(
-        //        user.PhoneNumber!,
-        //        $"Your Pharma Link verification code is: {plainCode}. " +
-        //        $"It expires in {OtpLifetimeMinutes} minutes. Do not share it with anyone.");
-        //}
-        //catch (Exception ex)
-        //{
-        //    logger.LogError(ex, "SMS dispatch failed for UserId: {UserId}", user.Id);
-        //    return Result.Failure(OtpErrors.SmsFailed);
-        //}
+        try
+        {
+            await dispatcher.DispatchAsync(user.PhoneNumber!, plainCode);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Webhook dispatch failed for UserId: {UserId}", user.Id);
+            return Result.Failure(OtpErrors.WebhookFailed);
+        }
 
-        logger.LogInformation("OTP dispatched. UserId: {UserId}", user.Id);
-        return Result.SuccessWithValue(plainCode);
+        logger.LogInformation("OTP dispatched via webhook. UserId: {UserId}", user.Id);
+        return Result.Success();
     }
 
     public async Task<Result> VerifyPhoneOtpAsync(
@@ -128,7 +126,7 @@ public class OtpService(
 
         if (DateTime.UtcNow > otpRecord.ExpiresAt)
         {
-            logger.LogWarning("Expired OTP for UserId: {UserId}", user.Id);
+            logger.LogWarning("Expired OTP submitted for UserId: {UserId}", user.Id);
             return Result.Failure(OtpErrors.InvalidOrExpired);
         }
 
@@ -146,13 +144,13 @@ public class OtpService(
         context.PhoneVerificationOtps.Remove(otpRecord);
         await context.SaveChangesAsync(cancellationToken);
 
-        logger.LogInformation("Phone verified. UserId: {UserId}", user.Id);
+        logger.LogInformation("Phone verified successfully. UserId: {UserId}", user.Id);
         return Result.Success();
     }
 
     /// <summary>
-    /// Generates a cryptographically secure 6-digit OTP using the OS CSPRNG.
-    /// Zero-padded to always produce exactly 6 digits.
+    /// Generates a cryptographically secure 6-digit OTP via the OS CSPRNG.
+    /// Zero-padded to always produce exactly 6 digits (000000–999999).
     /// </summary>
     private static string GenerateOtpCode()
     {
