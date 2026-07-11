@@ -1,0 +1,145 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: production-deployment
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**\*.csproj', '**\*.sln', '**\*.slnx') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Locate Solution File
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $solution = Get-ChildItem *.slnx -ErrorAction SilentlyContinue | Select-Object -First 1
+
+          if ($null -eq $solution) {
+              $solution = Get-ChildItem *.sln -ErrorAction SilentlyContinue | Select-Object -First 1
+          }
+
+          if ($null -eq $solution) {
+              throw "No solution file (.sln/.slnx) was found."
+          }
+
+          "SOLUTION_FILE=$($solution.Name)" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
+
+      - name: Generate Production appsettings.json
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          [System.IO.File]::WriteAllText(
+              "API\appsettings.json",
+              '${{ secrets.APPSETTINGS }}',
+              [System.Text.Encoding]::UTF8
+          )
+
+      - name: Publish API
+        run: >
+          dotnet publish API/API.csproj
+          --configuration Release
+          --output publish
+          --no-build
+
+      - name: Copy appsettings to publish
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          Copy-Item `
+            "API\appsettings.json" `
+            "publish\appsettings.json" `
+            -Force
+
+      - name: Upload Build Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-app
+          path: publish\
+
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: publish/
+          dangerous-clean-slate: false
+      - name: Health Check
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          $urls = @(
+              "https://pharmalink.tryasp.net/health",
+              "https://pharmalink.tryasp.net/swagger/index.html",
+              "https://pharmalink.tryasp.net/"
+          )
+
+          $success = $false
+
+          for ($i = 1; $i -le 5 -and -not $success; $i++) {
+
+              foreach ($url in $urls) {
+
+                  try {
+
+                      $response = Invoke-WebRequest `
+                          -Uri $url `
+                          -UseBasicParsing
+
+                      if ($response.StatusCode -lt 400) {
+
+                          Write-Host "Health check passed: $url"
+
+                          $success = $true
+
+                          break
+                      }
+
+                  }
+                  catch {
+                      Write-Host "$url unavailable."
+                  }
+
+              }
+
+              if (-not $success) {
+                  Start-Sleep -Seconds 5
+              }
+
+          }
+
+          if (-not $success) {
+              throw "Deployment succeeded but health check failed."
+          }

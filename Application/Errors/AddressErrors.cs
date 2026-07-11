@@ -19,7 +19,14 @@ namespace Application.Errors
             new("Address.AuditReasonRequired",
                 "A reason is required when a System Admin accesses a patient's address.",
                 StatusCodes.Status400BadRequest);
-      
+        public static readonly Error InUse =
+          new("Address.InUse",
+              "This address is linked to existing orders and cannot be deleted.",
+              StatusCodes.Status409Conflict);
+        public static readonly Error AddressAlreadyDefault =
+            new("AddressAlreadyDefault",
+                "This address is already the default address."
+                , StatusCodes.Status409Conflict);
 
     }
 }

@@ -39,6 +39,7 @@ namespace Infrastructure.Services
             }
             else
             {
+
                 dbContext.Addresses.Add(address);
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
@@ -130,7 +131,7 @@ namespace Infrastructure.Services
         }
 
         public async Task<Result> DeleteAsync(
-            Guid addressId, Guid patientId, CancellationToken cancellationToken = default)
+    Guid addressId, Guid patientId, CancellationToken cancellationToken = default)
         {
             var address = await dbContext.Addresses
                 .FirstOrDefaultAsync(a => a.AddressId == addressId, cancellationToken);
@@ -140,6 +141,14 @@ namespace Infrastructure.Services
 
             if (address.UserId != patientId)
                 return Result.Failure(AddressErrors.Forbidden);
+
+            // AC doesn't cover this case explicitly, but Orders.DeliveryAddressId is Restrict —
+            // check up front so we return a clean 409 instead of letting a DbUpdateException surface.
+            var isReferencedByOrder = await dbContext.Orders
+                .AnyAsync(o => o.DeliveryAddressId == addressId, cancellationToken);
+
+            if (isReferencedByOrder)
+                return Result.Failure(AddressErrors.InUse);
 
             dbContext.Addresses.Remove(address);
             await dbContext.SaveChangesAsync(cancellationToken);
@@ -158,7 +167,8 @@ namespace Infrastructure.Services
 
             if (address.UserId != patientId)
                 return Result.Failure(AddressErrors.Forbidden);
-
+            if (address.IsDefault)
+                return Result.Failure(AddressErrors.AddressAlreadyDefault);
             await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
 
             await dbContext.Addresses

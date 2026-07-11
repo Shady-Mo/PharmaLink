@@ -1,4 +1,6 @@
 
+using Microsoft.EntityFrameworkCore.Diagnostics;
+
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -16,6 +18,8 @@ public static class DependencyInjection
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
+
+                options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
