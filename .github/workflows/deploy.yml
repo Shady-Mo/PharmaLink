@@ -1,0 +1,172 @@
+name: Production Deployment
+
+on:
+  push:
+    branches:
+      - master
+
+concurrency:
+  group: "production-deployment"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: windows-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          
+      - name: Cache NuGet Packages
+        uses: actions/cache@v4
+        with:
+          path: ~\.nuget\packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**\*.csproj', '**\*.slnx', '**\*.sln') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+            
+      - name: Locate Correct Solution File
+        id: find_sln
+        run: |
+          $ErrorActionPreference = "Stop"
+          $slnx = Get-ChildItem -Filter *.slnx | Select-Object -First 1
+          if (-not $slnx) {
+              $slnx = Get-ChildItem -Filter *.sln | Select-Object -First 1
+          }
+          if (-not $slnx) {
+              Write-Error "Could not find any .sln or .slnx file!"
+              exit 1
+          }
+          Write-Output "SOLUTION_FILE=$($slnx.Name)" >> $env:GITHUB_ENV
+        shell: powershell
+        
+      - name: Restore Dependencies
+        run: dotnet restore ${{ env.SOLUTION_FILE }}
+        
+      - name: Build Solution
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --runtime win-x86 --no-restore
+        
+      - name: Publish API Project (win-x86)
+        run: dotnet publish API\API.csproj --configuration Release --framework net10.0 --runtime win-x86 --self-contained false --output publish --no-build
+        
+      - name: Generate appsettings.json from Secret
+        run: |
+          $ErrorActionPreference = "Stop"
+          [System.IO.File]::WriteAllText(
+              "API\appsettings.json",
+              '${{ secrets.APPSETTINGS }}',
+              [System.Text.Encoding]::UTF8
+          )
+          [System.IO.File]::WriteAllText(
+              "publish\appsettings.json",
+              '${{ secrets.APPSETTINGS }}',
+              [System.Text.Encoding]::UTF8
+          )
+        shell: powershell
+          
+      - name: Install dotnet-ef
+        run: dotnet tool install --global dotnet-ef
+        
+      - name: Run EF Core Migrations
+        run: dotnet ef database update --project Infrastructure\Infrastructure.csproj --startup-project API\API.csproj
+        
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-app
+          path: publish\
+          
+      - name: Deploy via WebDeploy (MSDeploy)
+        run: |
+          $ErrorActionPreference = "Stop"
+          
+          if (-not (Test-Path "publish")) {
+              Write-Error "The 'publish' folder does not exist! Deployment stopped."
+              exit 1
+          }
+          
+          [System.IO.File]::WriteAllText(
+              "temp_profile.publishSettings",
+              '${{ secrets.PUBLISH_PROFILE }}',
+              [System.Text.Encoding]::UTF8
+          )
+          
+          [xml]$xml = Get-Content temp_profile.publishSettings
+          $profile = $xml.publishData.publishProfile | Where-Object { $_.publishMethod -eq 'MSDeploy' }
+          
+          if (-not $profile) {
+              Write-Error "Invalid publish profile secret! No MSDeploy publish profile found."
+              exit 1
+          }
+          
+          $msdeploy = (Get-Command msdeploy.exe -ErrorAction SilentlyContinue).Source
+          if (-not $msdeploy) {
+              $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
+          }
+          if (-not (Test-Path $msdeploy)) {
+              Write-Error "msdeploy.exe could not be found!"
+              Remove-Item temp_profile.publishSettings -Force -ErrorAction SilentlyContinue
+              exit 1
+          }
+          
+          $url = $profile.publishUrl
+          if (-not $url.StartsWith("http")) { $url = "https://$url/msdeploy.axd" }
+          
+          $dest = "contentPath='$($profile.msdeploySite)',ComputerName='$url',UserName='$($profile.userName)',Password='$($profile.userPWD)',AuthType='Basic'"
+          
+          & $msdeploy -verb:sync -source:contentPath="$(Get-Location)\publish" -dest:$dest -allowUntrusted
+          
+          $exitCode = $LASTEXITCODE
+          Remove-Item temp_profile.publishSettings -Force -ErrorAction SilentlyContinue
+          
+          if ($exitCode -ne 0) {
+              Write-Error "WebDeploy failed!"
+              exit 1
+          }
+        shell: powershell
+        
+      - name: Post-Deployment Health Check
+        run: |
+          $ErrorActionPreference = "Stop"
+          
+          $urls = @(
+              "https://pharmalink.tryasp.net/health",
+              "https://pharmalink.tryasp.net/swagger/index.html",
+              "https://pharmalink.tryasp.net/"
+          )
+          
+          $maxRetries = 5
+          $retryCount = 0
+          $success = $false
+          
+          while ($retryCount -lt $maxRetries -and -not $success) {
+              foreach ($url in $urls) {
+                  try {
+                      $response = Invoke-WebRequest -Uri $url -UseBasicParsing
+                      if ($response.StatusCode -eq 200) {
+                          Write-Output "Health check passed on $url! Website is online."
+                          $success = $true
+                          break
+                      }
+                  } catch {
+                      Write-Output "URL $url unavailable: $_"
+                  }
+              }
+              
+              if (-not $success) {
+                  Write-Output "Attempt $($retryCount + 1) failed."
+                  Start-Sleep -Seconds 5
+                  $retryCount++
+              }
+          }
+          
+          if (-not $success) {
+              Write-Error "Health check failed after $maxRetries attempts! Website is unavailable."
+              exit 1
+          }
+        shell: powershell
