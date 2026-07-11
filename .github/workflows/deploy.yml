@@ -51,8 +51,8 @@ jobs:
       - name: Build Solution
         run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
         
-      - name: Publish API Project (win-x86)
-        run: dotnet publish API/API.csproj --configuration Release --framework net10.0 --runtime win-x86 --self-contained false --output publish --no-build
+      - name: Publish API Project
+        run: dotnet publish API/API.csproj --configuration Release --output publish
         
       - name: Generate appsettings.json from Secret
         run: |
