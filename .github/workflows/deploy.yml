@@ -49,10 +49,10 @@ jobs:
         run: dotnet restore ${{ env.SOLUTION_FILE }}
         
       - name: Build Solution
-        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --runtime win-x86 --no-restore
+        run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
         
       - name: Publish API Project (win-x86)
-        run: dotnet publish API\API.csproj --configuration Release --framework net10.0 --runtime win-x86 --self-contained false --output publish --no-build
+        run: dotnet publish API/API.csproj --configuration Release --framework net10.0 --runtime win-x86 --self-contained false --output publish --no-build
         
       - name: Generate appsettings.json from Secret
         run: |
@@ -104,15 +104,15 @@ jobs:
               exit 1
           }
           
-          $msdeploy = (Get-Command msdeploy.exe -ErrorAction SilentlyContinue).Source
-          if (-not $msdeploy) {
-              $msdeploy = "C:\Program Files\IIS\Microsoft Web Deploy V3\msdeploy.exe"
-          }
-          if (-not (Test-Path $msdeploy)) {
-              Write-Error "msdeploy.exe could not be found!"
+          $command = Get-Command msdeploy.exe -ErrorAction SilentlyContinue
+          
+          if ($null -eq $command) {
+              Write-Error "msdeploy.exe was not found on the GitHub Actions runner."
               Remove-Item temp_profile.publishSettings -Force -ErrorAction SilentlyContinue
               exit 1
           }
+          
+          $msdeploy = $command.Source
           
           $url = $profile.publishUrl
           if (-not $url.StartsWith("http")) { $url = "https://$url/msdeploy.axd" }
