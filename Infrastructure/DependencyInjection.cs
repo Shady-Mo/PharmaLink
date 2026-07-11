@@ -1,3 +1,4 @@
+
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -25,10 +26,13 @@ public static class DependencyInjection
 
             services.AddHttpContextAccessor();
 
+            services.AddHttpContextAccessor();
 
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
+            services.AddScoped<IAddressService, AddressService>();
+
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)

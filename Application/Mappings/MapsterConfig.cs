@@ -21,6 +21,7 @@ public class MapsterConfig : IRegister
         config.NewConfig<Order, GetOrderDTO>();
         config.NewConfig<OrderItem, OrderItemResponseDTO>();
         config.NewConfig<Address,CreateAddressRequestDTO>();
-        config.NewConfig<AddressResponseDTO,Address>();
+           
+       
     }
 }

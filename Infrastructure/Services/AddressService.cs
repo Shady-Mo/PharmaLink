@@ -20,18 +20,10 @@ namespace Infrastructure.Services
         public async Task<Result<AddressResponseDTO>> CreateAsync(
             Guid patientId, CreateAddressRequestDTO request, CancellationToken cancellationToken = default)
         {
-            var address = new Address
-            {
-                AddressId = Guid.NewGuid(),
-                UserId = patientId,
-                Label = request.Label,
-                AddressLine = request.AddressLine,
-                City = request.City,
-                Governorate = request.Governorate,
-                GeoLocation = GeoFactory.CreatePoint(new Coordinate(request.Longitude, request.Latitude)),
-                IsDefault = request.IsDefault
-            };
-
+            
+            Address address = request.Adapt<Address>();
+            address.UserId = patientId;
+            address.GeoLocation = GeoFactory.CreatePoint(new Coordinate(request.Longitude, request.Latitude));
             if (request.IsDefault)
             {
                 // AC: marking one as default atomically unsets IsDefault on all the patient's others.
@@ -50,7 +42,7 @@ namespace Infrastructure.Services
                 dbContext.Addresses.Add(address);
                 await dbContext.SaveChangesAsync(cancellationToken);
             }
-
+           
             return Result.Success(MapToDto(address));
         }
 
@@ -183,12 +175,13 @@ namespace Infrastructure.Services
         private static AddressResponseDTO MapToDto(Address address) => new()
         {
             AddressId = address.AddressId,
+            UserId=address.UserId,
             Label = address.Label,
             AddressLine = address.AddressLine,
             City = address.City,
             Governorate = address.Governorate,
-            Latitude = address.GeoLocation?.Y ?? 0,
-            Longitude = address.GeoLocation?.X ?? 0,
+           Longitude=address.GeoLocation?.X??0,
+           Latitude=address.GeoLocation?.Y??0,
             IsDefault = address.IsDefault
         };
     }

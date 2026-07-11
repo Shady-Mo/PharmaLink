@@ -1,5 +1,6 @@
 ﻿using API.Authorization;
 using FluentValidation.AspNetCore;
+using Infrastructure.Common;
 using Infrastructure.Services;
 
 namespace API;
@@ -22,7 +23,8 @@ public static class DependencyInjection
         services
             .AddSwaggerServices()
             .AddCorsServices()
-            .AddOrdersServices();
+            .AddOrdersServices()
+            .AddCommonServices();
 
         return services;
     }
@@ -109,6 +111,12 @@ public static class DependencyInjection
     public static IServiceCollection AddOrdersServices(this IServiceCollection services)
     {
         services.AddScoped<IOrderService, OrderService>();
+        return services;
+    }
+    public static IServiceCollection AddCommonServices(this IServiceCollection services)
+    {
+        services.AddHttpContextAccessor();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
         return services;
     }
 }

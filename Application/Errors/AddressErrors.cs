@@ -19,5 +19,7 @@ namespace Application.Errors
             new("Address.AuditReasonRequired",
                 "A reason is required when a System Admin accesses a patient's address.",
                 StatusCodes.Status400BadRequest);
+      
+
     }
 }
