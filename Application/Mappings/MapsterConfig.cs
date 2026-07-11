@@ -1,3 +1,5 @@
+using Application.DTOs.Addresses.Requests;
+using Application.DTOs.Addresses.Response;
 using Application.DTOs.PharmacyInventory.Response;
 
 namespace Application.Mappings;
@@ -18,5 +20,7 @@ public class MapsterConfig : IRegister
         // Order Mappings
         config.NewConfig<Order, GetOrderDTO>();
         config.NewConfig<OrderItem, OrderItemResponseDTO>();
+        config.NewConfig<Address,CreateAddressRequestDTO>();
+        config.NewConfig<AddressResponseDTO,Address>();
     }
 }

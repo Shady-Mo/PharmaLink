@@ -11,6 +11,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     /// </remarks>
     [HttpPost("seed")]
     [ProducesResponseType(StatusCodes.Status200OK)]
+    [Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> SeedCatalog([FromServices] DrugSeeder seeder, CancellationToken cancellationToken)
     {
         var filePath = Path.Combine(env.WebRootPath, "Data", "egyptian-drugs.json");
@@ -26,6 +27,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("")]
     [ProducesResponseType(typeof(PaginatedList<DrugDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
     public async Task<IActionResult> GetDrugs([FromQuery] DrugSearchRequest filters,
         CancellationToken cancellationToken)
     {
@@ -40,6 +42,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(DrugDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
     public async Task<IActionResult> GetDrugById(Guid id, CancellationToken cancellationToken)
     {
         var result = await drugService.GetByIdAsync(id, cancellationToken);
@@ -53,6 +56,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpPost("")]
     [ProducesResponseType(typeof(DrugDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
     public async Task<IActionResult> CreateDrug([FromBody] CreateDrugDto dto, CancellationToken cancellationToken)
     {
         var result = await drugService.CreateAsync(dto, cancellationToken);
@@ -69,6 +73,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [ProducesResponseType(typeof(DrugDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
     public async Task<IActionResult> UpdateDrug(Guid id, [FromBody] UpdateDrugDto dto,
         CancellationToken cancellationToken)
     {
@@ -83,6 +88,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpDelete("{id}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
     public async Task<IActionResult> DeleteDrug(Guid id, CancellationToken cancellationToken)
     {
         var result = await drugService.DeleteAsync(id, cancellationToken);
