@@ -87,64 +87,14 @@ jobs:
           name: published-app
           path: publish\
 
-      - name: Deploy via WebDeploy
-        shell: powershell
-        run: |
-          $ErrorActionPreference = "Stop"
-
-          if (!(Test-Path "publish")) {
-              throw "Publish folder not found."
-          }
-
-          try {
-
-              [System.IO.File]::WriteAllText(
-                  "temp.publishSettings",
-                  '${{ secrets.PUBLISH_PROFILE }}',
-                  [System.Text.Encoding]::UTF8
-              )
-
-              [xml]$xml = Get-Content temp.publishSettings
-
-              $profile = $xml.publishData.publishProfile |
-                  Where-Object { $_.publishMethod -eq "MSDeploy" }
-
-              if ($null -eq $profile) {
-                  throw "MSDeploy publish profile was not found."
-              }
-
-              $command = Get-Command msdeploy.exe -ErrorAction Stop
-              $msdeploy = $command.Source
-
-              $url = $profile.publishUrl
-
-              if (-not $url.StartsWith("http")) {
-                  $url = "https://$url/msdeploy.axd"
-              }
-
-              $destination = @(
-                  "contentPath='$($profile.msdeploySite)'",
-                  "ComputerName='$url'",
-                  "UserName='$($profile.userName)'",
-                  "Password='$($profile.userPWD)'",
-                  "AuthType='Basic'"
-              ) -join ','
-
-              & $msdeploy `
-                  -verb:sync `
-                  -source:contentPath="$(Resolve-Path publish)" `
-                  -dest:$destination `
-                  -allowUntrusted
-
-              if ($LASTEXITCODE -ne 0) {
-                  throw "WebDeploy failed with exit code $LASTEXITCODE."
-              }
-
-          }
-          finally {
-              Remove-Item temp.publishSettings -Force -ErrorAction SilentlyContinue
-          }
-
+      - name: Deploy via FTP
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.4
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: publish/
+          dangerous-clean-slate: false
       - name: Health Check
         shell: powershell
         run: |
