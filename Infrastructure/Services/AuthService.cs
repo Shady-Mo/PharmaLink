@@ -113,6 +113,14 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.PhoneNotVerified);
         }
 
+        return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+    }
+
+    public async Task<Result<LoginResponseDTO>> GenerateTokenForUserAsync(
+        AppUser user,
+        string roleName,
+        CancellationToken cancellationToken = default)
+    {
         var claims = new List<Claim>
         {
             new(JwtClaimTypes.UserId, user.Id.ToString()),

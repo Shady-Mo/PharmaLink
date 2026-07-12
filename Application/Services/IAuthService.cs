@@ -20,4 +20,9 @@ public interface IAuthService
     Task<Result<LoginResponseDTO>> LoginAsync(
         LoginRequestDTO request,
         CancellationToken cancellationToken = default);
+
+    Task<Result<LoginResponseDTO>> GenerateTokenForUserAsync(
+        AppUser user,
+        string roleName,
+        CancellationToken cancellationToken = default);
 }
