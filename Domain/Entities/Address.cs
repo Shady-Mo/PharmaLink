@@ -9,7 +9,7 @@ public class Address
     public string City { get; set; } = string.Empty;
     public string Governorate { get; set; } = string.Empty;
     
-    public NetTopologySuite.Geometries.Point? GeoLocation { get; set; }
+    public Point GeoLocation { get; set; }
     
     public bool IsDefault { get; set; }
 
