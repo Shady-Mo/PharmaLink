@@ -1,21 +1,20 @@
-﻿using Application.DTOs.Addresses.Requests;
+using Application.DTOs.Addresses.Requests;
 using Application.DTOs.Addresses.Response;
 
-namespace API.Controllers
-{
-    public class AddressesController(
-    IAddressService addressService,
-    ICurrentUserService currentUser) : BaseApiController
+namespace API.Controllers;
+
+public class AddressesController(
+    IAddressService addressService) : BaseApiController
 {
     /// <summary>Creates a new delivery address for the authenticated Patient.</summary>
-    [Authorize(Roles = AppRoles.Patient)]
     [HttpPost]
+    [Authorize(Roles = AppRoles.Patient)]
     [ProducesResponseType(typeof(AddressResponseDTO), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> Create(
         [FromBody] CreateAddressRequestDTO request, CancellationToken cancellationToken)
     {
-        var result = await addressService.CreateAsync(currentUser.UserId, request, cancellationToken);
+        var result = await addressService.CreateAsync(User.GetUserId(), request, cancellationToken);
 
         if (result.IsFailure)
             return result.ToProblem();
@@ -24,12 +23,12 @@ namespace API.Controllers
     }
 
     /// <summary>Lists all delivery addresses belonging to the authenticated Patient.</summary>
-    [Authorize(Roles = AppRoles.Patient)]
     [HttpGet]
+    [Authorize(Roles = AppRoles.Patient)]
     [ProducesResponseType(typeof(List<AddressResponseDTO>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
     {
-        var result = await addressService.GetAllForPatientAsync(currentUser.UserId, cancellationToken);
+        var result = await addressService.GetAllForPatientAsync(User.GetUserId(), cancellationToken);
         return Ok(result.Value);
     }
 
@@ -46,13 +45,16 @@ namespace API.Controllers
     public async Task<IActionResult> GetById(
         Guid id, [FromQuery] string? reason, CancellationToken cancellationToken)
     {
-        var result = await addressService.GetByIdAsync(
-            id, currentUser.UserId, currentUser.RoleName!, reason, cancellationToken);
-
-        if (result.IsFailure)
-            return result.ToProblem();
-
-        return Ok(result.Value);
+        if (User.GetRoleName() == AppRoles.Admin)
+        {
+            var result = await addressService.GetByIdForAdminAsync(id, reason, cancellationToken);
+            return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+        }
+        else
+        {
+            var result = await addressService.GetByIdAsync(id, User.GetUserId(), cancellationToken);
+            return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+        }
     }
 
     /// <summary>Updates an address owned by the authenticated Patient.</summary>
@@ -64,7 +66,7 @@ namespace API.Controllers
     public async Task<IActionResult> Update(
         Guid id, [FromBody] UpdateAddressRequestDTO request, CancellationToken cancellationToken)
     {
-        var result = await addressService.UpdateAsync(id, currentUser.UserId, request, cancellationToken);
+        var result = await addressService.UpdateAsync(id, User.GetUserId(), request, cancellationToken);
 
         if (result.IsFailure)
             return result.ToProblem();
@@ -80,7 +82,7 @@ namespace API.Controllers
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(Guid id, CancellationToken cancellationToken)
     {
-        var result = await addressService.DeleteAsync(id, currentUser.UserId, cancellationToken);
+        var result = await addressService.DeleteAsync(id, User.GetUserId(), cancellationToken);
 
         if (result.IsFailure)
             return result.ToProblem();
@@ -96,12 +98,11 @@ namespace API.Controllers
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> SetDefault(Guid id, CancellationToken cancellationToken)
     {
-        var result = await addressService.SetDefaultAsync(id, currentUser.UserId, cancellationToken);
+        var result = await addressService.SetDefaultAsync(id, User.GetUserId(), cancellationToken);
 
         if (result.IsFailure)
             return result.ToProblem();
 
         return NoContent();
     }
-}
 }
