@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -20,8 +22,8 @@ public class OtpService(
     IWebhookOtpDispatcher dispatcher,
     ILogger<OtpService> logger) : IOtpService
 {
-    private const int OtpLifetimeMinutes     = 5;
-    private const int MaxAttempts            = 5;
+    private const int OtpLifetimeMinutes = 5;
+    private const int MaxAttempts = 5;
     private const int RateLimitWindowMinutes = 5;
 
     public async Task<Result> RequestPhoneOtpAsync(
@@ -53,24 +55,24 @@ public class OtpService(
         }
 
         var plainCode = GenerateOtpCode();
-        var codeHash  = BCrypt.Net.BCrypt.HashPassword(plainCode);
+        var codeHash = BCrypt.Net.BCrypt.HashPassword(plainCode);
 
         if (existing is null)
         {
             context.PhoneVerificationOtps.Add(new PhoneVerificationOtp
             {
-                UserId        = user.Id,
-                CodeHash      = codeHash,
-                ExpiresAt     = DateTime.UtcNow.AddMinutes(OtpLifetimeMinutes),
-                AttemptCount  = 0,
+                UserId = user.Id,
+                CodeHash = codeHash,
+                ExpiresAt = DateTime.UtcNow.AddMinutes(OtpLifetimeMinutes),
+                AttemptCount = 0,
                 LastAttemptAt = null
             });
         }
         else
         {
-            existing.CodeHash      = codeHash;
-            existing.ExpiresAt     = DateTime.UtcNow.AddMinutes(OtpLifetimeMinutes);
-            existing.AttemptCount  = 0;
+            existing.CodeHash = codeHash;
+            existing.ExpiresAt = DateTime.UtcNow.AddMinutes(OtpLifetimeMinutes);
+            existing.AttemptCount = 0;
             existing.LastAttemptAt = null;
         }
 
@@ -154,7 +156,7 @@ public class OtpService(
     /// </summary>
     private static string GenerateOtpCode()
     {
-        var bytes = System.Security.Cryptography.RandomNumberGenerator.GetBytes(4);
+        var bytes = RandomNumberGenerator.GetBytes(4);
         var value = BitConverter.ToUInt32(bytes, 0) % 1_000_000;
         return value.ToString("D6");
     }
@@ -168,7 +170,7 @@ public class OtpService(
         if (record.LastAttemptAt is null)
             return false;
 
-        var windowStart  = DateTime.UtcNow.AddMinutes(-RateLimitWindowMinutes);
+        var windowStart = DateTime.UtcNow.AddMinutes(-RateLimitWindowMinutes);
         var withinWindow = record.LastAttemptAt >= windowStart;
 
         return withinWindow && record.AttemptCount >= MaxAttempts;

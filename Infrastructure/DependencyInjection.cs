@@ -1,4 +1,4 @@
-
+using Application.Services.Order;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Infrastructure;
@@ -35,8 +35,13 @@ public static class DependencyInjection
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
+
             services.AddScoped<IAddressService, AddressService>();
 
+            services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IGeoLookupService, GeoLookupService>();
+            services.AddScoped<IFulfillmentLegService, FulfillmentLegService>();
+            services.AddScoped<IOrderSplittingService, OrderSplittingService>();
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)

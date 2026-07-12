@@ -27,6 +27,16 @@ public static class OrderErrors
             "You do not have permission to access this order.",
             StatusCodes.Status403Forbidden);
 
+    public static readonly Error OrderNotEligibleForResplit =
+        new("Order.NotEligibleForResplit",
+            "Only Pending or Processing orders can be re-split.",
+            StatusCodes.Status400BadRequest);
+
+    public static readonly Error OrderDeliveryAddressHasNoLocation =
+        new("Order.DeliveryAddressHasNoLocation",
+            "The delivery address does not have a geo-location set. Cannot find nearby branches.",
+            StatusCodes.Status400BadRequest);
+
     public static Error CreateInvalidDrugIdsError(IEnumerable<Guid> invalidIds) =>
         new("Order.InvalidDrugIds",
             $"Invalid DrugID(s): {string.Join(", ", invalidIds)}",

@@ -20,7 +20,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// - Creates ORDER_ITEMS with ItemStatus = 0 (Pending) and BranchID = NULL.
     /// - Total amount is calculated from items' UnitPrice × QuantityNeeded.
     /// </remarks>
-    /// <param name="createOrderDTO">Order details including items, delivery address, and fulfillment mode.</param>
+    /// <param name="createOrderDto">Order details including items, delivery address, and fulfillment mode.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// **201 Created** with the new OrderID and initial OrderStatus on success.  
@@ -33,22 +33,17 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> CreateOrder(
-        [FromBody] CreateOrderDTO createOrderDTO,
+        [FromBody] CreateOrderDTO createOrderDto,
         CancellationToken cancellationToken)
     {
-        var patientIdClaim = User.FindFirst(JwtClaimTypes.UserId);
-        if (patientIdClaim is null || !Guid.TryParse(patientIdClaim.Value, out var patientId))
-            return Unauthorized(new { message = "Invalid or missing user ID in token." });
+        var result = await orderService.CreateOrder(User.GetUserId(), createOrderDto);
 
-        var result = await orderService.CreateOrder(patientId, createOrderDTO);
-
-        if (result.IsFailure)
-            return result.ToProblem();
-
-        return CreatedAtAction(
-            actionName: nameof(GetOrder),
-            routeValues: new { id = result.Value?.OrderId },
-            value: result.Value);
+        return result.IsSuccess
+            ? CreatedAtAction(
+                actionName: nameof(GetOrder),
+                routeValues: new { id = result.Value?.OrderId },
+                value: result.Value)
+            : result.ToProblem();
     }
 
     /// <summary>
@@ -74,11 +69,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetOrder(Guid id, CancellationToken cancellationToken)
     {
-        var patientIdClaim = User.FindFirst(JwtClaimTypes.UserId);
-        if (patientIdClaim is null || !Guid.TryParse(patientIdClaim.Value, out var patientId))
-            return Unauthorized(new { message = "Invalid or missing user ID in token." });
-
-        var result = await orderService.GetOrder(id, patientId);
+        var result = await orderService.GetOrder(id, User.GetUserId());
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
@@ -98,8 +89,7 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     /// - HasPreviousPage: Boolean flag indicating if a previous page exists.
     /// - HasNextPage: Boolean flag indicating if a next page exists.
     /// </remarks>
-    /// <param name="pageNumber">The page number to retrieve (default: 1). Must be >= 1.</param>
-    /// <param name="pageSize">The number of records per page (default: 10). Must be between 1 and 100.</param>
+    /// <param name="request">The pagination options to retrieve orders.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>
     /// **200 OK** with paginated order list and metadata.  
@@ -110,19 +100,10 @@ public class OrdersController(IOrderService orderService) : BaseApiController
     [ProducesResponseType(typeof(PaginatedList<GetOrderDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetOrders(
-        [FromQuery] int pageNumber = 1,
-        [FromQuery] int pageSize = 10,
+        [FromQuery] GetOrdersRequest request,
         CancellationToken cancellationToken = default)
     {
-        var patientIdClaim = User.FindFirst(JwtClaimTypes.UserId);
-        if (patientIdClaim is null || !Guid.TryParse(patientIdClaim.Value, out var patientId))
-            return Unauthorized(new { message = "Invalid or missing user ID in token." });
-
-        // Validate pagination parameters
-        if (pageNumber < 1 || pageSize < 1 || pageSize > 100)
-            return BadRequest(new { message = "PageNumber must be >= 1, and PageSize must be between 1 and 100." });
-
-        var result = await orderService.GetOrders(patientId, pageNumber, pageSize);
+        var result = await orderService.GetOrders(User.GetUserId(), request);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

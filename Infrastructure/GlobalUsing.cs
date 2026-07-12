@@ -1,4 +1,4 @@
-﻿global using Domain.Entities;
+global using Domain.Entities;
 global using Domain.Enums;
 global using Domain.Constants;
 global using Microsoft.EntityFrameworkCore;
@@ -38,3 +38,5 @@ global using NetTopologySuite.Geometries;
 global using Application.DTOs.PharmacyInventory.Request;
 global using Application.DTOs.PharmacyInventory.Response;
 global using Microsoft.AspNetCore.Http;
+global using Application.Services.OrderSplitting;
+global using Application.Services.FulfillmentLeg;

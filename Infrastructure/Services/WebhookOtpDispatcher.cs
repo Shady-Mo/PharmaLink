@@ -1,3 +1,5 @@
+using System.Web;
+
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -18,9 +20,9 @@ public class WebhookOtpDispatcher(
         var settings = options.Value;
 
         // Build the GET URL: <baseUrl>?phoneNumber=...&otp=...
-        var query = System.Web.HttpUtility.ParseQueryString(string.Empty);
+        var query = HttpUtility.ParseQueryString(string.Empty);
         query["phoneNumber"] = phoneNumber;
-        query["otp"]         = otp;
+        query["otp"] = otp;
 
         var requestUrl = $"{settings.Url}?{query}";
 

@@ -3,8 +3,7 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services
     .AddApiServices()
     .AddApplicationServices()
-    .AddInfrastructureServices(builder.Configuration)
-    .AddJwtAuthorization();
+    .AddInfrastructureServices(builder.Configuration);
 
 builder.Services.AddHealthChecks();
 

@@ -11,12 +11,14 @@ public class DrugService(AppDbContext context) : IDrugService
         if (!string.IsNullOrWhiteSpace(filters.SearchValue))
         {
             var searchTerm = filters.SearchValue.Trim();
+            
             query = query.Where(d => d.GenericName.Contains(searchTerm) || d.BrandName.Contains(searchTerm));
         }
 
         if (!string.IsNullOrWhiteSpace(filters.Form))
         {
             var formTerm = filters.Form.Trim();
+            
             query = query.Where(d => d.Form == formTerm);
         }
 

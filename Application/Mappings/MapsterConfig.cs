@@ -20,8 +20,9 @@ public class MapsterConfig : IRegister
         // Order Mappings
         config.NewConfig<Order, GetOrderDTO>();
         config.NewConfig<OrderItem, OrderItemResponseDTO>();
-        config.NewConfig<Address,CreateAddressRequestDTO>();
-           
-       
+        config.NewConfig<Address, CreateAddressRequestDTO>();
+        config.NewConfig<Address, AddressResponseDTO>()
+            .Map(dest => dest.Longitude, src => src.GeoLocation != null ? src.GeoLocation.X : 0)
+            .Map(dest => dest.Latitude, src => src.GeoLocation != null ? src.GeoLocation.Y : 0);
     }
 }

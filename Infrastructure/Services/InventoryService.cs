@@ -1,4 +1,4 @@
-﻿namespace Infrastructure.Services;
+namespace Infrastructure.Services;
 
 public class InventoryService(
     AppDbContext context,
@@ -240,21 +240,10 @@ public class InventoryService(
                 DateTime.UtcNow);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var items = await query
-            .Include(i => i.Drug)
+        var result = await query
             .OrderBy(i => i.InventoryId)
-            .Skip((parameters.PageNumber - 1) * parameters.PageSize)
-            .Take(parameters.PageSize)
-            .ToListAsync(cancellationToken);
-
-        var result = new PaginatedList<GetPharmacyInventoryDTO>(
-            items.Adapt<List<GetPharmacyInventoryDTO>>(),
-            parameters.PageNumber,
-            totalCount,
-            parameters.PageSize
-        );
+            .ProjectToType<GetPharmacyInventoryDTO>()
+            .ToPaginatedListAsync(parameters.PageNumber, parameters.PageSize, cancellationToken);
 
         return Result.Success(result);
     }

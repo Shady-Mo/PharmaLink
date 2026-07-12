@@ -3,20 +3,8 @@ namespace Application.DTOs.Drug.Requests;
 /// <summary>
 /// Represents the filtering, sorting, and pagination options used to retrieve drugs.
 /// </summary>
-public class DrugSearchRequest
+public class DrugSearchRequest : PaginatedRequest
 {
-    /// <summary>
-    /// The page number to retrieve.
-    /// </summary>
-    /// <example>1</example>
-    public int PageNumber { get; init; } = 1;
-
-    /// <summary>
-    /// The number of records to return per page.
-    /// </summary>
-    /// <example>10</example>
-    public int PageSize { get; init; } = 10;
-
     /// <summary>
     /// A partial or full drug name used for searching.
     /// Searches both the generic name and brand name.

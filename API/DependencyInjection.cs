@@ -1,7 +1,4 @@
-﻿using API.Authorization;
-using FluentValidation.AspNetCore;
-using Infrastructure.Common;
-using Infrastructure.Services;
+﻿using FluentValidation.AspNetCore;
 
 namespace API;
 
@@ -22,9 +19,7 @@ public static class DependencyInjection
 
         services
             .AddSwaggerServices()
-            .AddCorsServices()
-            .AddOrdersServices()
-            .AddCommonServices();
+            .AddCorsServices();
 
         return services;
     }
@@ -96,27 +91,4 @@ public static class DependencyInjection
         return services;
     }
 
-    public static IServiceCollection AddJwtAuthorization(
-        this IServiceCollection services)
-    {
-        services.AddAuthorization();
-
-        // this is for customizing authorization
-        services.AddSingleton<IAuthorizationMiddlewareResultHandler,
-            AppAuthorizationMiddlewareResultHandler>();
-
-        return services;
-    }
-
-    public static IServiceCollection AddOrdersServices(this IServiceCollection services)
-    {
-        services.AddScoped<IOrderService, OrderService>();
-        return services;
-    }
-    public static IServiceCollection AddCommonServices(this IServiceCollection services)
-    {
-        services.AddHttpContextAccessor();
-        services.AddScoped<ICurrentUserService, CurrentUserService>();
-        return services;
-    }
 }

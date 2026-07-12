@@ -25,3 +25,4 @@ global using System.Security.Claims;
 global using Application.Services.Order;
 global using Application.DTOs.PharmacyInventory.Request;
 global using Application.DTOs.PharmacyInventory.Response;
+global using Application.Services.OrderSplitting;

@@ -1,12 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
 namespace Application.DTOs.PharmacyInventory.Request
 {
-    public class GetPharmacyInventoryParamRequest
+    public class GetPharmacyInventoryParamRequest : PaginatedRequest
     {
-        public int PageNumber { get; set; } = 1;
-        public int PageSize { get; set; } = 10;
     }
 }

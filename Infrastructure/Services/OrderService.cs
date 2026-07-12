@@ -1,10 +1,10 @@
-﻿using Application.DTOs.Order.Requests;
+using Application.DTOs.Order.Requests;
 using Application.DTOs.Order.Responses;
 using Application.Services.Order;
 
 namespace Infrastructure.Services;
 
-public class OrderService(AppDbContext context) : IOrderService
+public class OrderService(AppDbContext context, IOrderSplittingService orderSplittingService) : IOrderService
 {
     public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId,
         CreateOrderDTO createOrderDTO)
@@ -58,6 +58,10 @@ public class OrderService(AppDbContext context) : IOrderService
 
         await context.SaveChangesAsync();
 
+        // Trigger automatic splitting inline. Result is observed but not propagated to caller —
+        // the 201 Created response represents the order being accepted, not fully split.
+        await orderSplittingService.SplitOrderAsync(order.OrderId);
+
         var response = new OrderCreatedResponseDTO
         {
             OrderId = order.OrderId,
@@ -81,23 +85,36 @@ public class OrderService(AppDbContext context) : IOrderService
         return Result.Success<GetOrderDTO>(dto);
     }
 
-    public async Task<Result<PaginatedList<GetOrderDTO>>> GetOrders(Guid patientUserId, int pageNumber = 1,
-        int pageSize = 10)
+    public async Task<Result<PaginatedList<GetOrderDTO>>> GetOrders(Guid patientUserId, GetOrdersRequest request)
     {
-        var query = context.Orders
+        var paginatedResult = await context.Orders
             .Where(o => o.PatientUserId == patientUserId)
+            .OrderByDescending(o => o.OrderId)
+            .ProjectToType<GetOrderDTO>()
+            .ToPaginatedListAsync(request.PageNumber, request.PageSize);
+
+        return Result.Success(paginatedResult);
+    }
+
+    public async Task<Result<GetOrderDTO>> GetOrderForAdmin(Guid orderId)
+    {
+        var order = await context.Orders
             .Include(o => o.Items)
-            .OrderByDescending(o => o.OrderId);
+            .FirstOrDefaultAsync(o => o.OrderId == orderId);
 
-        var totalCount = await query.CountAsync();
+        if (order is null)
+            return Result.Failure<GetOrderDTO>(OrderErrors.OrderNotFound);
 
-        var orders = await query
-            .Skip((pageNumber - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync();
+        var dto = order.Adapt<GetOrderDTO>();
+        return Result.Success(dto);
+    }
 
-        var dtos = orders.Adapt<List<GetOrderDTO>>();
-        var paginatedResult = new PaginatedList<GetOrderDTO>(dtos, pageNumber, totalCount, pageSize);
+    public async Task<Result<PaginatedList<GetOrderDTO>>> GetOrdersForAdmin(GetOrdersRequest request)
+    {
+        var paginatedResult = await context.Orders
+            .OrderByDescending(o => o.OrderId)
+            .ProjectToType<GetOrderDTO>()
+            .ToPaginatedListAsync(request.PageNumber, request.PageSize);
 
         return Result.Success(paginatedResult);
     }
