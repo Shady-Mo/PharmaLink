@@ -6,6 +6,9 @@ public class AddressConfiguration : IEntityTypeConfiguration<Address>
     {
         builder.HasKey(a => a.AddressId);
 
+        builder.HasIndex(a => a.UserId)
+            .IsUnique();
+
         builder
             .Property(a => a.Label)
             .HasMaxLength(100);
