@@ -1,11 +1,11 @@
-namespace Domain.Entities;
+namespace Application.DTOs.OrderFulfillmentLeg.Responses;
 
-public class OrderFulfillmentLeg
+public class OrderFulfillmentLegDto
 {
     public Guid LegId { get; set; }
-    
+
     public Guid OrderId { get; set; }
-    
+
     public Guid BranchId { get; set; }
 
     public LegType LegType { get; set; }
@@ -15,8 +15,4 @@ public class OrderFulfillmentLeg
     public DateTime ReadyByEstimate { get; set; }
 
     public DateTime? CompletedAt { get; set; }
-
-    public Order Order { get; set; } = null!;
-    public PharmacyBranch Branch { get; set; } = null!;
-    public ICollection<OrderFulfillmentLegStatusAudit> StatusAudits { get; set; } = new HashSet<OrderFulfillmentLegStatusAudit>();
 }
