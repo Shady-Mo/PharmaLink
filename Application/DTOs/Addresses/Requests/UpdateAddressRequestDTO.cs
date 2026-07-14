@@ -7,7 +7,6 @@ namespace Application.DTOs.Addresses.Requests
 
     public class UpdateAddressRequestDTO
     {
-        public string Label { get; set; } = string.Empty;
         public string AddressLine { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string Governorate { get; set; } = string.Empty;

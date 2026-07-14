@@ -10,7 +10,6 @@ namespace Application.Validators.Address
     {
         public CreateAddressRequestDTOValidator()
         {
-            RuleFor(x => x.Label).MaximumLength(100);
 
             RuleFor(x => x.AddressLine)
                 .NotEmpty().WithMessage("Address line is required.")

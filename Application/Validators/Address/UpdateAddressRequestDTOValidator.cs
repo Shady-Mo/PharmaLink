@@ -10,7 +10,6 @@ namespace Application.Validators.Address
     {
         public UpdateAddressRequestDTOValidator()
         {
-            RuleFor(x => x.Label).MaximumLength(100);
             RuleFor(x => x.AddressLine).NotEmpty().MaximumLength(500);
             RuleFor(x => x.City).NotEmpty().MaximumLength(100);
             RuleFor(x => x.Governorate).NotEmpty().MaximumLength(100);

@@ -5,7 +5,6 @@
     {
         public Guid AddressId { get; set; }
         public Guid UserId { set; get; }
-        public string Label { get; set; } = string.Empty;
         public string AddressLine { get; set; } = string.Empty;
         public string City { get; set; } = string.Empty;
         public string Governorate { get; set; } = string.Empty;
