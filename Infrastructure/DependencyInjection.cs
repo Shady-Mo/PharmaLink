@@ -42,6 +42,7 @@ public static class DependencyInjection
             services.AddScoped<IGeoLookupService, GeoLookupService>();
             services.AddScoped<IFulfillmentLegService, FulfillmentLegService>();
             services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+            services.AddScoped<IEmailService, EmailService>();
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)

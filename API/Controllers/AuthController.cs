@@ -82,6 +82,33 @@ public class AuthController(IAuthService authService) : BaseApiController
         return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
 
+    [HttpPost("ForgotPassword")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswardDTO forgotPasswardDTO,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.ForgotPassword(forgotPasswardDTO.Email, cancellationToken);
+
+        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
+    }
+
+    [HttpPost("ResetPassword")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordDTO resetPasswordDTO,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.ResetPassword(resetPasswordDTO, cancellationToken);
+
+        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
+    }
 
     [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
     [HttpGet("test")]

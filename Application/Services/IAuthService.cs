@@ -25,4 +25,8 @@ public interface IAuthService
         AppUser user,
         string roleName,
         CancellationToken cancellationToken = default);
+
+    Task<Result> ForgotPassword(string email, CancellationToken cancellationToken);
+    Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDTO, CancellationToken cancellationToken);
+
 }
