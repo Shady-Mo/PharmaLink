@@ -48,7 +48,7 @@ public class AddressService(
     }
 
     public async Task<Result<AddressResponseDTO>> GetByIdAsync(
-        Guid addressId, Guid patientId, CancellationToken cancellationToken = default)
+        Guid addressId, Guid patientId,string roleName, CancellationToken cancellationToken = default)
     {
         var address = await dbContext.Addresses
             .AsNoTracking()
@@ -56,6 +56,8 @@ public class AddressService(
 
         if (address is null)
             return Result.Failure<AddressResponseDTO>(AddressErrors.NotFound);
+        if(roleName == AppRoles.Admin)
+        return Result.Success(address.Adapt<AddressResponseDTO>());
 
         if (address.UserId != patientId)
             return Result.Failure<AddressResponseDTO>(AddressErrors.Forbidden);
@@ -63,21 +65,7 @@ public class AddressService(
         return Result.Success(address.Adapt<AddressResponseDTO>());
     }
 
-    public async Task<Result<AddressResponseDTO>> GetByIdForAdminAsync(
-        Guid addressId, string? auditReason, CancellationToken cancellationToken = default)
-    {
-        if (string.IsNullOrWhiteSpace(auditReason))
-            return Result.Failure<AddressResponseDTO>(AddressErrors.AuditReasonRequired);
-
-        var address = await dbContext.Addresses
-            .AsNoTracking()
-            .FirstOrDefaultAsync(a => a.AddressId == addressId, cancellationToken);
-
-        if (address is null)
-            return Result.Failure<AddressResponseDTO>(AddressErrors.NotFound);
-
-        return Result.Success(address.Adapt<AddressResponseDTO>());
-    }
+    
 
     public async Task<Result<AddressResponseDTO>> UpdateAsync(
         Guid addressId, Guid patientId, UpdateAddressRequestDTO request,
@@ -92,7 +80,6 @@ public class AddressService(
         if (address.UserId != patientId)
             return Result.Failure<AddressResponseDTO>(AddressErrors.Forbidden);
 
-        address.Label = request.Label;
         address.AddressLine = request.AddressLine;
         address.City = request.City;
         address.Governorate = request.Governorate;
@@ -175,5 +162,15 @@ public class AddressService(
         }
 
         await query.ExecuteUpdateAsync(s => s.SetProperty(a => a.IsDefault, false), cancellationToken);
+    }
+
+    public async Task<Result<List<AddressResponseDTO>>> GetAllAddressesByAdminAsync(CancellationToken cancellationToken = default)
+    {
+        var addresses = await dbContext.Addresses
+            .AsNoTracking()
+            .ProjectToType<AddressResponseDTO>()
+            .ToListAsync(cancellationToken);
+
+        return Result.Success(addresses);
     }
 }

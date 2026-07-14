@@ -3,7 +3,7 @@ using Application.DTOs.Addresses.Response;
 
 namespace API.Controllers;
 
-public class AddressesController(
+public class PatientAddressesController(
     IAddressService addressService) : BaseApiController
 {
     /// <summary>Creates a new delivery address for the authenticated Patient.</summary>
@@ -23,19 +23,28 @@ public class AddressesController(
     }
 
     /// <summary>Lists all delivery addresses belonging to the authenticated Patient.</summary>
-    [HttpGet]
+    [HttpGet("MyAddresses")]
     [Authorize(Roles = AppRoles.Patient)]
     [ProducesResponseType(typeof(List<AddressResponseDTO>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetAllByPatient(CancellationToken cancellationToken)
     {
         var result = await addressService.GetAllForPatientAsync(User.GetUserId(), cancellationToken);
         return Ok(result.Value);
     }
 
+    /// <summary>Lists all Addresses by Admin </summary>
+    [HttpGet()]
+    [Authorize(Roles = AppRoles.Admin)]
+    [ProducesResponseType(typeof(List<AddressResponseDTO>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetAllByAdmin(CancellationToken cancellationToken)
+    {
+        var result = await addressService.GetAllAddressesByAdminAsync( cancellationToken);
+        return Ok(result.Value);
+    }
+
+
     /// <summary>
     /// Gets a single address. Patients may only fetch their own address (403 otherwise).
-    /// System Admins may fetch any address for support purposes but must supply a
-    /// <c>reason</c> query parameter; every such read is written to the audit log.
     /// </summary>
     [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Admin}")]
     [HttpGet("{id:guid}")]
@@ -43,18 +52,13 @@ public class AddressesController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(
-        Guid id, [FromQuery] string? reason, CancellationToken cancellationToken)
+        Guid id, CancellationToken cancellationToken)
     {
-        if (User.GetRoleName() == AppRoles.Admin)
-        {
-            var result = await addressService.GetByIdForAdminAsync(id, reason, cancellationToken);
+       
+        
+            var result = await addressService.GetByIdAsync(id, User.GetUserId(), User.GetRoleName(),cancellationToken);
             return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
-        }
-        else
-        {
-            var result = await addressService.GetByIdAsync(id, User.GetUserId(), cancellationToken);
-            return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
-        }
+        
     }
 
     /// <summary>Updates an address owned by the authenticated Patient.</summary>
