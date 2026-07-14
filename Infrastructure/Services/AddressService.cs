@@ -92,7 +92,6 @@ public class AddressService(
         if (address.UserId != patientId)
             return Result.Failure<AddressResponseDTO>(AddressErrors.Forbidden);
 
-        address.Label = request.Label;
         address.AddressLine = request.AddressLine;
         address.City = request.City;
         address.Governorate = request.Governorate;
