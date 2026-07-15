@@ -36,30 +36,30 @@ public static class DependencyInjection
 
             services.AddScoped<IAddressService, AddressService>();
 
-           services.AddScoped<IOrderService, OrderService>();
-          services.AddScoped<IGeoLookupService, GeoLookupService>();
-services.AddScoped<ILegGenerationService, LegGenerationService>();
-services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
-services.AddScoped<IOrderSplittingService, OrderSplittingService>();
-services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
+            services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IGeoLookupService, GeoLookupService>();
+            services.AddScoped<ILegGenerationService, LegGenerationService>();
+            services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
+            services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+            services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
 
-services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
-services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+            services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
+            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
 
-services.AddScoped<IEmailService, EmailService>();
-services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IProfileService, ProfileService>();
 
-services.Configure<GeminiSettings>(
-    configuration.GetSection(GeminiSettings.SectionName));
+            services.Configure<GeminiSettings>(
+                configuration.GetSection(GeminiSettings.SectionName));
 
-services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
-{
-    var settings = configuration
-        .GetSection(GeminiSettings.SectionName)
-        .Get<GeminiSettings>() ?? new GeminiSettings();
+            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
+            {
+                var settings = configuration
+                    .GetSection(GeminiSettings.SectionName)
+                    .Get<GeminiSettings>() ?? new GeminiSettings();
 
-    client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
-});
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            });
 
 
             services.AddScoped<IEmailService, EmailService>();
@@ -73,8 +73,8 @@ services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
             services.Configure<OtpWebhookSettings>(
                 configuration.GetSection(OtpWebhookSettings.SectionName));
 
-            services.Configure<Application.Settings.OrderFulfillmentSettings>(
-                configuration.GetSection(Application.Settings.OrderFulfillmentSettings.SectionName));
+            services.Configure<OrderFulfillmentSettings>(
+                configuration.GetSection(OrderFulfillmentSettings.SectionName));
 
             services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
                 client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
@@ -85,7 +85,6 @@ services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
-            services.AddScoped<Infrastructure.Persistence.Seeders.DatabaseSeeder>();
 
             return services;
         }
