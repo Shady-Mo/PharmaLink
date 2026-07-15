@@ -53,3 +53,11 @@ public enum LegStatus : byte
     Completed = 5,
     Cancelled = 6
 }
+
+public enum PrescriptionReviewStatus : byte
+{
+    PendingReview = 1,
+    Approved = 2,
+    Rejected = 3,
+    OrderCreated = 4
+}

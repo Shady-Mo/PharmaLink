@@ -40,3 +40,8 @@ global using Application.DTOs.PharmacyInventory.Response;
 global using Microsoft.AspNetCore.Http;
 global using Application.Services.OrderSplitting;
 global using Application.Services.FulfillmentLeg;
+global using Application.Services.PrescriptionReview;
+global using Application.Services.AI;
+global using Application.Settings;
+global using Application.DTOs.PrescriptionReview.Requests;
+global using Application.DTOs.PrescriptionReview.Responses;

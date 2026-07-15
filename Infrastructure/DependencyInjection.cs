@@ -40,8 +40,22 @@ public static class DependencyInjection
 
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IGeoLookupService, GeoLookupService>();
-            services.AddScoped<IFulfillmentLegService, FulfillmentLegService>();
+            services.AddScoped<ILegGenerationService, LegGenerationService>();
+            services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
             services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+            services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
+
+            services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
+            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+
+            services.Configure<GeminiSettings>(
+                configuration.GetSection(GeminiSettings.SectionName));
+
+            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
+            {
+                var settings = configuration.GetSection(GeminiSettings.SectionName).Get<GeminiSettings>() ?? new GeminiSettings();
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            });
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)
@@ -49,6 +63,9 @@ public static class DependencyInjection
 
             services.Configure<OtpWebhookSettings>(
                 configuration.GetSection(OtpWebhookSettings.SectionName));
+
+            services.Configure<Application.Settings.OrderFulfillmentSettings>(
+                configuration.GetSection(Application.Settings.OrderFulfillmentSettings.SectionName));
 
             services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
                 client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
@@ -59,6 +76,7 @@ public static class DependencyInjection
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
+            services.AddScoped<Infrastructure.Persistence.Seeders.DatabaseSeeder>();
 
             return services;
         }
