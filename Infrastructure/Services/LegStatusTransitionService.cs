@@ -49,9 +49,10 @@ public class LegStatusTransitionService(
         if (leg is null)
             return Result.Failure(new Error("Leg.NotFound", "Fulfillment leg not found.", 404));
 
+        var sanitizedAuditReason = auditReason.Replace("\r", "\\r").Replace("\n", "\\n");
         logger.LogWarning(
             "SYSTEM ADMIN OVERRIDE: Admin forced Leg {LegId} from {OldStatus} to {NewStatus}. Reason: {AuditReason}. Timestamp: {Timestamp}",
-            legId, leg.LegStatus, newStatus, auditReason, DateTime.UtcNow);
+            legId, leg.LegStatus, newStatus, sanitizedAuditReason, DateTime.UtcNow);
 
         return await ApplyStatusUpdateAsync(leg, newStatus, cancellationToken);
     }
