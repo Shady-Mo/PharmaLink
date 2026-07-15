@@ -40,8 +40,6 @@ public static class DependencyInjection
 
             services.AddHttpContextAccessor();
 
-            services.AddHttpContextAccessor();
-
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
@@ -50,8 +48,33 @@ public static class DependencyInjection
 
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IGeoLookupService, GeoLookupService>();
-            services.AddScoped<IFulfillmentLegService, FulfillmentLegService>();
+            services.AddScoped<ILegGenerationService, LegGenerationService>();
+            services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
             services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+            services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
+
+            services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
+            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IProfileService, ProfileService>();
+
+            services.Configure<GeminiSettings>(
+                configuration.GetSection(GeminiSettings.SectionName));
+
+            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
+            {
+                var settings = configuration
+                    .GetSection(GeminiSettings.SectionName)
+                    .Get<GeminiSettings>() ?? new GeminiSettings();
+
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            });
+
+
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IProfileService, ProfileService>();
+
 
             services.AddScoped<CartCacheService>();
             services.AddScoped<ICartService, CartService>();
@@ -62,6 +85,9 @@ public static class DependencyInjection
 
             services.Configure<OtpWebhookSettings>(
                 configuration.GetSection(OtpWebhookSettings.SectionName));
+
+            services.Configure<OrderFulfillmentSettings>(
+                configuration.GetSection(OrderFulfillmentSettings.SectionName));
 
             services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
                 client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });

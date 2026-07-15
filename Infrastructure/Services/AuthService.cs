@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.WebUtilities;
+
 namespace Infrastructure.Services;
 
 /// <summary>
@@ -16,6 +18,7 @@ public class AuthService(
     UserManager<AppUser> userManager,
     IJwtTokenGeneratorService tokenGenerator,
     AppDbContext dbContext,
+    IEmailService emailService,
     ILogger<AuthService> logger) : IAuthService
 {
     public async Task<Result<RegisterResponseDTO>> RegisterPatientAsync(
@@ -185,5 +188,43 @@ public class AuthService(
         // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
         // so every branch-ownership check downstream will correctly reject them
         // until they have at least one verified pharmacy.
+    }
+
+    public async Task<Result> ForgotPassword(string email, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByEmailAsync(email);
+
+        if(user is null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
+
+        var token = await userManager.GeneratePasswordResetTokenAsync(user);
+        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+
+        var resetLink = $"http://localhost:4200/reset-password?email={email}&token={encodedToken}";
+
+        await emailService.SendEmailAsync(email, "Reset Password", $"Click here to reset your password: {resetLink}");
+
+        return Result.Success();
+    }
+
+    public async Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDTO, CancellationToken cancellationToken)
+    {
+        var user = await userManager.FindByEmailAsync(resetPasswordDTO.Email);
+
+        if (user is null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
+
+        var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDTO.Token);
+        var decodedToken = Encoding.UTF8.GetString(decodedTokenBytes);
+
+        var result = await userManager.ResetPasswordAsync(user, decodedToken, resetPasswordDTO.Password);
+
+        if (result.Succeeded)
+        {
+            return Result.SuccessWithValue("Password has been reset successfully");
+        }
+
+        return Result.Failure(AuthErrors.TokenError);
+
     }
 }

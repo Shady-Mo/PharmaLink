@@ -27,7 +27,9 @@ public class AaTestController(
 
         var pharmacistTokenResult =
             await authService.GenerateTokenForUserAsync(pharmacist, AppRoles.Pharmacist, cancellationToken);
-        var adminTokenResult = await authService.GenerateTokenForUserAsync(admin, AppRoles.Admin, cancellationToken);
+
+        var adminTokenResult =
+            await authService.GenerateTokenForUserAsync(admin, AppRoles.Admin, cancellationToken);
 
         return Ok(new
         {
@@ -59,25 +61,46 @@ public class AaTestController(
     }
 
     private async Task<AppUser> GetOrCreateUserAsync(
-        string email, string fullName, string phone, string role, CancellationToken cancellationToken)
+        string email,
+        string fullName,
+        string phone,
+        string role,
+        CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByEmailAsync(email);
-        if (user is not null)
-            return user;
+        var existingUser = await userManager.FindByEmailAsync(email);
+        if (existingUser is not null)
+            return existingUser;
 
-        user = new AppUser
+        AppUser user = role switch
         {
-            UserName = email,
-            Email = email,
-            FullName = fullName,
-            PhoneNumber = phone,
-            PhoneNumberConfirmed = true,
-            EmailConfirmed = true
+            AppRoles.Patient => new Patient(),
+            AppRoles.Pharmacist => new Pharmacist(),
+            AppRoles.Admin => new SystemAdmin(),
+            _ => throw new InvalidOperationException($"Unsupported role: {role}")
         };
 
-        await userManager.CreateAsync(user, "TestP@ssw0rd!");
+        user.UserName = email;
+        user.Email = email;
+        user.FullName = fullName;
+        user.PhoneNumber = phone;
+        user.PhoneNumberConfirmed = true;
+        user.EmailConfirmed = true;
 
-        await userManager.AddToRoleAsync(user, role);
+        var createResult = await userManager.CreateAsync(user, "TestP@ssw0rd!");
+
+        if (!createResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join(Environment.NewLine, createResult.Errors.Select(e => e.Description)));
+        }
+
+        var roleResult = await userManager.AddToRoleAsync(user, role);
+
+        if (!roleResult.Succeeded)
+        {
+            throw new InvalidOperationException(
+                string.Join(Environment.NewLine, roleResult.Errors.Select(e => e.Description)));
+        }
 
         if (role == AppRoles.Pharmacist)
         {
@@ -87,7 +110,9 @@ public class AaTestController(
         return user;
     }
 
-    private async Task SeedPharmacyForUserAsync(Guid pharmacistId, CancellationToken cancellationToken)
+    private async Task SeedPharmacyForUserAsync(
+        Guid pharmacistId,
+        CancellationToken cancellationToken)
     {
         var pharmacy = new Pharmacy
         {
@@ -113,6 +138,7 @@ public class AaTestController(
 
         dbContext.Pharmacies.Add(pharmacy);
         dbContext.PharmacyBranches.Add(branch);
+
         await dbContext.SaveChangesAsync(cancellationToken);
     }
 }
