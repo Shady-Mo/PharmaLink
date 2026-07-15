@@ -4,7 +4,7 @@ using Application.Services.FulfillmentLeg;
 namespace API.Controllers;
 
 [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
-public class FulfillmentLegController(IFulfillmentLegService legService) : BaseApiController
+public class FulfillmentLegController(ILegStatusTransitionService legService) : BaseApiController
 {
     [HttpPatch("{legId:guid}/status")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
