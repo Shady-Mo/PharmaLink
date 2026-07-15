@@ -29,3 +29,6 @@ global using Application.Services.OrderSplitting;
 global using Application.DTOs.Cart.Requests;
 global using Application.DTOs.Cart.Responses;
 global using Application.Services.Cart;
+global using Application.Services.PrescriptionReview;
+global using Application.DTOs.PrescriptionReview.Requests;
+global using Application.DTOs.PrescriptionReview.Responses;

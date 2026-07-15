@@ -21,6 +21,10 @@ public static class AuthErrors
         "The email or password is incorrect.", 
         StatusCodes.Status401Unauthorized);
 
+    public static readonly Error InvalidEmail = new("Auth.InvalidEmails",
+        "The email is incorrect.",
+        StatusCodes.Status404NotFound);
+
     public static readonly Error AccountSuspended =
     new("Auth.AccountSuspended",
         "This account has been suspended.",
@@ -30,4 +34,9 @@ public static class AuthErrors
         new("Auth.PhoneNotVerified",
             "Your phone number has not been verified. Please verify your phone number before logging in.",
             StatusCodes.Status403Forbidden);
+
+    public static readonly Error TokenError =
+       new("Auth.TokenError",
+           "The Token is invalid",
+           StatusCodes.Status400BadRequest);
 }

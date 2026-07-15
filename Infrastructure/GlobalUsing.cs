@@ -44,3 +44,8 @@ global using Application.DTOs.Cart.Requests;
 global using Application.DTOs.Cart.Responses;
 global using Application.Services.Cart;
 global using Microsoft.Extensions.Caching.Distributed;
+global using Application.Services.PrescriptionReview;
+global using Application.Services.AI;
+global using Application.Settings;
+global using Application.DTOs.PrescriptionReview.Requests;
+global using Application.DTOs.PrescriptionReview.Responses;

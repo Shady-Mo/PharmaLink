@@ -8,119 +8,191 @@ public class InventoryService(
     public async Task<Result> ReserveStockAsync(Guid branchId, Guid drugId, int quantity,
         CancellationToken cancellationToken = default)
     {
-        if (quantity <= 0)
-            return Result.Failure(InventoryErrors.InvalidQuantity);
+        var inventoryResult = await FindAndValidateInventoryAsync(branchId, drugId, quantity, isRelease: false, cancellationToken);
+        if (inventoryResult.IsFailure) return Result.Failure(inventoryResult.Error);
 
-        if (branchId == Guid.Empty || drugId == Guid.Empty)
-            return Result.Failure(InventoryErrors.InvalidIdentifier);
-
-        var inventory = await FindInventoryAsync(branchId, drugId, cancellationToken);
-
-        if (inventory is null)
-        {
-            logger.LogWarning(
-                "Inventory record not found for BranchId: {BranchId}, DrugId: {DrugId}",
-                branchId, drugId);
-
-            return Result.Failure(InventoryErrors.InventoryNotFound);
-        }
-
-        var availableQuantity = inventory.StockQuantity - inventory.ReservedQuantity;
-
-        if (availableQuantity < 0)
-        {
-            logger.LogError(
-                "Data integrity violation: ReservedQuantity ({Reserved}) exceeds StockQuantity ({Stock}) " +
-                "for BranchId: {BranchId}, DrugId: {DrugId}",
-                inventory.ReservedQuantity, inventory.StockQuantity, branchId, drugId);
-
-            return Result.Failure(InventoryErrors.InsufficientStock);
-        }
-
-        if (availableQuantity < quantity)
-        {
-            logger.LogWarning(
-                "Insufficient stock for BranchId: {BranchId}, DrugId: {DrugId}. " +
-                "Available: {Available}, Requested: {Requested}",
-                branchId, drugId, availableQuantity, quantity);
-
-            return Result.Failure(InventoryErrors.InsufficientStock);
-        }
-
+        var inventory = inventoryResult.Value;
         inventory.ReservedQuantity += quantity;
 
-        try
-        {
-            await context.SaveChangesAsync(cancellationToken);
+        logger.LogInformation(
+            "Reserved {Quantity} unit(s) for BranchId: {BranchId}, DrugId: {DrugId}. New ReservedQuantity: {ReservedQuantity} (Pending Save)",
+            quantity, branchId, drugId, inventory.ReservedQuantity);
 
-            logger.LogInformation(
-                "Reserved {Quantity} unit(s) for BranchId: {BranchId}, DrugId: {DrugId}. " +
-                "New ReservedQuantity: {ReservedQuantity}",
-                quantity, branchId, drugId, inventory.ReservedQuantity);
-
-            return Result.Success();
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            logger.LogError(ex,
-                "Concurrency conflict while reserving stock for BranchId: {BranchId}, DrugId: {DrugId}",
-                branchId, drugId);
-
-            return Result.Failure(InventoryErrors.ConcurrencyConflict);
-        }
+        return Result.Success();
     }
 
     public async Task<Result> ReleaseReservationAsync(Guid branchId, Guid drugId, int quantity,
         CancellationToken cancellationToken = default)
     {
+        var inventoryResult = await FindAndValidateInventoryAsync(branchId, drugId, quantity, isRelease: true, cancellationToken);
+        if (inventoryResult.IsFailure) return Result.Failure(inventoryResult.Error);
+
+        var inventory = inventoryResult.Value;
+        inventory.ReservedQuantity -= quantity;
+
+        logger.LogInformation(
+            "Released {Quantity} unit(s) for BranchId: {BranchId}, DrugId: {DrugId}. New ReservedQuantity: {ReservedQuantity} (Pending Save)",
+            quantity, branchId, drugId, inventory.ReservedQuantity);
+
+        return Result.Success();
+    }
+
+    public async Task<Result> ReserveStockBatchAsync(
+        IEnumerable<(Guid BranchId, Guid DrugId, int Quantity)> reservations,
+        CancellationToken cancellationToken = default)
+    {
+        var reservationsList = reservations.ToList();
+        if (!reservationsList.Any()) return Result.Success();
+
+        var inventoriesResult = await FindAndValidateBatchAsync(reservationsList, isRelease: false, cancellationToken);
+        if (inventoriesResult.IsFailure) return Result.Failure(inventoriesResult.Error);
+
+        var inventoryDict = inventoriesResult.Value;
+
+        foreach (var res in reservationsList)
+        {
+            var inventory = inventoryDict[(res.BranchId, res.DrugId)];
+            inventory.ReservedQuantity += res.Quantity;
+        }
+
+        logger.LogInformation("Successfully reserved {Count} batched items (Pending Save).", reservationsList.Count);
+        return Result.Success();
+    }
+
+    public Result ReserveStockBatch(
+        IEnumerable<PharmacyInventory> inventories,
+        IEnumerable<(Guid BranchId, Guid DrugId, int Quantity)> reservations)
+    {
+        var reservationsList = reservations.ToList();
+        if (!reservationsList.Any()) return Result.Success();
+
+        var inventoryDict = inventories.ToDictionary(i => (i.BranchId, i.DrugId));
+
+        foreach (var req in reservationsList)
+        {
+            if (!inventoryDict.TryGetValue((req.BranchId, req.DrugId), out var inventory))
+            {
+                logger.LogWarning("Inventory record not found for BranchId: {BranchId}, DrugId: {DrugId}", req.BranchId, req.DrugId);
+                return Result.Failure(InventoryErrors.InventoryNotFound);
+            }
+
+            var validationResult = ValidateInventoryQuantity(inventory, req.BranchId, req.DrugId, req.Quantity, isRelease: false);
+            if (validationResult.IsFailure)
+                return Result.Failure(validationResult.Error);
+
+            inventory.ReservedQuantity += req.Quantity;
+        }
+
+        logger.LogInformation("Successfully reserved {Count} batched items in-memory (Pending Save).", reservationsList.Count);
+        return Result.Success();
+    }
+
+    public async Task<Result> ReleaseReservationBatchAsync(
+        IEnumerable<(Guid BranchId, Guid DrugId, int Quantity)> releases,
+        CancellationToken cancellationToken = default)
+    {
+        var releasesList = releases.ToList();
+        if (!releasesList.Any()) return Result.Success();
+
+        var inventoriesResult = await FindAndValidateBatchAsync(releasesList, isRelease: true, cancellationToken);
+        if (inventoriesResult.IsFailure) return Result.Failure(inventoriesResult.Error);
+
+        var inventoryDict = inventoriesResult.Value;
+
+        foreach (var rel in releasesList)
+        {
+            var inventory = inventoryDict[(rel.BranchId, rel.DrugId)];
+            inventory.ReservedQuantity -= rel.Quantity;
+        }
+
+        logger.LogInformation("Successfully released {Count} batched items (Pending Save).", releasesList.Count);
+        return Result.Success();
+    }
+
+    private async Task<Result<PharmacyInventory>> FindAndValidateInventoryAsync(Guid branchId, Guid drugId, int quantity, bool isRelease, CancellationToken cancellationToken)
+    {
         if (quantity <= 0)
-            return Result.Failure(InventoryErrors.InvalidQuantity);
+            return Result.Failure<PharmacyInventory>(InventoryErrors.InvalidQuantity);
 
         if (branchId == Guid.Empty || drugId == Guid.Empty)
-            return Result.Failure(InventoryErrors.InvalidIdentifier);
+            return Result.Failure<PharmacyInventory>(InventoryErrors.InvalidIdentifier);
 
-        var inventory = await FindInventoryAsync(branchId, drugId, cancellationToken);
+        var inventory = await context.PharmacyInventories
+            .FirstOrDefaultAsync(i => i.BranchId == branchId && i.DrugId == drugId, cancellationToken);
 
         if (inventory is null)
         {
-            logger.LogWarning(
-                "Inventory record not found for BranchId: {BranchId}, DrugId: {DrugId}",
-                branchId, drugId);
-
-            return Result.Failure(InventoryErrors.InventoryNotFound);
+            logger.LogWarning("Inventory record not found for BranchId: {BranchId}, DrugId: {DrugId}", branchId, drugId);
+            return Result.Failure<PharmacyInventory>(InventoryErrors.InventoryNotFound);
         }
 
-        if (quantity > inventory.ReservedQuantity)
+        return ValidateInventoryQuantity(inventory, branchId, drugId, quantity, isRelease);
+    }
+
+    private async Task<Result<Dictionary<(Guid, Guid), PharmacyInventory>>> FindAndValidateBatchAsync(
+        List<(Guid BranchId, Guid DrugId, int Quantity)> requests, bool isRelease, CancellationToken cancellationToken)
+    {
+        if (requests.Any(r => r.Quantity <= 0))
+            return Result.Failure<Dictionary<(Guid, Guid), PharmacyInventory>>(InventoryErrors.InvalidQuantity);
+
+        if (requests.Any(r => r.BranchId == Guid.Empty || r.DrugId == Guid.Empty))
+            return Result.Failure<Dictionary<(Guid, Guid), PharmacyInventory>>(InventoryErrors.InvalidIdentifier);
+
+        var branchIds = requests.Select(r => r.BranchId).Distinct().ToList();
+        var drugIds = requests.Select(r => r.DrugId).Distinct().ToList();
+
+        var inventories = await context.PharmacyInventories
+            .Where(i => branchIds.Contains(i.BranchId) && drugIds.Contains(i.DrugId))
+            .ToListAsync(cancellationToken);
+
+        var inventoryDict = inventories.ToDictionary(i => (i.BranchId, i.DrugId));
+
+        foreach (var req in requests)
         {
-            logger.LogWarning(
-                "Release rejected for BranchId: {BranchId}, DrugId: {DrugId}. " +
-                "Requested release: {Requested}, Currently reserved: {Reserved}",
-                branchId, drugId, quantity, inventory.ReservedQuantity);
+            if (!inventoryDict.TryGetValue((req.BranchId, req.DrugId), out var inventory))
+            {
+                logger.LogWarning("Inventory record not found for BranchId: {BranchId}, DrugId: {DrugId}", req.BranchId, req.DrugId);
+                return Result.Failure<Dictionary<(Guid, Guid), PharmacyInventory>>(InventoryErrors.InventoryNotFound);
+            }
 
-            return Result.Failure(InventoryErrors.ReleaseExceedsReserved);
+            var validationResult = ValidateInventoryQuantity(inventory, req.BranchId, req.DrugId, req.Quantity, isRelease);
+            if (validationResult.IsFailure)
+                return Result.Failure<Dictionary<(Guid, Guid), PharmacyInventory>>(validationResult.Error);
         }
 
-        inventory.ReservedQuantity -= quantity;
+        return Result.Success(inventoryDict);
+    }
 
-        try
+    private Result<PharmacyInventory> ValidateInventoryQuantity(PharmacyInventory inventory, Guid branchId, Guid drugId, int quantity, bool isRelease)
+    {
+        if (isRelease)
         {
-            await context.SaveChangesAsync(cancellationToken);
-
-            logger.LogInformation(
-                "Released {Quantity} unit(s) for BranchId: {BranchId}, DrugId: {DrugId}. " +
-                "New ReservedQuantity: {ReservedQuantity}",
-                quantity, branchId, drugId, inventory.ReservedQuantity);
-
-            return Result.Success();
+            if (quantity > inventory.ReservedQuantity)
+            {
+                logger.LogWarning("Release rejected for BranchId: {BranchId}, DrugId: {DrugId}. Requested: {Requested}, Currently reserved: {Reserved}",
+                    branchId, drugId, quantity, inventory.ReservedQuantity);
+                return Result.Failure<PharmacyInventory>(InventoryErrors.ReleaseExceedsReserved);
+            }
         }
-        catch (DbUpdateConcurrencyException ex)
+        else
         {
-            logger.LogError(ex,
-                "Concurrency conflict while releasing stock for BranchId: {BranchId}, DrugId: {DrugId}",
-                branchId, drugId);
+            var availableQuantity = inventory.StockQuantity - inventory.ReservedQuantity;
+            if (availableQuantity < 0)
+            {
+                logger.LogError("Data integrity violation: ReservedQuantity ({Reserved}) exceeds StockQuantity ({Stock}) for BranchId: {BranchId}, DrugId: {DrugId}",
+                    inventory.ReservedQuantity, inventory.StockQuantity, branchId, drugId);
+                return Result.Failure<PharmacyInventory>(InventoryErrors.InsufficientStock);
+            }
 
-            return Result.Failure(InventoryErrors.ConcurrencyConflict);
+            if (availableQuantity < quantity)
+            {
+                logger.LogWarning("Insufficient stock for BranchId: {BranchId}, DrugId: {DrugId}. Available: {Available}, Requested: {Requested}",
+                    branchId, drugId, availableQuantity, quantity);
+                return Result.Failure<PharmacyInventory>(InventoryErrors.InsufficientStock);
+            }
         }
+
+        return Result.Success(inventory);
     }
 
     public async Task<Result<PharmacyInventoryDto>> CreateAsync(AddPharmacyInventoryDto dto,
@@ -247,9 +319,4 @@ public class InventoryService(
 
         return Result.Success(result);
     }
-
-    private Task<PharmacyInventory?>
-        FindInventoryAsync(Guid branchId, Guid drugId, CancellationToken cancellationToken) =>
-        context.PharmacyInventories.FirstOrDefaultAsync(i => i.BranchId == branchId && i.DrugId == drugId,
-            cancellationToken);
 }

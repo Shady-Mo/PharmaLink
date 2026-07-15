@@ -6,4 +6,5 @@ public class Patient : AppUser
     public ICollection<Order> Orders { get; set; } = new HashSet<Order>();
 
     public Cart? Cart { get; set; }
+    public ICollection<PrescriptionReview> PrescriptionReviews { get; set; } = new HashSet<PrescriptionReview>();
 }
