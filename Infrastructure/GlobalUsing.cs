@@ -40,3 +40,7 @@ global using Application.DTOs.PharmacyInventory.Response;
 global using Microsoft.AspNetCore.Http;
 global using Application.Services.OrderSplitting;
 global using Application.Services.FulfillmentLeg;
+global using Application.DTOs.Cart.Requests;
+global using Application.DTOs.Cart.Responses;
+global using Application.Services.Cart;
+global using Microsoft.Extensions.Caching.Distributed;

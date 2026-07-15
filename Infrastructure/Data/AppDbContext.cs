@@ -22,4 +22,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<OrderFulfillmentLeg> OrderFulfillmentLegs { get; set; }
     public DbSet<PhoneVerificationOtp> PhoneVerificationOtps { get; set; }
     public DbSet<OrderFulfillmentLegStatusAudit> OrderFulfillmentLegStatusAudits { get;  set; }
+    public DbSet<Cart> Carts { get; set; }
+    public DbSet<CartItem> CartItems { get; set; }
 }

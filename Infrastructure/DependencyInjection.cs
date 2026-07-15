@@ -1,3 +1,4 @@
+using Application.Services.Cart;
 using Application.Services.Order;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -10,16 +11,25 @@ public static class DependencyInjection
         public IServiceCollection AddInfrastructureServices(IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var redisConnectionString = configuration.GetConnectionString("Redis");
 
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
 
+            if (string.IsNullOrWhiteSpace(redisConnectionString))
+                throw new InvalidOperationException("Connection string 'Redis' was not found.");
 
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
 
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
+            });
+
+            services.AddStackExchangeRedisCache(options => {
+                options.Configuration = redisConnectionString;
+
+                //options.InstanceName = "PharmaLinkCache_";
             });
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
@@ -42,6 +52,9 @@ public static class DependencyInjection
             services.AddScoped<IGeoLookupService, GeoLookupService>();
             services.AddScoped<IFulfillmentLegService, FulfillmentLegService>();
             services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+
+            services.AddScoped<CartCacheService>();
+            services.AddScoped<ICartService, CartService>();
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)
