@@ -16,9 +16,6 @@ public static class DependencyInjection
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
 
-            if (string.IsNullOrWhiteSpace(connectionString))
-                throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
-
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
