@@ -21,4 +21,5 @@ public class Drug
 
     public ICollection<PharmacyInventory> Inventories { get; set; } = new HashSet<PharmacyInventory>();
     public ICollection<OrderItem> OrderItems { get; set; } = new HashSet<OrderItem>();
+    public ICollection<CartItem> CartItems { get; set; } = new HashSet<CartItem>();
 }

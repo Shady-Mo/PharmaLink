@@ -6,11 +6,10 @@ public class AddressConfiguration : IEntityTypeConfiguration<Address>
     {
         builder.HasKey(a => a.AddressId);
 
-        
-
-
         builder
-            .Property(a => a.AddressLine).HasMaxLength(500).IsRequired();
+            .Property(a => a.AddressLine)
+            .HasMaxLength(500)
+            .IsRequired();
 
         builder
             .Property(a => a.City)

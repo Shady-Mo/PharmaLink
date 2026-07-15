@@ -1,8 +1,5 @@
 namespace API.Controllers;
 
-/// <summary>
-/// Handles public authentication operations such as patient self-registration.
-/// </summary>
 public class AuthController(IAuthService authService) : BaseApiController
 {
     /// <summary>
