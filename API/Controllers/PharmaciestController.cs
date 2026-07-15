@@ -30,7 +30,7 @@ namespace API.Controllers
         [ProducesResponseType(typeof(UpdatePharmacyProfileResponseDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> UpdateDrug(UpdatePharmacyProfileRequestDTO dto, CancellationToken cancellationToken)
+        public async Task<IActionResult> Update(UpdatePharmacyProfileRequestDTO dto, CancellationToken cancellationToken)
         {
             var id = User.FindFirst(JwtClaimTypes.UserId)?.Value;
             Guid.TryParse(id, out Guid userId);
