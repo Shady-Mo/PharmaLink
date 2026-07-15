@@ -1,3 +1,4 @@
+using Application.Services.Cart;
 using Application.Services.Order;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
@@ -10,10 +11,10 @@ public static class DependencyInjection
         public IServiceCollection AddInfrastructureServices(IConfiguration configuration)
         {
             var connectionString = configuration.GetConnectionString("DefaultConnection");
+            var redisConnectionString = configuration.GetConnectionString("Redis");
 
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
-
 
             services.AddDbContext<AppDbContext>(options =>
             {
@@ -22,13 +23,23 @@ public static class DependencyInjection
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
+            if (!string.IsNullOrWhiteSpace(redisConnectionString))
+            {
+                services.AddStackExchangeRedisCache(options => {
+                    options.Configuration = redisConnectionString;
+                });
+            }
+            else
+            {
+                // Fallback for environments without Redis configured
+                services.AddDistributedMemoryCache();
+            }
+
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
                 .AddEntityFrameworkStores<AppDbContext>()
                 .AddDefaultTokenProviders();
 
             services.AddJwtServices(configuration);
-
-            services.AddHttpContextAccessor();
 
             services.AddHttpContextAccessor();
 
@@ -40,10 +51,36 @@ public static class DependencyInjection
 
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IGeoLookupService, GeoLookupService>();
-            services.AddScoped<IFulfillmentLegService, FulfillmentLegService>();
+            services.AddScoped<ILegGenerationService, LegGenerationService>();
+            services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
             services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+            services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
+
+            services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
+            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IProfileService, ProfileService>();
+
+            services.Configure<GeminiSettings>(
+                configuration.GetSection(GeminiSettings.SectionName));
+
+            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
+            {
+                var settings = configuration
+                    .GetSection(GeminiSettings.SectionName)
+                    .Get<GeminiSettings>() ?? new GeminiSettings();
+
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            });
+
+
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IProfileService, ProfileService>();
+
+
+            services.AddScoped<CartCacheService>();
+            services.AddScoped<ICartService, CartService>();
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)
@@ -51,6 +88,9 @@ public static class DependencyInjection
 
             services.Configure<OtpWebhookSettings>(
                 configuration.GetSection(OtpWebhookSettings.SectionName));
+
+            services.Configure<OrderFulfillmentSettings>(
+                configuration.GetSection(OrderFulfillmentSettings.SectionName));
 
             services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
                 client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });

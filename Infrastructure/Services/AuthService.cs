@@ -225,6 +225,42 @@ public class AuthService(
         }
 
         return Result.Failure(AuthErrors.TokenError);
+    }
 
+    public async Task<Result> ChangePasswordAsync(
+        Guid userId,
+        ChangePasswordRequestDTO request,
+        CancellationToken cancellationToken = default)
+    {
+        var user = await userManager.FindByIdAsync(userId.ToString());
+
+        if (user is null)
+        {
+            logger.LogWarning("Change password attempt for non-existent user {UserId}", userId);
+            return Result.Failure(AuthErrors.UserNotFound);
+        }
+
+        var passwordVerificationResult = await userManager.CheckPasswordAsync(user, request.CurrentPassword);
+
+        if (!passwordVerificationResult)
+        {
+            logger.LogWarning("Failed password change attempt — incorrect current password. UserId: {UserId}", userId);
+            return Result.Failure(AuthErrors.CurrentPasswordIncorrect);
+        }
+
+        var changeResult = await userManager.ChangePasswordAsync(user, request.CurrentPassword, request.NewPassword);
+
+        if (!changeResult.Succeeded)
+        {
+            var errors = string.Join("; ", changeResult.Errors.Select(e => e.Description));
+
+            logger.LogError("Failed to change password for user {UserId}. Errors: {Errors}", userId, errors);
+
+            return Result.Failure(AuthErrors.PasswordChangeRequired);
+        }
+
+        logger.LogInformation("Password changed successfully for user {UserId}", userId);
+
+        return Result.Success();
     }
 }

@@ -74,14 +74,14 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
 
     public async Task<Result<GetOrderDTO>> GetOrder(Guid orderId, Guid patientUserId)
     {
-        var order = await context.Orders
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.OrderId == orderId && o.PatientUserId == patientUserId);
+        var dto = await context.Orders
+            .Where(o => o.OrderId == orderId && o.PatientUserId == patientUserId)
+            .ProjectToType<GetOrderDTO>()
+            .FirstOrDefaultAsync();
 
-        if (order is null)
+        if (dto is null)
             return Result.Failure<GetOrderDTO>(OrderErrors.OrderNotFound);
 
-        var dto = order.Adapt<GetOrderDTO>();
         return Result.Success<GetOrderDTO>(dto);
     }
 
@@ -98,14 +98,14 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
 
     public async Task<Result<GetOrderDTO>> GetOrderForAdmin(Guid orderId)
     {
-        var order = await context.Orders
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.OrderId == orderId);
+        var dto = await context.Orders
+            .Where(o => o.OrderId == orderId)
+            .ProjectToType<GetOrderDTO>()
+            .FirstOrDefaultAsync();
 
-        if (order is null)
+        if (dto is null)
             return Result.Failure<GetOrderDTO>(OrderErrors.OrderNotFound);
 
-        var dto = order.Adapt<GetOrderDTO>();
         return Result.Success(dto);
     }
 
