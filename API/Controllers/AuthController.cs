@@ -1,3 +1,5 @@
+using Twilio.TwiML.Messaging;
+
 namespace API.Controllers;
 
 public class AuthController(IAuthService authService) : BaseApiController
@@ -104,7 +106,7 @@ public class AuthController(IAuthService authService) : BaseApiController
     {
         var result = await authService.ResetPassword(resetPasswordDTO, cancellationToken);
 
-        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
+        return result.IsFailure ? result.ToProblem() : Ok(new { Message = result.Value });
     }
 
     /// <summary>

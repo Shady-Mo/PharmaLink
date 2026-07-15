@@ -200,7 +200,7 @@ public class AuthService(
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
-        var resetLink = $"http://localhost:4200/reset-password?email={email}&token={encodedToken}";
+        var resetLink = $"http://localhost:4200/auth/reset-password?email={email}&token={encodedToken}";
 
         await emailService.SendEmailAsync(email, "Reset Password", $"Click here to reset your password: {resetLink}");
 
