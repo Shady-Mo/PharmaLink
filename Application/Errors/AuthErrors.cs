@@ -39,4 +39,19 @@ public static class AuthErrors
        new("Auth.TokenError",
            "The Token is invalid",
            StatusCodes.Status400BadRequest);
+
+    public static readonly Error CurrentPasswordIncorrect =
+        new("Auth.CurrentPasswordIncorrect",
+            "The current password is incorrect.",
+            StatusCodes.Status401Unauthorized);
+
+    public static readonly Error PasswordChangeRequired =
+        new("Auth.PasswordChangeRequired",
+            "Password change failed due to a server error. Please try again.",
+            StatusCodes.Status500InternalServerError);
+
+    public static readonly Error UserNotFound =
+        new("Auth.UserNotFound",
+            "User not found.",
+            StatusCodes.Status404NotFound);
 }
