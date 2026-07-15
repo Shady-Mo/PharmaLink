@@ -30,32 +30,41 @@ public static class DependencyInjection
 
             services.AddHttpContextAccessor();
 
-            services.AddHttpContextAccessor();
-
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
 
             services.AddScoped<IAddressService, AddressService>();
 
-            services.AddScoped<IOrderService, OrderService>();
-            services.AddScoped<IGeoLookupService, GeoLookupService>();
-            services.AddScoped<ILegGenerationService, LegGenerationService>();
-            services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
-            services.AddScoped<IOrderSplittingService, OrderSplittingService>();
-            services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
+           services.AddScoped<IOrderService, OrderService>();
+          services.AddScoped<IGeoLookupService, GeoLookupService>();
+services.AddScoped<ILegGenerationService, LegGenerationService>();
+services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
+services.AddScoped<IOrderSplittingService, OrderSplittingService>();
+services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
 
-            services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
-            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
+services.AddScoped<IAIExtractionService, GeminiExtractionService>();
 
-            services.Configure<GeminiSettings>(
-                configuration.GetSection(GeminiSettings.SectionName));
+services.AddScoped<IEmailService, EmailService>();
+services.AddScoped<IProfileService, ProfileService>();
 
-            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
-            {
-                var settings = configuration.GetSection(GeminiSettings.SectionName).Get<GeminiSettings>() ?? new GeminiSettings();
-                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
-            });
+services.Configure<GeminiSettings>(
+    configuration.GetSection(GeminiSettings.SectionName));
+
+services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
+{
+    var settings = configuration
+        .GetSection(GeminiSettings.SectionName)
+        .Get<GeminiSettings>() ?? new GeminiSettings();
+
+    client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+});
+
+
+            services.AddScoped<IEmailService, EmailService>();
+            services.AddScoped<IProfileService, ProfileService>();
+
 
             var webhookSettings = configuration
                 .GetSection(OtpWebhookSettings.SectionName)
