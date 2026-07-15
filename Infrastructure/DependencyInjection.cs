@@ -23,17 +23,16 @@ public static class DependencyInjection
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
-            if (!string.IsNullOrWhiteSpace(redisConnectionString)) {
-                if (!redisConnectionString.Contains("connectTimeout")) {
-                    redisConnectionString += ",connectTimeout=5000,syncTimeout=5000,abortConnect=false";
-                }
-
+            if (!string.IsNullOrWhiteSpace(redisConnectionString))
+            {
                 services.AddStackExchangeRedisCache(options => {
                     options.Configuration = redisConnectionString;
                 });
             }
-            else {
-                throw new Exception("Redis Connection string is missing from appsettings.json!");
+            else
+            {
+                // Fallback for environments without Redis configured
+                services.AddDistributedMemoryCache();
             }
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
