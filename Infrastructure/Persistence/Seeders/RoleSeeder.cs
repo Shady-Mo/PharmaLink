@@ -27,8 +27,8 @@ public class RoleSeeder(
 
             var result = await roleManager.CreateAsync(new IdentityRole<Guid>
             {
-                Id             = Guid.NewGuid(),
-                Name           = roleName,
+                Id = Guid.NewGuid(),
+                Name = roleName,
                 NormalizedName = roleName.ToUpperInvariant()
             });
 

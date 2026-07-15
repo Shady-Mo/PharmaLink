@@ -251,7 +251,6 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
                 {
                     b.Property<Guid>("LegId")
-                        .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
                     b.Property<Guid>("BranchId")
@@ -364,6 +363,10 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("LogoUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<Guid>("OwnerUserId")
                         .HasColumnType("uniqueidentifier");
 
@@ -382,6 +385,10 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("BranchId")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AddressLine")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<string>("BranchName")
                         .IsRequired()
@@ -404,6 +411,10 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("PharmacyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<string>("PhoneNumber")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("ServiceRadiusKm")
                         .HasColumnType("decimal(18,2)");
 
@@ -412,6 +423,10 @@ namespace Infrastructure.Migrations
 
                     b.Property<bool>("SupportsPickup")
                         .HasColumnType("bit");
+
+                    b.Property<string>("WorkingHours")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.HasKey("BranchId");
 
@@ -494,6 +509,131 @@ namespace Infrastructure.Migrations
                         .IsUnique();
 
                     b.ToTable("PhoneVerificationOtps", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
+                {
+                    b.Property<Guid>("PrescriptionReviewId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("AIModel")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("CreatedOrderId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("OriginalFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("nvarchar(255)");
+
+                    b.Property<Guid>("PatientUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid?>("PharmacistUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("PrescriptionImagePath")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<byte>("ReviewStatus")
+                        .HasColumnType("tinyint");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("PrescriptionReviewId");
+
+                    b.HasIndex("CreatedOrderId")
+                        .IsUnique()
+                        .HasFilter("[CreatedOrderId] IS NOT NULL");
+
+                    b.HasIndex("PatientUserId");
+
+                    b.HasIndex("PharmacistUserId");
+
+                    b.ToTable("PrescriptionReviews");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
+                {
+                    b.Property<Guid>("PrescriptionReviewMedicineId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<double?>("Confidence")
+                        .HasColumnType("float");
+
+                    b.Property<string>("DosageForm")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Dose")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Duration")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("Frequency")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<string>("GenericName")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<bool>("IsEdited")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("MedicineName")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("OriginalMedicineName")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<Guid>("PrescriptionReviewId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("Quantity")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
+                    b.Property<string>("Route")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("Strength")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("PrescriptionReviewMedicineId");
+
+                    b.HasIndex("PrescriptionReviewId");
+
+                    b.ToTable("PrescriptionReviewMedicines");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -794,6 +934,42 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
+                {
+                    b.HasOne("Domain.Entities.Order", "CreatedOrder")
+                        .WithOne("PrescriptionReview")
+                        .HasForeignKey("Domain.Entities.PrescriptionReview", "CreatedOrderId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Domain.Entities.Patient", "Patient")
+                        .WithMany("PrescriptionReviews")
+                        .HasForeignKey("PatientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Pharmacist", "Pharmacist")
+                        .WithMany("ReviewedPrescriptions")
+                        .HasForeignKey("PharmacistUserId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("CreatedOrder");
+
+                    b.Navigation("Patient");
+
+                    b.Navigation("Pharmacist");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
+                {
+                    b.HasOne("Domain.Entities.PrescriptionReview", "PrescriptionReview")
+                        .WithMany("Medicines")
+                        .HasForeignKey("PrescriptionReviewId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("PrescriptionReview");
+                });
+
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
                 {
                     b.HasOne("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", null)
@@ -862,6 +1038,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("FulfillmentLegs");
 
                     b.Navigation("Items");
+
+                    b.Navigation("PrescriptionReview");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -883,16 +1061,25 @@ namespace Infrastructure.Migrations
                     b.Navigation("SuppliedOrderItems");
                 });
 
+            modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
+                {
+                    b.Navigation("Medicines");
+                });
+
             modelBuilder.Entity("Domain.Entities.Patient", b =>
                 {
                     b.Navigation("Addresses");
 
                     b.Navigation("Orders");
+
+                    b.Navigation("PrescriptionReviews");
                 });
 
             modelBuilder.Entity("Domain.Entities.Pharmacist", b =>
                 {
                     b.Navigation("AdministeredPharmacies");
+
+                    b.Navigation("ReviewedPrescriptions");
                 });
 #pragma warning restore 612, 618
         }
