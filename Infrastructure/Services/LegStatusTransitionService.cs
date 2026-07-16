@@ -1,60 +1,17 @@
+using Application.Services.FulfillmentLeg;
+using Domain.Entities;
+using Domain.Enums;
+using Application.Common;
+using Infrastructure.Persistence;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
+
 namespace Infrastructure.Services;
 
-public class FulfillmentLegService(
+public class LegStatusTransitionService(
     AppDbContext context,
-    ILogger<FulfillmentLegService> logger) : IFulfillmentLegService
+    ILogger<LegStatusTransitionService> logger) : ILegStatusTransitionService
 {
-    public async Task<Result<bool>> GenerateLegsAsync(Guid orderId)
-    {
-        var order = await context.Orders
-            .Include(o => o.Items)
-            .FirstOrDefaultAsync(o => o.OrderId == orderId);
-
-        if (order is null)
-            return Result.Failure<bool>(OrderErrors.OrderNotFound);
-
-        var assignedItems = order.Items
-            .Where(i => i.BranchId != Guid.Empty && i.BranchId != null)
-            .ToList();
-
-        if (assignedItems.Count == 0)
-        {
-            order.OrderStatus = OrderStatus.Cancelled;
-            await context.SaveChangesAsync();
-            return Result.Success(false);
-        }
-
-        var distinctBranchIds = assignedItems
-            .Select(i => i.BranchId)
-            .Distinct()
-            .ToList();
-
-        var calculatedLegType = order.FulfillmentMode == FulfillmentMode.Delivery
-            ? LegType.Delivery
-            : LegType.Preparation;
-
-        var readyByEstimateTime = DateTime.UtcNow.AddMinutes(30);
-
-        foreach (var branchId in distinctBranchIds)
-        {
-            var leg = new OrderFulfillmentLeg
-            {
-                LegId = Guid.NewGuid(),
-                OrderId = order.OrderId,
-                BranchId = branchId!.Value,
-                LegStatus = LegStatus.Assigned,
-                LegType = calculatedLegType,
-                ReadyByEstimate = readyByEstimateTime
-            };
-
-            context.OrderFulfillmentLegs.Add(leg);
-        }
-
-        await context.SaveChangesAsync();
-
-        return Result.Success(true);
-    }
-
     public async Task<Result> UpdateLegStatusAsync(
         Guid legId, LegStatus newStatus, List<Guid> pharmacistBranchIds, CancellationToken cancellationToken)
     {
@@ -131,28 +88,19 @@ public class FulfillmentLegService(
         leg.LegStatus = newStatus;
 
         if (newStatus == LegStatus.Completed)
-            leg.CompletedAt = DateTime.UtcNow;
-
-        await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
-
-        await context.SaveChangesAsync(cancellationToken);
-
-        if (newStatus == LegStatus.Completed)
         {
-            var siblingLegs = await context.OrderFulfillmentLegs
-                .Where(l => l.OrderId == leg.OrderId)
-                .Select(l => l.LegStatus)
-                .ToListAsync(cancellationToken);
+            leg.CompletedAt = DateTime.UtcNow;
+            
+            bool anyIncomplete = await context.OrderFulfillmentLegs
+                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Completed, cancellationToken);
 
-            var allCompleted = siblingLegs.All(s => s == LegStatus.Completed);
-            if (allCompleted)
+            if (!anyIncomplete)
             {
                 leg.Order.OrderStatus = OrderStatus.Completed;
-                await context.SaveChangesAsync(cancellationToken);
             }
         }
 
-        await transaction.CommitAsync(cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
     }

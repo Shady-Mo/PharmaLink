@@ -5,5 +5,6 @@ public class OrderFulfillmentLegConfiguration : IEntityTypeConfiguration<OrderFu
     public void Configure(EntityTypeBuilder<OrderFulfillmentLeg> builder)
     {
         builder.HasKey(l => l.LegId);
+        builder.Property(l => l.LegId).ValueGeneratedNever();
     }
 }

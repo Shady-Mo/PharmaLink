@@ -1,8 +1,7 @@
+using Twilio.TwiML.Messaging;
+
 namespace API.Controllers;
 
-/// <summary>
-/// Handles public authentication operations such as patient self-registration.
-/// </summary>
 public class AuthController(IAuthService authService) : BaseApiController
 {
     /// <summary>
@@ -82,6 +81,84 @@ public class AuthController(IAuthService authService) : BaseApiController
         return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
 
+    [HttpPost("ForgotPassword")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswardDTO forgotPasswardDTO,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.ForgotPassword(forgotPasswardDTO.Email, cancellationToken);
+
+        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
+    }
+
+    [HttpPost("ResetPassword")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordDTO resetPasswordDTO,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.ResetPassword(resetPasswordDTO, cancellationToken);
+
+        return result.IsFailure ? result.ToProblem() : Ok(new { Message = result.Value });
+    }
+
+    /// <summary>
+    /// Changes the password for an authenticated user.
+    /// </summary>
+    /// <remarks>
+    /// **Security guarantees:**
+    /// - Requires authentication. Only authenticated users can change their own password.
+    /// - The current password is validated before the new password is applied.
+    /// - The new password is hashed using ASP.NET Identity's PBKDF2-based algorithm.
+    /// - Prevents changing to the same password.
+    /// - The new password must comply with the password policy:
+    ///   - Minimum 8 characters
+    ///   - At least one uppercase letter
+    ///   - At least one lowercase letter
+    ///   - At least one digit
+    ///   - At least one special character
+    /// </remarks>
+    /// <param name="request">Change password request with current and new passwords.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// **200 OK** on success.  
+    /// **401 Unauthorized** if the current password is incorrect.  
+    /// **400 Bad Request** if validation fails or new password policy is not met.  
+    /// **404 Not Found** if the user is not found.  
+    /// **500 Internal Server Error** if password change fails.
+    /// </returns>
+    [Authorize]
+    [HttpPost("change-password")]
+    [ProducesResponseType(typeof(ChangePasswordResponseDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequestDTO request,
+        CancellationToken cancellationToken)
+    {
+        var userId = User.FindFirstValue(JwtClaimTypes.UserId);
+
+        if (!Guid.TryParse(userId, out var parsedUserId))
+        {
+            return Unauthorized("Invalid or missing user ID in token.");
+        }
+
+        var result = await authService.ChangePasswordAsync(parsedUserId, request, cancellationToken);
+
+        if (result.IsFailure)
+            return result.ToProblem();
+
+        return Ok(new ChangePasswordResponseDTO { Message = "Password changed successfully." });
+    }
 
     [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
     [HttpGet("test")]
