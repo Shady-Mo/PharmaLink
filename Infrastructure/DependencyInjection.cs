@@ -66,6 +66,11 @@ public static class DependencyInjection
 
             services.AddScoped<IPharmacyService, PharmacyService>();
 
+
+            // moshady21
+            services.AddScoped<IPatientService, PatientService>();
+
+
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
 
