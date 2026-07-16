@@ -66,24 +66,20 @@ public class PatientService(
             return Result.Failure<PatientProfileDto>(PatientErrors.PatientNotFound);
         }
 
-        // 2. تحديث الحقول المسموح بتعديلها فقط يدوياً (Manual Assignment)
         patient.FullName = updateDto.FullName;
         patient.PhoneNumber = updateDto.PhoneNumber;
 
-        patient.Email = updateDto.Email.ToLowerInvariant();
-        patient.NormalizedEmail = updateDto.Email.ToUpperInvariant();
+        //patient.Email = updateDto.Email.ToLowerInvariant();
+        //patient.NormalizedEmail = updateDto.Email.ToUpperInvariant();
 
 
-        // 3. حفظ التعديلات في قاعدة البيانات
         await context.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Patient profile updated successfully for ID {PatientId}.", patientId);
 
-        // 4. إرجاع الملف الشخصي المحدث بالكامل عبر التحويل اليدوي
         var updatedProfileDto = MapToProfileDto(patient);
         return Result.Success(updatedProfileDto);
     }
 
-    // دالة مساعدة خاصة لتطبيق الـ Manual Mapping وتجنب تكرار الكود في الـ Get والـ Update
     private static PatientProfileDto MapToProfileDto(Domain.Entities.Patient patient)
     {
         return new PatientProfileDto
