@@ -1,5 +1,7 @@
 using Application.Services.Cart;
 using Application.Services.Order;
+using Application.Services.Pharmacy;
+using Infrastructure.Services.Pharmacy;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 
 namespace Infrastructure;
@@ -61,6 +63,8 @@ public static class DependencyInjection
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IProfileService, ProfileService>();
+
+            services.AddScoped<IPharmacyService, PharmacyService>();
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
