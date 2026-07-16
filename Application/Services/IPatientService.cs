@@ -1,11 +1,13 @@
-﻿using System;
+﻿using Application.DTOs;
+using Application.DTOs.Patient;
+using System;
 using System.Threading;
 using System.Threading.Tasks;
-using Application.DTOs;
 
 namespace Application.Services;
 
 public interface IPatientService
 {
     Task<Result<PatientProfileDto>> GetProfileAsync(Guid patientId, CancellationToken cancellationToken = default);
+    Task<Result<PatientProfileDto>> UpdateProfileAsync(Guid patientId, UpdatePatientProfileDto updateDto, CancellationToken cancellationToken = default);
 }
