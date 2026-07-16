@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers
 {
-    [Route("api/[controller]")]
+    [Route("api/v1/[controller]")]
     [ApiController]
     public class PharmaciestController(IProfileService profileService) : BaseApiController
     {
@@ -15,7 +15,7 @@ namespace API.Controllers
         [ProducesResponseType(typeof(GetPharmacyProfileResponseDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
         [Authorize(Roles = $"{AppRoles.Pharmacist}")]
-        public async Task<IActionResult> GetById(CancellationToken cancellationToken)
+        public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
         {
             var id = User.FindFirst(JwtClaimTypes.UserId)?.Value;
             Guid.TryParse(id, out Guid userId);
