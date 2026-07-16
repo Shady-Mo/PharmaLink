@@ -1,5 +1,6 @@
 ﻿
 using Application.DTOs;
+using Application.DTOs.Patient;
 
 
 namespace Infrastructure.Services;
@@ -48,4 +49,64 @@ public class PatientService(
 
         return Result.Success(profileDto);
     }
+
+
+    public async Task<Result<PatientProfileDto>> UpdateProfileAsync(Guid patientId, UpdatePatientProfileDto updateDto, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        // 1. جلب المريض من قاعدة البيانات مع العناوين المرتبطة به لغرض التعديل (دون استخدام AsNoTracking)
+        var patient = await context.Patients
+            //.Include(p => p.Addresses)
+            .FirstOrDefaultAsync(p => p.Id == patientId, cancellationToken);
+
+        if (patient is null)
+        {
+            logger.LogWarning("Profile update failed: Patient with ID {PatientId} was not found.", patientId);
+            return Result.Failure<PatientProfileDto>(PatientErrors.PatientNotFound);
+        }
+
+        // 2. تحديث الحقول المسموح بتعديلها فقط يدوياً (Manual Assignment)
+        patient.FullName = updateDto.FullName;
+        patient.PhoneNumber = updateDto.PhoneNumber;
+
+        patient.Email = updateDto.Email.ToLowerInvariant();
+        patient.NormalizedEmail = updateDto.Email.ToUpperInvariant();
+
+
+        // 3. حفظ التعديلات في قاعدة البيانات
+        await context.SaveChangesAsync(cancellationToken);
+        logger.LogInformation("Patient profile updated successfully for ID {PatientId}.", patientId);
+
+        // 4. إرجاع الملف الشخصي المحدث بالكامل عبر التحويل اليدوي
+        var updatedProfileDto = MapToProfileDto(patient);
+        return Result.Success(updatedProfileDto);
+    }
+
+    // دالة مساعدة خاصة لتطبيق الـ Manual Mapping وتجنب تكرار الكود في الـ Get والـ Update
+    private static PatientProfileDto MapToProfileDto(Domain.Entities.Patient patient)
+    {
+        return new PatientProfileDto
+        {
+            PatientId = patient.Id,
+            FullName = patient.FullName,
+            Email = patient.Email ?? string.Empty,
+            PhoneNumber = patient.PhoneNumber ?? string.Empty,
+            Status = patient.Status.ToString(),
+            CreatedAt = patient.CreatedAt,
+
+            //Addresses = patient.Addresses.Select(a => new PatientAddressDto
+            //{
+            //    AddressId = a.AddressId,
+            //    AddressLine = a.AddressLine,
+            //    City = a.City,
+            //    Governorate = a.Governorate,
+            //    IsDefault = a.IsDefault,
+            //    Latitude = a.GeoLocation?.Y,
+            //    Longitude = a.GeoLocation?.X
+            //}).ToList()
+        };
+    }
+
+
 }
