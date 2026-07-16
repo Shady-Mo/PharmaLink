@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Errors
+﻿namespace Application.Errors
 {
 
     public static class AddressErrors
@@ -26,6 +22,11 @@ namespace Application.Errors
         public static readonly Error AddressAlreadyDefault =
             new("AddressAlreadyDefault",
                 "This address is already the default address."
+                , StatusCodes.Status409Conflict);
+
+        public static readonly Error AddressIsTheDefault =
+            new("AddressIsTheDefault",
+                "this is the default address you can't delete or make it not Default . make another one default"
                 , StatusCodes.Status409Conflict);
 
     }
