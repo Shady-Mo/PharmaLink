@@ -113,7 +113,12 @@ public class AuthService(
         {
             logger.LogWarning(
                 "Login blocked — phone not verified. UserId: {UserId}", user.Id);
-            return Result.Failure<LoginResponseDTO>(AuthErrors.PhoneNotVerified);
+            return Result.Success<LoginResponseDTO>(new LoginResponseDTO()
+            {
+                UserId = user.Id,
+                RequiresPhoneVerification = true
+
+            });
         }
 
         return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
