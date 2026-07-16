@@ -14,5 +14,15 @@ public class MapsterConfig : IRegister
         // Order Mappings
         config.NewConfig<Order, GetOrderDTO>();
         config.NewConfig<OrderItem, OrderItemResponseDTO>();
+
+        //// Patient  moshady21
+        //config.NewConfig<Address, PatientAddressDto>()
+        //    .Map(dest => dest.Latitude, src => src.GeoLocation != null ? (double?)src.GeoLocation.Y : null)
+        //    .Map(dest => dest.Longitude, src => src.GeoLocation != null ? (double?)src.GeoLocation.X : null);
+
+        //config.NewConfig<Patient, PatientProfileDto>()
+        //    .Map(dest => dest.PatientId, src => src.Id)
+        //    .Map(dest => dest.Status, src => src.Status.ToString())
+        //    .Map(dest => dest.Addresses, src => src.Addresses);
     }
 }

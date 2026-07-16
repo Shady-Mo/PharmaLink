@@ -33,7 +33,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<IInventoryService, InventoryService>();
         services.AddScoped<IOtpService, OtpService>();
-
+        services.AddScoped<IPatientService, PatientService>();
 
         services.AddScoped<DrugSeeder>();
         services.AddScoped<RoleSeeder>();
