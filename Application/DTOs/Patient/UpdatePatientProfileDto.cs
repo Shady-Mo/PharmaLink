@@ -16,9 +16,6 @@ namespace Application.DTOs.Patient
         public string PhoneNumber { get; set; } = string.Empty;
 
 
-        //[Required(ErrorMessage = "Email is required.")]
-        //[EmailAddress(ErrorMessage = "Invalid email address format.")]
-        //public string Email { get; set; } = string.Empty;
     }
 
 
