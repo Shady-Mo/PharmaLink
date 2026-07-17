@@ -1,6 +1,3 @@
-using Application.DTOs.Cart.Requests;
-using Application.DTOs.Cart.Responses;
-
 namespace Application.Services.Cart;
 
 public interface ICartService

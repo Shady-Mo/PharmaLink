@@ -1,7 +1,3 @@
-using Application.DTOs.Cart.Requests;
-using Application.DTOs.Cart.Responses;
-using Application.Services.Cart;
-
 namespace Infrastructure.Services;
 
 public class CartService(AppDbContext dbContext, CartCacheService cartCache) : ICartService
