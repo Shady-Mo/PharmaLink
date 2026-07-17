@@ -7,4 +7,6 @@ public class AppUser : IdentityUser<Guid>
     public UserStatus Status { get; set; } = UserStatus.Active;
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+
+    public List<RefreshToken> RefreshTokens { get; set; } = new();
 }
