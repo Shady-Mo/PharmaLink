@@ -5,6 +5,7 @@ public class Drug
     public Guid DrugId { get; set; }
     public string GenericName { get; set; } = string.Empty;
     public string BrandName { get; set; } = string.Empty;
+    public string? ImageUrl { get; set; } = string.Empty;
     public string DrugBankId { get; set; } = string.Empty;
     public string RxNormCui { get; set; } = string.Empty;
     public string NdcCode { get; set; } = string.Empty;

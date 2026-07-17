@@ -16,6 +16,9 @@ public static class DependencyInjection
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
 
+            if (string.IsNullOrWhiteSpace(redisConnectionString))
+                throw new InvalidOperationException("Connection string 'Redis' was not found.");
+
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
@@ -23,17 +26,11 @@ public static class DependencyInjection
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
-            if (!string.IsNullOrWhiteSpace(redisConnectionString))
-            {
-                services.AddStackExchangeRedisCache(options => {
-                    options.Configuration = redisConnectionString;
-                });
-            }
-            else
-            {
-                // Fallback for environments without Redis configured
-                services.AddDistributedMemoryCache();
-            }
+            services.AddStackExchangeRedisCache(options => {
+                options.Configuration = redisConnectionString;
+
+                //options.InstanceName = "PharmaLinkCache_";
+            });
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
                 .AddEntityFrameworkStores<AppDbContext>()
