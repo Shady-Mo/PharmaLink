@@ -69,10 +69,8 @@ public class PatientService(
         patient.FullName = updateDto.FullName;
         patient.PhoneNumber = updateDto.PhoneNumber;
 
-        //patient.Email = updateDto.Email.ToLowerInvariant();
-        //patient.NormalizedEmail = updateDto.Email.ToUpperInvariant();
 
-
+        
         await context.SaveChangesAsync(cancellationToken);
         logger.LogInformation("Patient profile updated successfully for ID {PatientId}.", patientId);
 
