@@ -1,7 +1,3 @@
-using Application.DTOs.Cart.Requests;
-using Application.DTOs.Cart.Responses;
-using Application.Services.Cart;
-
 namespace API.Controllers;
 
 [Authorize(Roles = AppRoles.Patient)]

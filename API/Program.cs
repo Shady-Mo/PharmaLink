@@ -1,5 +1,3 @@
-using Microsoft.Extensions.Caching.Distributed;
-
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services
