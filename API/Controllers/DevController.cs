@@ -1,8 +1,3 @@
-using Domain.Entities;
-using Domain.Enums;
-using Microsoft.AspNetCore.Identity;
-using NetTopologySuite.Geometries;
-
 namespace API.Controllers;
 
 public class AaTestController(
@@ -19,8 +14,11 @@ public class AaTestController(
         var pharmacist = await GetOrCreateUserAsync(
             "pharmacist@dev.test", "Test Pharmacist", "01000000002", AppRoles.Pharmacist, cancellationToken);
 
-        var admin = await GetOrCreateUserAsync(
-            "admin@dev.test", "System Admin", "01000000003", AppRoles.Admin, cancellationToken);
+        var systemAdmin = await GetOrCreateUserAsync(
+            "systemadmin@dev.test", "System Admin", "01000000003", AppRoles.Admin, cancellationToken);
+
+        var pharmacyAdmin = await GetOrCreateUserAsync(
+            "pharmacyadmin@dev.test", "Pharmacy Admin", "01000000004", AppRoles.PharmacyAdmin, cancellationToken);
 
         var patientTokenResult =
             await authService.GenerateTokenForUserAsync(patient, AppRoles.Patient, cancellationToken);
@@ -28,8 +26,11 @@ public class AaTestController(
         var pharmacistTokenResult =
             await authService.GenerateTokenForUserAsync(pharmacist, AppRoles.Pharmacist, cancellationToken);
 
-        var adminTokenResult =
-            await authService.GenerateTokenForUserAsync(admin, AppRoles.Admin, cancellationToken);
+        var systemAdminTokenResult =
+            await authService.GenerateTokenForUserAsync(systemAdmin, AppRoles.Admin, cancellationToken);
+
+        var pharmacyAdminTokenResult =
+            await authService.GenerateTokenForUserAsync(pharmacyAdmin, AppRoles.PharmacyAdmin, cancellationToken);
 
         return Ok(new
         {
@@ -49,13 +50,21 @@ public class AaTestController(
                 role = AppRoles.Pharmacist,
                 token = pharmacistTokenResult.IsSuccess ? pharmacistTokenResult.Value.AccessToken : null
             },
-            admin = new
+            systemAdmin = new
             {
-                userId = admin.Id,
-                fullName = admin.FullName,
-                email = admin.Email,
+                userId = systemAdmin.Id,
+                fullName = systemAdmin.FullName,
+                email = systemAdmin.Email,
                 role = AppRoles.Admin,
-                token = adminTokenResult.IsSuccess ? adminTokenResult.Value.AccessToken : null
+                token = systemAdminTokenResult.IsSuccess ? systemAdminTokenResult.Value.AccessToken : null
+            },
+            pharmacyAdmin = new
+            {
+                userId = pharmacyAdmin.Id,
+                fullName = pharmacyAdmin.FullName,
+                email = pharmacyAdmin.Email,
+                role = AppRoles.PharmacyAdmin,
+                token = pharmacyAdminTokenResult.IsSuccess ? pharmacyAdminTokenResult.Value.AccessToken : null
             }
         });
     }
@@ -76,6 +85,7 @@ public class AaTestController(
             AppRoles.Patient => new Patient(),
             AppRoles.Pharmacist => new Pharmacist(),
             AppRoles.Admin => new SystemAdmin(),
+            AppRoles.PharmacyAdmin => new PharmacyAdmin(),
             _ => throw new InvalidOperationException($"Unsupported role: {role}")
         };
 
@@ -117,7 +127,6 @@ public class AaTestController(
         var pharmacy = new Pharmacy
         {
             PharmacyId = Guid.NewGuid(),
-            OwnerUserId = pharmacistId,
             LegalName = "Dev Pharmacy",
             LicenseNumber = "DEV-LIC-1234",
             VerificationStatus = VerificationStatus.Verified

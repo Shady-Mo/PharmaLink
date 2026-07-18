@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.DTOs.Pharmacy.Request
+﻿namespace Application.DTOs.Pharmacy.Request
 {
     public class GetPharmaciesRequest : PaginatedRequest
     {

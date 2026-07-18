@@ -1,19 +1,5 @@
-using Microsoft.AspNetCore.WebUtilities;
-
 namespace Infrastructure.Services;
 
-/// <summary>
-/// Implements patient self-registration using ASP.NET Core Identity.
-/// </summary>
-/// <remarks>
-/// Security guarantees enforced here:
-/// <list type="bullet">
-///   <item>Role is ALWAYS hard-coded to <c>Patient</c> — never read from the incoming request.</item>
-///   <item>Password is hashed by <see cref="UserManager{TUser}"/> (ASP.NET Identity default: BCrypt-based PBKDF2). It is never stored or logged in plain-text.</item>
-///   <item><c>EmailConfirmed</c> and <c>PhoneNumberConfirmed</c> default to <c>false</c> per Identity convention.</item>
-///   <item>Uniqueness of email AND phone is checked before user creation to return precise 409 errors.</item>
-/// </list>
-/// </remarks>
 public class AuthService(
     UserManager<AppUser> userManager,
     IJwtTokenGeneratorService tokenGenerator,
@@ -138,7 +124,7 @@ public class AuthService(
         switch (roleName)
         {
             case AppRoles.Pharmacist:
-                await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
+                //await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
                 break;
 
             case AppRoles.Admin:
@@ -165,35 +151,30 @@ public class AuthService(
         });
     }
 
-    private async Task AddPharmacistClaimsAsync(
-        Guid pharmacistId,
-        List<Claim> claims,
-        CancellationToken cancellationToken)
-    {
-        var ownedPharmacies = await dbContext.Pharmacies
-            .Where(p => p.OwnerUserId == pharmacistId
-                        && p.VerificationStatus == VerificationStatus.Verified)
-            .Select(p => new
-            {
-                p.PharmacyId,
-                BranchIds = p.Branches.Select(b => b.BranchId)
-            })
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
+    //private async Task AddPharmacistClaimsAsync(
+    //    Guid pharmacistId,
+    //    List<Claim> claims,
+    //    CancellationToken cancellationToken)
+    //{
+    //    var ownedPharmacies = await dbContext.Pharmacies
+    //        .Where(p => p.OwnerUserId == pharmacistId
+    //                    && p.VerificationStatus == VerificationStatus.Verified)
+    //        .Select(p => new
+    //        {
+    //            p.PharmacyId,
+    //            BranchIds = p.Branches.Select(b => b.BranchId)
+    //        })
+    //        .AsNoTracking()
+    //        .ToListAsync(cancellationToken);
 
-        foreach (var pharmacy in ownedPharmacies)
-        {
-            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+    //    foreach (var pharmacy in ownedPharmacies)
+    //    {
+    //        claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
 
-            claims.AddRange(
-                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
-        }
-
-        // Edge case: a Pharmacist account with zero verified pharmacies still gets
-        // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
-        // so every branch-ownership check downstream will correctly reject them
-        // until they have at least one verified pharmacy.
-    }
+    //        claims.AddRange(
+    //            pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+    //    }
+    //}
 
     public async Task<Result> ForgotPassword(string email, CancellationToken cancellationToken)
     {

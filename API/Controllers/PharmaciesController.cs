@@ -1,9 +1,4 @@
-﻿using Application.DTOs.Pharmacy.Request;
-using Application.Services.Pharmacy;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-
-namespace API.Controllers
+﻿namespace API.Controllers
 {
     [Route("api/v1/[controller]")]
     [ApiController]

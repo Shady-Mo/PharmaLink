@@ -22,3 +22,7 @@ global using Microsoft.AspNetCore.Http;
 global using Domain.Enums;
 global using System.Security.Claims;
 global using Application.Errors;
+global using Application.DTOs.Pharmacist.Requests;
+global using Application.DTOs.Pharmacist.Responses;
+global using Application.Services.Pharmacist;
+global using Application.DTOs.Pharmacy.Request;
