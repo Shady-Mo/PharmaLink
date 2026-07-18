@@ -6,6 +6,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        
+        builder.Entity<AppUser>().OwnsMany(u => u.RefreshTokens, a =>
+        {
+            a.WithOwner().HasForeignKey("UserId");
+            a.Property(r => r.Token).IsRequired().HasMaxLength(200);
+            a.ToTable("RefreshTokens");
+        });
+
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 

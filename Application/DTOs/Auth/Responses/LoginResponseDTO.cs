@@ -1,4 +1,4 @@
-﻿namespace Application.DTOs.Auth.Responses
+namespace Application.DTOs.Auth.Responses
 {
     public class LoginResponseDTO
     {
@@ -21,5 +21,7 @@
 
         public bool RequiresPhoneVerification { set; get; } = false;
 
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? RefreshToken { get; set; }
     }
 }

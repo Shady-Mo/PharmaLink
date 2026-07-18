@@ -138,6 +138,16 @@ public class AuthService(
 
         var (token, expiresAtUtc) = tokenGenerator.GenerateToken(claims);
 
+        var refreshToken = new RefreshToken
+        {
+            Token = GenerateRefreshToken(),
+            ExpiresOn = DateTime.UtcNow.AddDays(7),
+            CreatedOn = DateTime.UtcNow
+        };
+
+        user.RefreshTokens.Add(refreshToken);
+        await userManager.UpdateAsync(user);
+
         logger.LogInformation("User {UserId} logged in as {Role}", user.Id, roleName);
 
         return Result.Success(new LoginResponseDTO
@@ -146,6 +156,7 @@ public class AuthService(
             Email = user.Email,
             UserId = user.Id,
             AccessToken = token,
+            RefreshToken = refreshToken.Token,
             ExpiresAtUtc = expiresAtUtc,
             RoleName = roleName
         });
@@ -175,6 +186,43 @@ public class AuthService(
     //            pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
     //    }
     //}
+    private string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[32];
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
+    }
+
+    private async Task AddPharmacistClaimsAsync(
+        Guid pharmacistId,
+        List<Claim> claims,
+        CancellationToken cancellationToken)
+    {
+        var ownedPharmacies = await dbContext.Pharmacies
+            .Where(p => p.OwnerUserId == pharmacistId
+                        && p.VerificationStatus == VerificationStatus.Verified)
+            .Select(p => new
+            {
+                p.PharmacyId,
+                BranchIds = p.Branches.Select(b => b.BranchId)
+            })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        foreach (var pharmacy in ownedPharmacies)
+        {
+            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+
+            claims.AddRange(
+                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+        }
+
+        // Edge case: a Pharmacist account with zero verified pharmacies still gets
+        // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
+        // so every branch-ownership check downstream will correctly reject them
+        // until they have at least one verified pharmacy.
+    }
 
     public async Task<Result> ForgotPassword(string email, CancellationToken cancellationToken)
     {
@@ -211,6 +259,66 @@ public class AuthService(
         }
 
         return Result.Failure(AuthErrors.TokenError);
+    }
+
+    public async Task<Result<LoginResponseDTO>> GetRefreshTokenAsync(
+        string token,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        var principal = tokenGenerator.GetPrincipalFromExpiredToken(token);
+        if (principal == null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        var userId = principal.FindFirstValue(JwtClaimTypes.UserId);
+        if (userId == null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        var user = await dbContext.Users.FindAsync(new object[] { Guid.Parse(userId) }, cancellationToken);
+        if (user == null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        // Explicitly load RefreshTokens if not loaded
+        await dbContext.Entry(user).Collection(u => u.RefreshTokens).LoadAsync(cancellationToken);
+
+        if (!user.RefreshTokens.Any(t => t.Token == refreshToken && t.IsActive))
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        var existingRefreshToken = user.RefreshTokens.First(t => t.Token == refreshToken && t.IsActive);
+        existingRefreshToken.RevokedOn = DateTime.UtcNow;
+
+        var roles = await userManager.GetRolesAsync(user);
+        var roleName = roles.FirstOrDefault() ?? string.Empty;
+
+        return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+    }
+
+    public async Task<Result> RevokeRefreshTokenAsync(
+        string token,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        var principal = tokenGenerator.GetPrincipalFromExpiredToken(token);
+        if (principal == null)
+            return Result.Failure(AuthErrors.InvalidCredentials);
+
+        var userId = principal.FindFirstValue(JwtClaimTypes.UserId);
+        if (userId == null)
+            return Result.Failure(AuthErrors.InvalidCredentials);
+
+        var user = await dbContext.Users.FindAsync(new object[] { Guid.Parse(userId) }, cancellationToken);
+        if (user == null) return Result.Failure(AuthErrors.UserNotFound);
+
+        await dbContext.Entry(user).Collection(u => u.RefreshTokens).LoadAsync(cancellationToken);
+
+        var tokenToRevoke = user.RefreshTokens.FirstOrDefault(t => t.Token == refreshToken && t.IsActive);
+        if (tokenToRevoke != null)
+        {
+            tokenToRevoke.RevokedOn = DateTime.UtcNow;
+            await userManager.UpdateAsync(user);
+        }
+
+        return Result.Success();
     }
 
     public async Task<Result> ChangePasswordAsync(
