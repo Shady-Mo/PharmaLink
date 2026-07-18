@@ -10,18 +10,22 @@ public class PharmacistManagementService(
         CreatePharmacistRequestDTO request,
         CancellationToken cancellationToken = default)
     {
-        var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        var admin = await context.PharmacyAdmins
+            .Include(a => a.Pharmacy)
+            .FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
         if (admin?.PharmacyId is null)
         {
             logger.LogWarning("Pharmacy admin {AdminId} attempted to create pharmacist but is not assigned to any pharmacy.", adminId);
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
         }
+
         var existingByEmail = await userManager.FindByEmailAsync(request.Email);
         if (existingByEmail is not null && existingByEmail.Status == UserStatus.Active)
         {
             logger.LogWarning("Pharmacy admin tried to create pharmacist with existing email: {Email}", request.Email);
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.EmailAlreadyExists);
         }
+
         var existingByPhone = await context.AppUsers
             .FirstOrDefaultAsync(p => p.PhoneNumber == request.PhoneNumber, cancellationToken);
         if (existingByPhone is not null && existingByPhone.Status == UserStatus.Active)
@@ -52,8 +56,18 @@ public class PharmacistManagementService(
             await context.PharmacistAssignments.AddAsync(pharmacyAssignment, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
             logger.LogInformation("Reactivated pharmacist account by admin. UserId: {UserId}", existingByEmail.Id);
-            var emailHistory = await LoadHistoryAsync(existingByEmail.Id, cancellationToken);
-            return Result.Success(BuildResponse(existingByEmail.Adapt<Domain.Entities.Pharmacist>(), emailHistory));
+
+            var pharmacistResponseDTO = new PharmacistResponseDTO {
+                PharmacistId = existingByEmail.Id,
+                FullName = existingByEmail.FullName,
+                Email = existingByEmail.Email!,
+                PhoneNumber = existingByEmail.PhoneNumber,
+                CreatedAt = existingByEmail.CreatedAt,
+                Status = existingByEmail.Status.ToString(),
+                PharmacyLegalName = admin.Pharmacy!.LegalName
+            };
+
+            return Result.Success(pharmacistResponseDTO);
         }
 
         if (existingByPhone is not null && existingByPhone.Status == UserStatus.Inactive)
@@ -79,47 +93,66 @@ public class PharmacistManagementService(
             await context.PharmacistAssignments.AddAsync(pharmacyAssignment, cancellationToken);
             await context.SaveChangesAsync(cancellationToken);
             logger.LogInformation("Reactivated pharmacist account by admin. UserId: {UserId}", existingByPhone.Id);
-            var phoneHistory = await LoadHistoryAsync(existingByPhone.Id, cancellationToken);
-            return Result.Success(BuildResponse(existingByPhone.Adapt<Domain.Entities.Pharmacist>(), phoneHistory));
+
+            var pharmacistResponseDTO = new PharmacistResponseDTO {
+                PharmacistId = existingByPhone.Id,
+                FullName = existingByPhone.FullName,
+                Email = existingByPhone.Email,
+                PhoneNumber = existingByPhone.PhoneNumber!,
+                CreatedAt = existingByPhone.CreatedAt,
+                Status = existingByPhone.Status.ToString(),
+                PharmacyLegalName = admin.Pharmacy!.LegalName
+            };
+
+            return Result.Success(pharmacistResponseDTO);
         }
 
-        var pharmacist = request.Adapt<Domain.Entities.Pharmacist>();
-
-        pharmacist.PhoneNumberConfirmed = true;
-        pharmacist.EmailConfirmed = true;
-
-        var createResult = await userManager.CreateAsync(pharmacist, request.Password);
-        if (!createResult.Succeeded)
+        else
         {
-            var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
-            logger.LogError("Identity failed to create pharmacist. Errors: {Errors}", errors);
-            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
+            var pharmacist = request.Adapt<Domain.Entities.Pharmacist>();
+
+            pharmacist.PhoneNumberConfirmed = true;
+            pharmacist.EmailConfirmed = true;
+
+            var createResult = await userManager.CreateAsync(pharmacist, request.Password);
+            if (!createResult.Succeeded) {
+                var errors = string.Join("; ", createResult.Errors.Select(e => e.Description));
+                logger.LogError("Identity failed to create pharmacist. Errors: {Errors}", errors);
+                return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
+            }
+
+            var roleResult = await userManager.AddToRoleAsync(pharmacist, AppRoles.Pharmacist);
+            if (!roleResult.Succeeded) {
+                await userManager.DeleteAsync(pharmacist);
+                var errors = string.Join("; ", roleResult.Errors.Select(e => e.Description));
+                logger.LogError("Failed to assign Pharmacist role. Rolled back. Errors: {Errors}", errors);
+                return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
+            }
+
+            var assignment = new PharmacistAssignment {
+                PharmacistId = pharmacist.Id,
+                PharmacyId = admin.PharmacyId.Value,
+                AssignedByPharmacyAdminId = adminId,
+                AssignedAt = DateTime.UtcNow,
+                IsActive = true
+            };
+            await context.PharmacistAssignments.AddAsync(assignment, cancellationToken);
+            await context.SaveChangesAsync(cancellationToken);
+
+            logger.LogInformation("Pharmacist account created and assigned by admin {AdminId}. UserId: {UserId}", adminId, pharmacist.Id);
+
+            var pharmacistResponseDTO = new PharmacistResponseDTO {
+                PharmacistId = pharmacist.Id,
+                FullName = pharmacist.FullName,
+                Email = pharmacist.Email,
+                PhoneNumber = pharmacist.PhoneNumber!,
+                CreatedAt = pharmacist.CreatedAt,
+                Status = pharmacist.Status.ToString(),
+                PharmacyLegalName = admin.Pharmacy!.LegalName
+            };
+
+            return Result.Success(pharmacistResponseDTO);
         }
-
-        var roleResult = await userManager.AddToRoleAsync(pharmacist, AppRoles.Pharmacist);
-        if (!roleResult.Succeeded)
-        {
-            await userManager.DeleteAsync(pharmacist);
-            var errors = string.Join("; ", roleResult.Errors.Select(e => e.Description));
-            logger.LogError("Failed to assign Pharmacist role. Rolled back. Errors: {Errors}", errors);
-            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
-        }
-
-        var assignment = new PharmacistAssignment
-        {
-            PharmacistId = pharmacist.Id,
-            PharmacyId = admin.PharmacyId.Value,
-            AssignedByPharmacyAdminId = adminId,
-            AssignedAt = DateTime.UtcNow,
-            IsActive = true
-        };
-        await context.PharmacistAssignments.AddAsync(assignment, cancellationToken);
-        await context.SaveChangesAsync(cancellationToken);
-
-        logger.LogInformation("Pharmacist account created and assigned by admin {AdminId}. UserId: {UserId}", adminId, pharmacist.Id);
-
-        var history = await LoadHistoryAsync(pharmacist.Id, cancellationToken);
-        return Result.Success(BuildResponse(pharmacist, history));
     }
 
     public async Task<Result<PaginatedList<PharmacistSummaryDTO>>> GetAllPharmacistsAsync(
@@ -153,7 +186,9 @@ public class PharmacistManagementService(
         Guid pharmacistId,
         CancellationToken cancellationToken = default)
     {
-        var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        var admin = await context.PharmacyAdmins
+            .Include(x => x.Pharmacy)
+            .FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
         if (admin?.PharmacyId is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
 
@@ -165,8 +200,17 @@ public class PharmacistManagementService(
         if (pharmacist is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
 
-        var history = await LoadHistoryAsync(pharmacistId, cancellationToken);
-        return Result.Success(BuildResponse(pharmacist, history));
+        var pharmacistResponseDTO = new PharmacistResponseDTO {
+            PharmacistId = pharmacist.Id,
+            FullName = pharmacist.FullName,
+            Email = pharmacist.Email,
+            PhoneNumber = pharmacist.PhoneNumber!,
+            CreatedAt = pharmacist.CreatedAt,
+            Status = pharmacist.Status.ToString(),
+            PharmacyLegalName = admin.Pharmacy!.LegalName
+        };
+
+        return Result.Success(pharmacistResponseDTO);
     }
 
     public async Task<Result<PharmacistResponseDTO>> UpdatePharmacistAsync(
@@ -175,9 +219,19 @@ public class PharmacistManagementService(
         UpdatePharmacistRequestDTO request,
         CancellationToken cancellationToken = default)
     {
-        var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        var admin = await context.PharmacyAdmins
+            .Include(x => x.Pharmacy)
+            .FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
         if (admin?.PharmacyId is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
+
+        var existingByPhone = await context.AppUsers
+            .FirstOrDefaultAsync(p => p.PhoneNumber == request.PhoneNumber, cancellationToken);
+        if (existingByPhone is not null)
+        {
+            logger.LogWarning("Pharmacy admin tried to create pharmacist with existing phone: {Phone}", request.PhoneNumber);
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PhoneAlreadyExists);
+        }
 
         var pharmacist = await context.Pharmacists
             .Where(p => context.PharmacistAssignments.Any(a => a.PharmacistId == p.Id && a.PharmacyId == admin.PharmacyId && a.IsActive))
@@ -197,8 +251,17 @@ public class PharmacistManagementService(
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
         }
 
-        var history = await LoadHistoryAsync(pharmacistId, cancellationToken);
-        return Result.Success(BuildResponse(pharmacist, history));
+        var pharmacistResponseDTO = new PharmacistResponseDTO {
+            PharmacistId = pharmacist.Id,
+            FullName = pharmacist.FullName,
+            Email = pharmacist.Email,
+            PhoneNumber = pharmacist.PhoneNumber!,
+            CreatedAt = pharmacist.CreatedAt,
+            Status = pharmacist.Status.ToString(),
+            PharmacyLegalName = admin.Pharmacy!.LegalName
+        };
+
+        return Result.Success(pharmacistResponseDTO);
     }
 
     public async Task<Result> DeletePharmacistAsync(
@@ -235,6 +298,24 @@ public class PharmacistManagementService(
         return Result.Success();
     }
 
+    public async Task<Result<IReadOnlyList<AssignmentHistoryItemDTO>>> GetPharmacistHistoryAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        CancellationToken cancellationToken = default)
+    {
+        var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        if (admin?.PharmacyId is null)
+            return Result.Failure<IReadOnlyList<AssignmentHistoryItemDTO>>(PharmacistErrors.AdminNotAssignedToPharmacy);
+
+        var isEmployed = await context.PharmacistAssignments.AnyAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId && a.IsActive, cancellationToken);
+        if (!isEmployed)
+            return Result.Failure<IReadOnlyList<AssignmentHistoryItemDTO>>(PharmacistErrors.PharmacistNotFound);
+
+        var history = await LoadHistoryAsync(pharmacistId, cancellationToken);
+
+        return Result.Success<IReadOnlyList<AssignmentHistoryItemDTO>>(history);
+    }
+
     private async Task<List<AssignmentHistoryItemDTO>> LoadHistoryAsync(
         Guid pharmacistId,
         CancellationToken cancellationToken)
@@ -247,17 +328,5 @@ public class PharmacistManagementService(
             .ToListAsync(cancellationToken);
 
         return assignments.Adapt<List<AssignmentHistoryItemDTO>>();
-    }
-
-    private static PharmacistResponseDTO BuildResponse(
-        Domain.Entities.Pharmacist pharmacist,
-        List<AssignmentHistoryItemDTO> history)
-    {
-        var dto = pharmacist.Adapt<PharmacistResponseDTO>();
-
-        dto.ActiveAssignment   = history.FirstOrDefault(h => h.IsActive);
-        dto.AssignmentHistory  = history.AsReadOnly();
-
-        return dto;
     }
 }

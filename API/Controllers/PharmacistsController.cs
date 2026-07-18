@@ -95,16 +95,25 @@ public class PharmacistsController(IPharmacistManagementService pharmacistServic
         Guid id,
         CancellationToken cancellationToken)
     {
-        var adminId = ResolveAdminId();
-        if (adminId is null) return Unauthorized(Result.Failure(PharmacistErrors.AdminNotFound));
-
         var result = await pharmacistService.DeletePharmacistAsync(User.GetUserId(), id, cancellationToken);
+
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 
-    private Guid? ResolveAdminId()
-    {
-        var raw = User.FindFirst(JwtClaimTypes.UserId)?.Value;
-        return Guid.TryParse(raw, out var id) ? id : null;
+    /// <summary>
+    /// Retrieves the assignment history of a specific pharmacist.
+    /// </summary>
+    /// <response code="200">Success. Returns a list of assignment history items.</response>
+    /// <response code="403">Caller is not a Pharmacy Admin or Admin not assigned to pharmacy.</response>
+    /// <response code="404">Pharmacist not found or not employed at this pharmacy.</response>
+    [HttpGet("/api/v1/pharmacisthistory/{id:guid}")]
+    [ProducesResponseType(typeof(IReadOnlyList<AssignmentHistoryItemDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPharmacistHistory(
+        Guid id,
+        CancellationToken cancellationToken) {
+        var result = await pharmacistService.GetPharmacistHistoryAsync(User.GetUserId(), id, cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 }

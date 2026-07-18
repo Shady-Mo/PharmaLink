@@ -1,4 +1,4 @@
-﻿namespace Application.DTOs.Pharmacist.Responses;
+namespace Application.DTOs.Pharmacist.Responses;
 
 public class PharmacistResponseDTO
 {
@@ -7,7 +7,6 @@ public class PharmacistResponseDTO
     public string Email { get; set; }
     public string PhoneNumber { get; set; }
     public string Status { get; set; }
+    public string PharmacyLegalName { get; set; }
     public DateTime CreatedAt { get; set; }
-    public AssignmentHistoryItemDTO? ActiveAssignment { get; set; }
-    public IReadOnlyList<AssignmentHistoryItemDTO> AssignmentHistory { get; set; }
 }
