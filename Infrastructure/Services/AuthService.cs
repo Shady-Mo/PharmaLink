@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+
 namespace Infrastructure.Services;
 
 public class AuthService(
@@ -95,19 +97,17 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
         }
 
-        if (roleName == AppRoles.Patient && !user.PhoneNumberConfirmed)
+        if (roleName != AppRoles.Patient || user.PhoneNumberConfirmed)
+            return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+
+        logger.LogWarning(
+            "Login blocked — phone not verified. UserId: {UserId}", user.Id);
+
+        return Result.Success(new LoginResponseDTO()
         {
-            logger.LogWarning(
-                "Login blocked — phone not verified. UserId: {UserId}", user.Id);
-            return Result.Success<LoginResponseDTO>(new LoginResponseDTO()
-            {
-                UserId = user.Id,
-                RequiresPhoneVerification = true
-
-            });
-        }
-
-        return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+            UserId = user.Id,
+            RequiresPhoneVerification = true
+        });
     }
 
     public async Task<Result<LoginResponseDTO>> GenerateTokenForUserAsync(
@@ -162,73 +162,41 @@ public class AuthService(
         });
     }
 
-    //private async Task AddPharmacistClaimsAsync(
-    //    Guid pharmacistId,
-    //    List<Claim> claims,
-    //    CancellationToken cancellationToken)
-    //{
-    //    var ownedPharmacies = await dbContext.Pharmacies
-    //        .Where(p => p.OwnerUserId == pharmacistId
-    //                    && p.VerificationStatus == VerificationStatus.Verified)
-    //        .Select(p => new
-    //        {
-    //            p.PharmacyId,
-    //            BranchIds = p.Branches.Select(b => b.BranchId)
-    //        })
-    //        .AsNoTracking()
-    //        .ToListAsync(cancellationToken);
-
-    //    foreach (var pharmacy in ownedPharmacies)
-    //    {
-    //        claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
-
-    //        claims.AddRange(
-    //            pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
-    //    }
-    //}
-    private string GenerateRefreshToken()
-    {
-        var randomNumber = new byte[32];
-        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
-        rng.GetBytes(randomNumber);
-        return Convert.ToBase64String(randomNumber);
-    }
-
-    private async Task AddPharmacistClaimsAsync(
-        Guid pharmacistId,
-        List<Claim> claims,
-        CancellationToken cancellationToken)
-    {
-        var ownedPharmacies = await dbContext.Pharmacies
-            .Where(p => p.OwnerUserId == pharmacistId
-                        && p.VerificationStatus == VerificationStatus.Verified)
-            .Select(p => new
-            {
-                p.PharmacyId,
-                BranchIds = p.Branches.Select(b => b.BranchId)
-            })
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-
-        foreach (var pharmacy in ownedPharmacies)
-        {
-            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
-
-            claims.AddRange(
-                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
-        }
-
-        // Edge case: a Pharmacist account with zero verified pharmacies still gets
-        // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
-        // so every branch-ownership check downstream will correctly reject them
-        // until they have at least one verified pharmacy.
-    }
+    // private async Task AddPharmacistClaimsAsync(
+    //     Guid pharmacistId,
+    //     List<Claim> claims,
+    //     CancellationToken cancellationToken)
+    // {
+    //     var ownedPharmacies = await dbContext.Pharmacies
+    //         .Where(p => p.OwnerUserId == pharmacistId
+    //                     && p.VerificationStatus == VerificationStatus.Verified)
+    //         .Select(p => new
+    //         {
+    //             p.PharmacyId,
+    //             BranchIds = p.Branches.Select(b => b.BranchId)
+    //         })
+    //         .AsNoTracking()
+    //         .ToListAsync(cancellationToken);
+    //
+    //     foreach (var pharmacy in ownedPharmacies)
+    //     {
+    //         claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+    //
+    //         claims.AddRange(
+    //             pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+    //     }
+    //
+    //     // Edge case: a Pharmacist account with zero verified pharmacies still gets
+    //     // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
+    //     // so every branch-ownership check downstream will correctly reject them
+    //     // until they have at least one verified pharmacy.
+    // }
 
     public async Task<Result> ForgotPassword(string email, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByEmailAsync(email);
 
-        if(user is null)
+        if (user is null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
@@ -241,17 +209,17 @@ public class AuthService(
         return Result.Success();
     }
 
-    public async Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDTO, CancellationToken cancellationToken)
+    public async Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDto, CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByEmailAsync(resetPasswordDTO.Email);
+        var user = await userManager.FindByEmailAsync(resetPasswordDto.Email);
 
         if (user is null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
 
-        var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDTO.Token);
+        var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDto.Token);
         var decodedToken = Encoding.UTF8.GetString(decodedTokenBytes);
 
-        var result = await userManager.ResetPasswordAsync(user, decodedToken, resetPasswordDTO.Password);
+        var result = await userManager.ResetPasswordAsync(user, decodedToken, resetPasswordDto.Password);
 
         if (result.Succeeded)
         {
@@ -267,14 +235,17 @@ public class AuthService(
         CancellationToken cancellationToken = default)
     {
         var principal = tokenGenerator.GetPrincipalFromExpiredToken(token);
+
         if (principal == null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
 
         var userId = principal.FindFirstValue(JwtClaimTypes.UserId);
+
         if (userId == null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
 
-        var user = await dbContext.Users.FindAsync(new object[] { Guid.Parse(userId) }, cancellationToken);
+        var user = await dbContext.Users.FindAsync([Guid.Parse(userId)], cancellationToken);
+
         if (user == null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
 
@@ -306,7 +277,7 @@ public class AuthService(
         if (userId == null)
             return Result.Failure(AuthErrors.InvalidCredentials);
 
-        var user = await dbContext.Users.FindAsync(new object[] { Guid.Parse(userId) }, cancellationToken);
+        var user = await dbContext.Users.FindAsync([Guid.Parse(userId)], cancellationToken);
         if (user == null) return Result.Failure(AuthErrors.UserNotFound);
 
         await dbContext.Entry(user).Collection(u => u.RefreshTokens).LoadAsync(cancellationToken);
@@ -356,5 +327,37 @@ public class AuthService(
         logger.LogInformation("Password changed successfully for user {UserId}", userId);
 
         return Result.Success();
+    }
+
+    //private async Task AddPharmacistClaimsAsync(
+    //    Guid pharmacistId,
+    //    List<Claim> claims,
+    //    CancellationToken cancellationToken)
+    //{
+    //    var ownedPharmacies = await dbContext.Pharmacies
+    //        .Where(p => p.OwnerUserId == pharmacistId
+    //                    && p.VerificationStatus == VerificationStatus.Verified)
+    //        .Select(p => new
+    //        {
+    //            p.PharmacyId,
+    //            BranchIds = p.Branches.Select(b => b.BranchId)
+    //        })
+    //        .AsNoTracking()
+    //        .ToListAsync(cancellationToken);
+
+    //    foreach (var pharmacy in ownedPharmacies)
+    //    {
+    //        claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+
+    //        claims.AddRange(
+    //            pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+    //    }
+    //}
+    private string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }

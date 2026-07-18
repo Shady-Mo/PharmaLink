@@ -1,7 +1,5 @@
 namespace API.Controllers;
 
-[Route("api/v1/[controller]")]
-[ApiController]
 [Authorize(Roles = AppRoles.PharmacyAdmin)]
 public class PharmacistsController(IPharmacistManagementService pharmacistService) : BaseApiController
 {
@@ -106,14 +104,16 @@ public class PharmacistsController(IPharmacistManagementService pharmacistServic
     /// <response code="200">Success. Returns a list of assignment history items.</response>
     /// <response code="403">Caller is not a Pharmacy Admin or Admin not assigned to pharmacy.</response>
     /// <response code="404">Pharmacist not found or not employed at this pharmacy.</response>
-    [HttpGet("/api/v1/pharmacisthistory/{id:guid}")]
+    [HttpGet("/api/v1/pharmacist-history/{id:guid}")]
     [ProducesResponseType(typeof(IReadOnlyList<AssignmentHistoryItemDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetPharmacistHistory(
         Guid id,
-        CancellationToken cancellationToken) {
+        CancellationToken cancellationToken)
+    {
         var result = await pharmacistService.GetPharmacistHistoryAsync(User.GetUserId(), id, cancellationToken);
+
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 }
