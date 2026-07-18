@@ -1,9 +1,5 @@
 namespace Infrastructure.Persistence.Seeders;
 
-/// <summary>
-/// Seeds the three application roles into the ASP.NET Core Identity role store.
-/// This seeder is fully idempotent — it is safe to run on every application startup.
-/// </summary>
 public class RoleSeeder(
     RoleManager<IdentityRole<Guid>> roleManager,
     ILogger<RoleSeeder> logger)
@@ -12,7 +8,8 @@ public class RoleSeeder(
     [
         AppRoles.Patient,
         AppRoles.Pharmacist,
-        AppRoles.Admin
+        AppRoles.Admin,
+        AppRoles.PharmacyAdmin
     ];
 
     public async Task SeedAsync()

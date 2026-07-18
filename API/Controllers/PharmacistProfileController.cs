@@ -1,14 +1,8 @@
-﻿using Application.DTOs.Pharmacy.Request;
-using Application.DTOs.Pharmacy.Responses;
-using Infrastructure.Services;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Mvc;
-
-namespace API.Controllers
+﻿namespace API.Controllers
 {
     [Route("api/v1/[controller]")]
     [ApiController]
-    public class PharmaciestController(IProfileService profileService) : BaseApiController
+    public class PharmacistProfileController(IPharmacistProfileService PharmacistProfileService) : BaseApiController
     {
 
         [HttpGet("")]
@@ -20,7 +14,7 @@ namespace API.Controllers
             var id = User.FindFirst(JwtClaimTypes.UserId)?.Value;
             Guid.TryParse(id, out Guid userId);
 
-            var result = await profileService.GetByIdAsync(userId, cancellationToken);
+            var result = await PharmacistProfileService.GetByIdAsync(userId, cancellationToken);
 
             return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
         }
@@ -30,12 +24,12 @@ namespace API.Controllers
         [ProducesResponseType(typeof(UpdatePharmacyProfileResponseDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        public async Task<IActionResult> Update(UpdatePharmacyProfileRequestDTO dto, CancellationToken cancellationToken)
+        public async Task<IActionResult> Update(UpdatePharmacistProfileRequestDTO dto, CancellationToken cancellationToken)
         {
             var id = User.FindFirst(JwtClaimTypes.UserId)?.Value;
             Guid.TryParse(id, out Guid userId);
 
-            var result = await profileService.UpdateAsync(userId, dto, cancellationToken);
+            var result = await PharmacistProfileService.UpdateAsync(userId, dto, cancellationToken);
 
             return result.IsSuccess
                 ? Ok(result.Value)

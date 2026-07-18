@@ -1,9 +1,3 @@
-using Application.Services.Cart;
-using Application.Services.Order;
-using Application.Services.Pharmacy;
-using Infrastructure.Services.Pharmacy;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -30,8 +24,6 @@ public static class DependencyInjection
 
             services.AddStackExchangeRedisCache(options => {
                 options.Configuration = redisConnectionString;
-
-                //options.InstanceName = "PharmaLinkCache_";
             });
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
@@ -59,12 +51,12 @@ public static class DependencyInjection
             services.AddScoped<IAIExtractionService, GeminiExtractionService>();
 
             services.AddScoped<IEmailService, EmailService>();
-            services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
 
             services.AddScoped<IPharmacyService, PharmacyService>();
 
+            services.AddScoped<IPharmacistManagementService, PharmacistManagementService>();
 
-            // moshady21
             services.AddScoped<IPatientService, PatientService>();
 
 
@@ -82,7 +74,7 @@ public static class DependencyInjection
 
 
             services.AddScoped<IEmailService, EmailService>();
-            services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
 
 
             services.AddScoped<CartCacheService>();
@@ -145,7 +137,6 @@ public static class DependencyInjection
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
                         ClockSkew = TimeSpan.Zero,
 
-                        // Critical: map ASP.NET's [Authorize(Roles = "...")] to your RoleName claim
                         RoleClaimType = JwtClaimTypes.RoleName,
                         NameClaimType = JwtClaimTypes.UserId
                     };

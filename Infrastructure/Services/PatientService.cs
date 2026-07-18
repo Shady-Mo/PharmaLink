@@ -1,9 +1,4 @@
-﻿
-using Application.DTOs;
-using Application.DTOs.Patient;
-
-
-namespace Infrastructure.Services;
+﻿namespace Infrastructure.Services;
 
 public class PatientService(
     AppDbContext context,

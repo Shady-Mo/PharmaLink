@@ -1,14 +1,4 @@
-﻿using Application.DTOs.Patient;
-using Application.Services;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Logging;
-using System;
-using System.Security.Claims;
-using System.Threading;
-using System.Threading.Tasks;
-
-namespace API.Controllers;
+﻿namespace API.Controllers;
 
 [ApiController]
 [Route("api/v1/patients")]

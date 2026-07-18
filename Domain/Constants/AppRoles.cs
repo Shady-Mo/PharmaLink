@@ -4,4 +4,5 @@ public static class AppRoles {
     public const string Patient = "Patient";
     public const string Pharmacist = "Pharmacist";
     public const string Admin = "Admin";
+    public const string PharmacyAdmin = "PharmacyAdmin";
 }

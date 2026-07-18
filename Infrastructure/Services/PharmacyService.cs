@@ -1,11 +1,4 @@
-﻿
-using Application.DTOs.Pharmacy.Request;
-using Application.DTOs.Pharmacy.Responses;
-using Application.Services.Pharmacy;
-using MapsterMapper;
-
-
-namespace Infrastructure.Services.Pharmacy
+﻿namespace Infrastructure.Services.Pharmacy
 {
     public class PharmacyService(AppDbContext context, IMapper mapper) : IPharmacyService
     {

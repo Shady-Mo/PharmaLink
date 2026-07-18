@@ -1,5 +1,3 @@
-using Application.DTOs.Cart.Requests;
-
 namespace Application.Validators.Cart;
 
 public class AddCartItemRequestDTOValidator : AbstractValidator<AddCartItemRequestDTO>

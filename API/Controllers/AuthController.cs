@@ -1,5 +1,3 @@
-using Twilio.TwiML.Messaging;
-
 namespace API.Controllers;
 
 public class AuthController(IAuthService authService) : BaseApiController
@@ -34,7 +32,6 @@ public class AuthController(IAuthService authService) : BaseApiController
         if (result.IsFailure)
             return result.ToProblem();
 
-        // AC #6: 201 Created with the new UserID.
         return CreatedAtAction(
             actionName: nameof(Register),
             routeValues: new { },
