@@ -1,6 +1,8 @@
 namespace Infrastructure.Services
 {
-    public class PharmacistProfileService(AppDbContext context)
+    public class PharmacistProfileService
+        (AppDbContext context,
+        ILogger<PharmacistProfileService> logger)
         : IPharmacistProfileService
     {
         public async Task<Result<GetPharmacyProfileResponseDTO>> GetByIdAsync(Guid guid, CancellationToken cancellationToken)
@@ -14,6 +16,14 @@ namespace Infrastructure.Services
 
         public async Task<Result<UpdatePharmacyProfileResponseDTO>> UpdateAsync(Guid guid, UpdatePharmacistProfileRequestDTO updatePharmacy, CancellationToken cancellationToken)
         {
+            var existingByPhone = await context.AppUsers
+                .FirstOrDefaultAsync(p => p.PhoneNumber == updatePharmacy.PhoneNumber, cancellationToken);
+            if (existingByPhone is not null)
+            {
+                logger.LogWarning("Pharmasict tried to update his profile with existing phone: {Phone}", updatePharmacy.PhoneNumber);
+                return Result.Failure<UpdatePharmacyProfileResponseDTO>(PharmacistErrors.PhoneAlreadyExists);
+            }
+
             var pharmacist = await context.Pharmacists.FirstOrDefaultAsync(p => p.Id == guid, cancellationToken);
 
             if(pharmacist is null)

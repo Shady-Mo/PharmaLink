@@ -23,6 +23,11 @@ public interface IPharmacistManagementService
         UpdatePharmacistRequestDTO request,
         CancellationToken cancellationToken = default);
 
+    Task<Result<IReadOnlyList<AssignmentHistoryItemDTO>>> GetPharmacistHistoryAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        CancellationToken cancellationToken = default);
+
     Task<Result> DeletePharmacistAsync(
         Guid adminId,
         Guid pharmacistId,

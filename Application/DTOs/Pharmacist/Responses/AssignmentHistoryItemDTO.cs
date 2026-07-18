@@ -7,6 +7,4 @@ public class AssignmentHistoryItemDTO
     public string PharmacyLegalName { get; set; }
     public DateTime AssignedAt { get; set; }
     public DateTime? EndedAt { get; set; }
-    public bool IsActive { get; set; }
-    public Guid AssignedByPharmacyAdminId { get; set; }
 }

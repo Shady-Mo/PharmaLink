@@ -107,12 +107,7 @@ public class MapsterConfig : IRegister
         // Pharmacist -> PharmacistResponseDTO
         config.NewConfig<Pharmacist, PharmacistResponseDTO>()
             .Map(dest => dest.PharmacistId, src => src.Id)
-            .Map(dest => dest.Status, src => src.Status.ToString())
-            .Map(dest => dest.Email, src => src.Email ?? string.Empty)
-            .Map(dest => dest.PhoneNumber, src => src.PhoneNumber ?? string.Empty)
-            .Map(dest => dest.ActiveAssignment, src => (AssignmentHistoryItemDTO?)null)
-            .Map(dest => dest.AssignmentHistory,
-                src => (IReadOnlyList<AssignmentHistoryItemDTO>)new List<AssignmentHistoryItemDTO>());
+            .Map(dest => dest.Status, src => src.Status.ToString());
 
         // Pharmacist -> PharmacistSummaryDTO
         config.NewConfig<Pharmacist, PharmacistSummaryDTO>()

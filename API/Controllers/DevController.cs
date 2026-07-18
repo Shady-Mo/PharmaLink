@@ -20,17 +20,15 @@ public class AaTestController(
         var pharmacyAdmin = await GetOrCreateUserAsync(
             "pharmacyadmin@dev.test", "Pharmacy Admin", "01000000004", AppRoles.PharmacyAdmin, cancellationToken);
 
-        var patientTokenResult =
-            await authService.GenerateTokenForUserAsync(patient, AppRoles.Patient, cancellationToken);
+        var patientTokenResult = authService.GenerateTokenForUserAsync(patient, AppRoles.Patient, cancellationToken);
 
-        var pharmacistTokenResult =
-            await authService.GenerateTokenForUserAsync(pharmacist, AppRoles.Pharmacist, cancellationToken);
+        var pharmacistTokenResult = authService.GenerateTokenForUserAsync(pharmacist, AppRoles.Pharmacist, cancellationToken);
 
-        var systemAdminTokenResult =
-            await authService.GenerateTokenForUserAsync(systemAdmin, AppRoles.Admin, cancellationToken);
+        var systemAdminTokenResult = authService.GenerateTokenForUserAsync(systemAdmin, AppRoles.Admin, cancellationToken);
 
-        var pharmacyAdminTokenResult =
-            await authService.GenerateTokenForUserAsync(pharmacyAdmin, AppRoles.PharmacyAdmin, cancellationToken);
+        var pharmacyAdminTokenResult = authService.GenerateTokenForUserAsync(pharmacyAdmin, AppRoles.PharmacyAdmin, cancellationToken);
+
+        await Task.WhenAll(patientTokenResult, pharmacistTokenResult, systemAdminTokenResult, pharmacyAdminTokenResult);
 
         return Ok(new
         {
@@ -40,7 +38,7 @@ public class AaTestController(
                 fullName = patient.FullName,
                 email = patient.Email,
                 role = AppRoles.Patient,
-                token = patientTokenResult.IsSuccess ? patientTokenResult.Value.AccessToken : null
+                token = patientTokenResult.Result.IsSuccess ? patientTokenResult.Result.Value.AccessToken : null
             },
             pharmacist = new
             {
@@ -48,7 +46,7 @@ public class AaTestController(
                 fullName = pharmacist.FullName,
                 email = pharmacist.Email,
                 role = AppRoles.Pharmacist,
-                token = pharmacistTokenResult.IsSuccess ? pharmacistTokenResult.Value.AccessToken : null
+                token = pharmacistTokenResult.Result.IsSuccess ? pharmacistTokenResult.Result.Value.AccessToken : null
             },
             systemAdmin = new
             {
@@ -56,7 +54,7 @@ public class AaTestController(
                 fullName = systemAdmin.FullName,
                 email = systemAdmin.Email,
                 role = AppRoles.Admin,
-                token = systemAdminTokenResult.IsSuccess ? systemAdminTokenResult.Value.AccessToken : null
+                token = systemAdminTokenResult.Result.IsSuccess ? systemAdminTokenResult.Result.Value.AccessToken : null
             },
             pharmacyAdmin = new
             {
@@ -64,7 +62,7 @@ public class AaTestController(
                 fullName = pharmacyAdmin.FullName,
                 email = pharmacyAdmin.Email,
                 role = AppRoles.PharmacyAdmin,
-                token = pharmacyAdminTokenResult.IsSuccess ? pharmacyAdminTokenResult.Value.AccessToken : null
+                token = pharmacyAdminTokenResult.Result.IsSuccess ? pharmacyAdminTokenResult.Result.Value.AccessToken : null
             }
         });
     }

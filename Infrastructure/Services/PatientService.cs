@@ -50,6 +50,13 @@ public class PatientService(
     {
         cancellationToken.ThrowIfCancellationRequested();
 
+        var existingByPhone = await context.AppUsers
+                .FirstOrDefaultAsync(p => p.PhoneNumber == updateDto.PhoneNumber, cancellationToken);
+        if (existingByPhone is not null) {
+            logger.LogWarning("Patient tried to update his profile with existing phone: {Phone}", updateDto.PhoneNumber);
+            return Result.Failure<PatientProfileDto>(PatientErrors.PhoneAlreadyExists);
+        }
+
         // 1. جلب المريض من قاعدة البيانات مع العناوين المرتبطة به لغرض التعديل (دون استخدام AsNoTracking)
         var patient = await context.Patients
             //.Include(p => p.Addresses)
