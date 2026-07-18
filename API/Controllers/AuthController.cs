@@ -106,6 +106,24 @@ public class AuthController(IAuthService authService) : BaseApiController
         return result.IsFailure ? result.ToProblem() : Ok(new { Message = result.Value });
     }
 
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDTO request,
+        CancellationToken cancellationToken)
+    {
+        var authResult = await authService.GetRefreshTokenAsync(request.Token, request.RefreshToken, cancellationToken);
+
+        return authResult.IsSuccess ? Ok(authResult.Value) : authResult.ToProblem();
+    }
+
+    [HttpPost("revoke-refresh-token")]
+    public async Task<IActionResult> RevokeRefreshToken([FromBody] RefreshTokenRequestDTO request,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.RevokeRefreshTokenAsync(request.Token, request.RefreshToken, cancellationToken);
+
+        return result.IsSuccess ? Ok() : result.ToProblem();
+    }
+
     /// <summary>
     /// Changes the password for an authenticated user.
     /// </summary>

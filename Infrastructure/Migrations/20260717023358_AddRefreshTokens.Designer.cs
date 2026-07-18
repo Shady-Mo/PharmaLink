@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260717023358_AddRefreshTokens")]
+    partial class AddRefreshTokens
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,7 +61,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -167,7 +170,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("PatientUserId")
                         .IsUnique();
 
-                    b.ToTable("Carts", (string)null);
+                    b.ToTable("Carts");
                 });
 
             modelBuilder.Entity("Domain.Entities.CartItem", b =>
@@ -196,7 +199,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CartId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("CartItems", null, t =>
+                    b.ToTable("CartItems", t =>
                         {
                             t.HasCheckConstraint("CK_CartItem_Quantity", "\"Quantity\" > 0");
                         });
@@ -273,7 +276,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs", (string)null);
+                    b.ToTable("Drugs");
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -303,7 +306,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -335,7 +338,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs", (string)null);
+                    b.ToTable("OrderFulfillmentLegs");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLegStatusAudit", b =>
@@ -370,7 +373,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("LegId");
 
-                    b.ToTable("OrderFulfillmentLegStatusAudits", (string)null);
+                    b.ToTable("OrderFulfillmentLegStatusAudits");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -402,50 +405,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems", (string)null);
-                });
-
-            modelBuilder.Entity("Domain.Entities.PharmacistAssignment", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("AssignedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("AssignedByPharmacyAdminId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("EndedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<Guid>("PharmacistId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("PharmacyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AssignedByPharmacyAdminId");
-
-                    b.HasIndex("PharmacistId")
-                        .HasDatabaseName("IX_PharmacistAssignments_PharmacistId");
-
-                    b.HasIndex("PharmacyId")
-                        .HasDatabaseName("IX_PharmacistAssignments_PharmacyId");
-
-                    b.HasIndex("PharmacistId", "IsActive")
-                        .HasDatabaseName("IX_PharmacistAssignments_PharmacistId_Active")
-                        .HasFilter("[IsActive] = 1");
-
-                    b.ToTable("PharmacistAssignments", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("Domain.Entities.Pharmacy", b =>
@@ -476,7 +436,9 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("PharmacyId");
 
-                    b.ToTable("Pharmacies", (string)null);
+                    b.HasIndex("OwnerUserId");
+
+                    b.ToTable("Pharmacies");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -531,7 +493,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches", (string)null);
+                    b.ToTable("PharmacyBranches");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -574,7 +536,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories", (string)null);
+                    b.ToTable("PharmacyInventories");
                 });
 
             modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
@@ -666,7 +628,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacistUserId");
 
-                    b.ToTable("PrescriptionReviews", (string)null);
+                    b.ToTable("PrescriptionReviews");
                 });
 
             modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
@@ -732,7 +694,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PrescriptionReviewId");
 
-                    b.ToTable("PrescriptionReviewMedicines", (string)null);
+                    b.ToTable("PrescriptionReviewMedicines");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -878,22 +840,6 @@ namespace Infrastructure.Migrations
                     b.HasBaseType("Domain.Entities.AppUser");
 
                     b.HasDiscriminator().HasValue("Pharmacist");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PharmacyAdmin", b =>
-                {
-                    b.HasBaseType("Domain.Entities.AppUser");
-
-                    b.Property<bool?>("IsSuperAdmin")
-                        .HasColumnType("bit");
-
-                    b.Property<Guid?>("PharmacyId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasIndex("PharmacyId")
-                        .HasDatabaseName("IX_PharmacyAdmins_PharmacyId");
-
-                    b.HasDiscriminator().HasValue("PharmacyAdmin");
                 });
 
             modelBuilder.Entity("Domain.Entities.SystemAdmin", b =>
@@ -1065,31 +1011,15 @@ namespace Infrastructure.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("Domain.Entities.PharmacistAssignment", b =>
+            modelBuilder.Entity("Domain.Entities.Pharmacy", b =>
                 {
-                    b.HasOne("Domain.Entities.PharmacyAdmin", "AssignedByPharmacyAdmin")
-                        .WithMany()
-                        .HasForeignKey("AssignedByPharmacyAdminId")
+                    b.HasOne("Domain.Entities.Pharmacist", "Owner")
+                        .WithMany("AdministeredPharmacies")
+                        .HasForeignKey("OwnerUserId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.Entities.Pharmacist", "Pharmacist")
-                        .WithMany("Assignments")
-                        .HasForeignKey("PharmacistId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.Pharmacy", "Pharmacy")
-                        .WithMany()
-                        .HasForeignKey("PharmacyId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("AssignedByPharmacyAdmin");
-
-                    b.Navigation("Pharmacist");
-
-                    b.Navigation("Pharmacy");
+                    b.Navigation("Owner");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -1220,16 +1150,6 @@ namespace Infrastructure.Migrations
                         .IsRequired();
                 });
 
-            modelBuilder.Entity("Domain.Entities.PharmacyAdmin", b =>
-                {
-                    b.HasOne("Domain.Entities.Pharmacy", "Pharmacy")
-                        .WithMany("Admins")
-                        .HasForeignKey("PharmacyId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Pharmacy");
-                });
-
             modelBuilder.Entity("Domain.Entities.Address", b =>
                 {
                     b.Navigation("Deliveries");
@@ -1265,8 +1185,6 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Pharmacy", b =>
                 {
-                    b.Navigation("Admins");
-
                     b.Navigation("Branches");
                 });
 
@@ -1297,7 +1215,7 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.Pharmacist", b =>
                 {
-                    b.Navigation("Assignments");
+                    b.Navigation("AdministeredPharmacies");
 
                     b.Navigation("ReviewedPrescriptions");
                 });

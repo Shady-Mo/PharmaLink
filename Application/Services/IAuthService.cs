@@ -26,6 +26,16 @@ public interface IAuthService
         string roleName,
         CancellationToken cancellationToken = default);
 
+    Task<Result<LoginResponseDTO>> GetRefreshTokenAsync(
+        string token,
+        string refreshToken,
+        CancellationToken cancellationToken = default);
+
+    Task<Result> RevokeRefreshTokenAsync(
+        string token,
+        string refreshToken,
+        CancellationToken cancellationToken = default);
+
     Task<Result> ForgotPassword(string email, CancellationToken cancellationToken);
     
     Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDTO, CancellationToken cancellationToken);
