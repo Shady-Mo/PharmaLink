@@ -6,6 +6,6 @@
 
         public FulfillmentMode FulfillmentMode { get; set; }
 
-        public ICollection<OrderItemRequestDTO> Items { get; set; } = new HashSet<OrderItemRequestDTO>();
+        //public ICollection<OrderItemRequestDTO> Items { get; set; } = new HashSet<OrderItemRequestDTO>();
     }
 }

@@ -59,6 +59,9 @@ public static class DependencyInjection
 
             services.AddScoped<IPatientService, PatientService>();
 
+            services.AddScoped<IDashboardService, DashboardService>();
+
+
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));

@@ -4,12 +4,19 @@ using Application.Services.Order;
 
 namespace Infrastructure.Services;
 
-public class OrderService(AppDbContext context, IOrderSplittingService orderSplittingService) : IOrderService
+public class OrderService(
+    AppDbContext context,
+    IOrderSplittingService orderSplittingService,
+    CartCacheService cartCacheService) : IOrderService
 {
     public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId,
         CreateOrderDTO createOrderDTO)
     {
-        if (createOrderDTO.Items is null || createOrderDTO.Items.Count == 0)
+        var cart = await context.Carts
+            .Include(c => c.Items)
+            .FirstOrDefaultAsync(c => c.PatientUserId == patientUserId);
+
+        if (cart is null || cart.Items.Count == 0)
             return Result.Failure<OrderCreatedResponseDTO>(OrderErrors.OrderMustContainItems);
 
         var address = await context.Addresses
@@ -19,7 +26,11 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
         if (address is null)
             return Result.Failure<OrderCreatedResponseDTO>(OrderErrors.InvalidDeliveryAddress);
 
-        var drugIds = createOrderDTO.Items.Select(item => item.DrugId).Distinct().ToList();
+        var cartItems = cart.Items
+            .Select(ci => new OrderItemRequestDTO { DrugId = ci.DrugId, QuantityNeeded = ci.Quantity })
+            .ToList();
+
+        var drugIds = cartItems.Select(item => item.DrugId).Distinct().ToList();
         var existingDrugs = await context.Drugs
             .Where(d => drugIds.Contains(d.DrugId))
             .Select(d => d.DrugId)
@@ -30,7 +41,7 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
             return Result.Failure<OrderCreatedResponseDTO>(
                 OrderErrors.CreateInvalidDrugIdsError(invalidDrugIds));
 
-        var totalAmount = await CalculateTotalAmount(createOrderDTO.Items);
+        var totalAmount = await CalculateTotalAmount(cartItems);
 
         var order = new Order
         {
@@ -44,7 +55,7 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
 
         context.Orders.Add(order);
 
-        var orderItems = createOrderDTO.Items.Select(item => new OrderItem
+        var orderItems = cartItems.Select(item => new OrderItem
         {
             OrderItemId = Guid.NewGuid(),
             OrderId = order.OrderId,
@@ -56,7 +67,13 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
 
         context.OrderItems.AddRange(orderItems);
 
+        // Clear the cart now that its contents have been committed to the order.
+        context.CartItems.RemoveRange(cart.Items);
+
         await context.SaveChangesAsync();
+
+        // Invalidate the Redis cache so a subsequent GetCart doesn't serve stale, pre-checkout items.
+        await cartCacheService.InvalidateAsync(patientUserId);
 
         // Trigger automatic splitting inline. Result is observed but not propagated to caller —
         // the 201 Created response represents the order being accepted, not fully split.
