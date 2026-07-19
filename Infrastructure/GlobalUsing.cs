@@ -63,3 +63,6 @@ global using Infrastructure.Services.Pharmacy;
 global using Infrastructure.Services.Pharmacist;
 global using Microsoft.EntityFrameworkCore.Diagnostics;
 global using Application.DTOs.Patient;
+global using Application.Services.Dashboard;
+global using Application.DTOs.Dashboard.Responses;
+global using Application.Services.Dashboard;

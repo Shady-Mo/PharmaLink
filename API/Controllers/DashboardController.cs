@@ -1,3 +1,7 @@
+
+using Application.DTOs.Dashboard.Responses;
+using Application.Services.Dashboard;
+
 namespace API.Controllers;
 
 /// <summary>
