@@ -124,7 +124,10 @@ public class AuthService(
         switch (roleName)
         {
             case AppRoles.Pharmacist:
-                //await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
+                await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
+                break;
+            case AppRoles.PharmacyAdmin:
+                await AddPharmacyAdminClaimsAsync(user.Id, claims, cancellationToken);
                 break;
 
             case AppRoles.Admin:
@@ -162,35 +165,53 @@ public class AuthService(
         });
     }
 
-    // private async Task AddPharmacistClaimsAsync(
-    //     Guid pharmacistId,
-    //     List<Claim> claims,
-    //     CancellationToken cancellationToken)
-    // {
-    //     var ownedPharmacies = await dbContext.Pharmacies
-    //         .Where(p => p.OwnerUserId == pharmacistId
-    //                     && p.VerificationStatus == VerificationStatus.Verified)
-    //         .Select(p => new
-    //         {
-    //             p.PharmacyId,
-    //             BranchIds = p.Branches.Select(b => b.BranchId)
-    //         })
-    //         .AsNoTracking()
-    //         .ToListAsync(cancellationToken);
-    //
-    //     foreach (var pharmacy in ownedPharmacies)
-    //     {
-    //         claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
-    //
-    //         claims.AddRange(
-    //             pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
-    //     }
-    //
-    //     // Edge case: a Pharmacist account with zero verified pharmacies still gets
-    //     // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
-    //     // so every branch-ownership check downstream will correctly reject them
-    //     // until they have at least one verified pharmacy.
-    // }
+    private async Task AddPharmacistClaimsAsync(
+        Guid pharmacistId,
+        List<Claim> claims,
+        CancellationToken cancellationToken)
+    {
+        var assignedPharmacies = await dbContext.PharmacistAssignments
+            .Where(pha => pha.PharmacistId == pharmacistId && pha.IsActive)
+            .Select(pha => new
+            {
+                pha.PharmacyId,
+                BranchIds = pha.Pharmacy.Branches.Select(b => b.BranchId)
+            })
+            .AsNoTracking()
+            .ToListAsync(cancellationToken);
+
+        foreach (var pharmacy in assignedPharmacies)
+        {
+            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+
+            claims.AddRange(
+                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+        }
+    }
+
+    private async Task AddPharmacyAdminClaimsAsync(
+        Guid adminId,
+        List<Claim> claims,
+        CancellationToken cancellationToken)
+    {
+        var pharmacyData = await dbContext.PharmacyAdmins
+            .Where(pa => pa.Id == adminId && pa.PharmacyId != null)
+            .Select(pa => new
+            {
+                PharmacyId = pa.PharmacyId!.Value,
+                BranchIds = pa.Pharmacy!.Branches.Select(b => b.BranchId)
+            })
+            .AsNoTracking()
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (pharmacyData is not null)
+        {
+            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacyData.PharmacyId.ToString()));
+
+            claims.AddRange(
+                pharmacyData.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+        }
+    }
 
     public async Task<Result> ForgotPassword(string email, CancellationToken cancellationToken)
     {
@@ -329,30 +350,6 @@ public class AuthService(
         return Result.Success();
     }
 
-    //private async Task AddPharmacistClaimsAsync(
-    //    Guid pharmacistId,
-    //    List<Claim> claims,
-    //    CancellationToken cancellationToken)
-    //{
-    //    var ownedPharmacies = await dbContext.Pharmacies
-    //        .Where(p => p.OwnerUserId == pharmacistId
-    //                    && p.VerificationStatus == VerificationStatus.Verified)
-    //        .Select(p => new
-    //        {
-    //            p.PharmacyId,
-    //            BranchIds = p.Branches.Select(b => b.BranchId)
-    //        })
-    //        .AsNoTracking()
-    //        .ToListAsync(cancellationToken);
-
-    //    foreach (var pharmacy in ownedPharmacies)
-    //    {
-    //        claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
-
-    //        claims.AddRange(
-    //            pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
-    //    }
-    //}
     private string GenerateRefreshToken()
     {
         var randomNumber = new byte[32];
