@@ -21,13 +21,16 @@ public class AddressService(
         {
             await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
             await UnsetOtherDefaultAddressesAsync(patientId, null, cancellationToken);
-            
+
             dbContext.Addresses.Add(address);
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
         else
         {
+            var isFoundAddresses = dbContext.Addresses.Any(a => a.UserId == patientId);
+            if (!isFoundAddresses)
+                address.IsDefault = true;
             dbContext.Addresses.Add(address);
             await dbContext.SaveChangesAsync(cancellationToken);
         }
@@ -48,7 +51,7 @@ public class AddressService(
     }
 
     public async Task<Result<AddressResponseDTO>> GetByIdAsync(
-        Guid addressId, Guid patientId,string roleName, CancellationToken cancellationToken = default)
+        Guid addressId, Guid patientId, string roleName, CancellationToken cancellationToken = default)
     {
         var address = await dbContext.Addresses
             .AsNoTracking()
@@ -56,8 +59,8 @@ public class AddressService(
 
         if (address is null)
             return Result.Failure<AddressResponseDTO>(AddressErrors.NotFound);
-        if(roleName == AppRoles.Admin)
-        return Result.Success(address.Adapt<AddressResponseDTO>());
+        if (roleName == AppRoles.Admin)
+            return Result.Success(address.Adapt<AddressResponseDTO>());
 
         if (address.UserId != patientId)
             return Result.Failure<AddressResponseDTO>(AddressErrors.Forbidden);
@@ -65,7 +68,7 @@ public class AddressService(
         return Result.Success(address.Adapt<AddressResponseDTO>());
     }
 
-    
+
 
     public async Task<Result<AddressResponseDTO>> UpdateAsync(
         Guid addressId, Guid patientId, UpdateAddressRequestDTO request,
@@ -89,11 +92,14 @@ public class AddressService(
         {
             await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
             await UnsetOtherDefaultAddressesAsync(patientId, addressId, cancellationToken);
-            
+
             address.IsDefault = true;
             await dbContext.SaveChangesAsync(cancellationToken);
             await transaction.CommitAsync(cancellationToken);
         }
+        else if (!request.IsDefault && address.IsDefault)
+            return Result.Failure<AddressResponseDTO>(AddressErrors.AddressIsTheDefault);
+
         else
         {
             address.IsDefault = request.IsDefault;
@@ -120,6 +126,9 @@ public class AddressService(
 
         if (isReferencedByOrder)
             return Result.Failure(AddressErrors.InUse);
+
+        if (address.IsDefault)
+            return Result.Failure(AddressErrors.AddressIsTheDefault);
 
         dbContext.Addresses.Remove(address);
         await dbContext.SaveChangesAsync(cancellationToken);
@@ -155,7 +164,7 @@ public class AddressService(
     private async Task UnsetOtherDefaultAddressesAsync(Guid patientId, Guid? excludeAddressId, CancellationToken cancellationToken)
     {
         var query = dbContext.Addresses.Where(a => a.UserId == patientId && a.IsDefault);
-        
+
         if (excludeAddressId.HasValue)
         {
             query = query.Where(a => a.AddressId != excludeAddressId.Value);

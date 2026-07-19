@@ -21,4 +21,8 @@
         <PackageReference Include="Microsoft.AspNetCore.Http.Abstractions" Version="2.3.11" />
     </ItemGroup>
 
+    <ItemGroup>
+      <Folder Include="Services\PatientProfile\" />
+    </ItemGroup>
+
 </Project>

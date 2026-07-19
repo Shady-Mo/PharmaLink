@@ -12,6 +12,7 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
         builder.HasDiscriminator<string>("UserType")
             .HasValue<Patient>("Patient")
             .HasValue<Pharmacist>("Pharmacist")
-            .HasValue<SystemAdmin>("SystemAdmin");
+            .HasValue<SystemAdmin>("SystemAdmin")
+            .HasValue<PharmacyAdmin>("PharmacyAdmin");
     }
 }

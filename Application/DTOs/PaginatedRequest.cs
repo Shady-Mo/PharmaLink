@@ -3,9 +3,11 @@ namespace Application.DTOs;
 /// <summary>
 /// Base class for all paginated requests. Ensures pagination values are strictly within acceptable bounds.
 /// </summary>
-public abstract class PaginatedRequest
+public class PaginatedRequest
 {
     private int _pageNumber = 1;
+
+    private int _pageSize = 10;
 
     /// <summary>
     /// The page number to retrieve. Automatically normalizes to a minimum of 1.
@@ -16,8 +18,6 @@ public abstract class PaginatedRequest
         get => _pageNumber;
         set => _pageNumber = value < 1 ? 1 : value;
     }
-
-    private int _pageSize = 10;
 
     /// <summary>
     /// The number of records to return per page. Automatically bounded between 1 and 100.

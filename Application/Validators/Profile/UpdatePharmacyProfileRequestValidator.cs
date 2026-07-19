@@ -1,16 +1,12 @@
-﻿using Application.DTOs.Pharmacy.Request;
-using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.Validators.Profile
+﻿namespace Application.Validators.Profile
 {
-    public class UpdatePharmacyProfileRequestValidator: AbstractValidator<UpdatePharmacyProfileRequestDTO>
+    public class UpdatePharmacistProfileRequestValidator: AbstractValidator<UpdatePharmacistProfileRequestDTO>
     {
-        public UpdatePharmacyProfileRequestValidator()
+        public UpdatePharmacistProfileRequestValidator()
         {
             RuleFor(x => x.FullName)
             .NotEmpty().WithMessage("Full name is required.")
+            .MinimumLength(3).WithMessage("Full name must be at least 3 characters.")
             .MaximumLength(100).WithMessage("Full name must not exceed 100 characters.");
 
 

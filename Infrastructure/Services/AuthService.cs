@@ -1,19 +1,7 @@
-using Microsoft.AspNetCore.WebUtilities;
+using System.Security.Cryptography;
 
 namespace Infrastructure.Services;
 
-/// <summary>
-/// Implements patient self-registration using ASP.NET Core Identity.
-/// </summary>
-/// <remarks>
-/// Security guarantees enforced here:
-/// <list type="bullet">
-///   <item>Role is ALWAYS hard-coded to <c>Patient</c> — never read from the incoming request.</item>
-///   <item>Password is hashed by <see cref="UserManager{TUser}"/> (ASP.NET Identity default: BCrypt-based PBKDF2). It is never stored or logged in plain-text.</item>
-///   <item><c>EmailConfirmed</c> and <c>PhoneNumberConfirmed</c> default to <c>false</c> per Identity convention.</item>
-///   <item>Uniqueness of email AND phone is checked before user creation to return precise 409 errors.</item>
-/// </list>
-/// </remarks>
 public class AuthService(
     UserManager<AppUser> userManager,
     IJwtTokenGeneratorService tokenGenerator,
@@ -109,14 +97,17 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
         }
 
-        if (roleName == AppRoles.Patient && !user.PhoneNumberConfirmed)
-        {
-            logger.LogWarning(
-                "Login blocked — phone not verified. UserId: {UserId}", user.Id);
-            return Result.Failure<LoginResponseDTO>(AuthErrors.PhoneNotVerified);
-        }
+        if (roleName != AppRoles.Patient || user.PhoneNumberConfirmed)
+            return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
 
-        return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+        logger.LogWarning(
+            "Login blocked — phone not verified. UserId: {UserId}", user.Id);
+
+        return Result.Success(new LoginResponseDTO()
+        {
+            UserId = user.Id,
+            RequiresPhoneVerification = true
+        });
     }
 
     public async Task<Result<LoginResponseDTO>> GenerateTokenForUserAsync(
@@ -133,7 +124,7 @@ public class AuthService(
         switch (roleName)
         {
             case AppRoles.Pharmacist:
-                await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
+                //await AddPharmacistClaimsAsync(user.Id, claims, cancellationToken);
                 break;
 
             case AppRoles.Admin:
@@ -147,6 +138,16 @@ public class AuthService(
 
         var (token, expiresAtUtc) = tokenGenerator.GenerateToken(claims);
 
+        var refreshToken = new RefreshToken
+        {
+            Token = GenerateRefreshToken(),
+            ExpiresOn = DateTime.UtcNow.AddDays(7),
+            CreatedOn = DateTime.UtcNow
+        };
+
+        user.RefreshTokens.Add(refreshToken);
+        await userManager.UpdateAsync(user);
+
         logger.LogInformation("User {UserId} logged in as {Role}", user.Id, roleName);
 
         return Result.Success(new LoginResponseDTO
@@ -155,69 +156,70 @@ public class AuthService(
             Email = user.Email,
             UserId = user.Id,
             AccessToken = token,
+            RefreshToken = refreshToken.Token,
             ExpiresAtUtc = expiresAtUtc,
             RoleName = roleName
         });
     }
 
-    private async Task AddPharmacistClaimsAsync(
-        Guid pharmacistId,
-        List<Claim> claims,
-        CancellationToken cancellationToken)
-    {
-        var ownedPharmacies = await dbContext.Pharmacies
-            .Where(p => p.OwnerUserId == pharmacistId
-                        && p.VerificationStatus == VerificationStatus.Verified)
-            .Select(p => new
-            {
-                p.PharmacyId,
-                BranchIds = p.Branches.Select(b => b.BranchId)
-            })
-            .AsNoTracking()
-            .ToListAsync(cancellationToken);
-
-        foreach (var pharmacy in ownedPharmacies)
-        {
-            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
-
-            claims.AddRange(
-                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
-        }
-
-        // Edge case: a Pharmacist account with zero verified pharmacies still gets
-        // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
-        // so every branch-ownership check downstream will correctly reject them
-        // until they have at least one verified pharmacy.
-    }
+    // private async Task AddPharmacistClaimsAsync(
+    //     Guid pharmacistId,
+    //     List<Claim> claims,
+    //     CancellationToken cancellationToken)
+    // {
+    //     var ownedPharmacies = await dbContext.Pharmacies
+    //         .Where(p => p.OwnerUserId == pharmacistId
+    //                     && p.VerificationStatus == VerificationStatus.Verified)
+    //         .Select(p => new
+    //         {
+    //             p.PharmacyId,
+    //             BranchIds = p.Branches.Select(b => b.BranchId)
+    //         })
+    //         .AsNoTracking()
+    //         .ToListAsync(cancellationToken);
+    //
+    //     foreach (var pharmacy in ownedPharmacies)
+    //     {
+    //         claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+    //
+    //         claims.AddRange(
+    //             pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+    //     }
+    //
+    //     // Edge case: a Pharmacist account with zero verified pharmacies still gets
+    //     // a valid token (role = Pharmacist) but no PharmacyID/BranchID claims,
+    //     // so every branch-ownership check downstream will correctly reject them
+    //     // until they have at least one verified pharmacy.
+    // }
 
     public async Task<Result> ForgotPassword(string email, CancellationToken cancellationToken)
     {
         var user = await userManager.FindByEmailAsync(email);
 
-        if(user is null)
+        if (user is null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
 
         var token = await userManager.GeneratePasswordResetTokenAsync(user);
         var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
 
-        var resetLink = $"http://localhost:4200/reset-password?email={email}&token={encodedToken}";
+        var resetLink = $"http://localhost:4200/auth/reset-password?email={email}&token={encodedToken}";
 
         await emailService.SendEmailAsync(email, "Reset Password", $"Click here to reset your password: {resetLink}");
 
         return Result.Success();
     }
 
-    public async Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDTO, CancellationToken cancellationToken)
+    public async Task<Result> ResetPassword(ResetPasswordDTO resetPasswordDto, CancellationToken cancellationToken)
     {
-        var user = await userManager.FindByEmailAsync(resetPasswordDTO.Email);
+        var user = await userManager.FindByEmailAsync(resetPasswordDto.Email);
 
         if (user is null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
 
-        var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDTO.Token);
+        var decodedTokenBytes = WebEncoders.Base64UrlDecode(resetPasswordDto.Token);
         var decodedToken = Encoding.UTF8.GetString(decodedTokenBytes);
 
-        var result = await userManager.ResetPasswordAsync(user, decodedToken, resetPasswordDTO.Password);
+        var result = await userManager.ResetPasswordAsync(user, decodedToken, resetPasswordDto.Password);
 
         if (result.Succeeded)
         {
@@ -225,6 +227,69 @@ public class AuthService(
         }
 
         return Result.Failure(AuthErrors.TokenError);
+    }
+
+    public async Task<Result<LoginResponseDTO>> GetRefreshTokenAsync(
+        string token,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        var principal = tokenGenerator.GetPrincipalFromExpiredToken(token);
+
+        if (principal == null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        var userId = principal.FindFirstValue(JwtClaimTypes.UserId);
+
+        if (userId == null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        var user = await dbContext.Users.FindAsync([Guid.Parse(userId)], cancellationToken);
+
+        if (user == null)
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        // Explicitly load RefreshTokens if not loaded
+        await dbContext.Entry(user).Collection(u => u.RefreshTokens).LoadAsync(cancellationToken);
+
+        if (!user.RefreshTokens.Any(t => t.Token == refreshToken && t.IsActive))
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+
+        var existingRefreshToken = user.RefreshTokens.First(t => t.Token == refreshToken && t.IsActive);
+        existingRefreshToken.RevokedOn = DateTime.UtcNow;
+
+        var roles = await userManager.GetRolesAsync(user);
+        var roleName = roles.FirstOrDefault() ?? string.Empty;
+
+        return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+    }
+
+    public async Task<Result> RevokeRefreshTokenAsync(
+        string token,
+        string refreshToken,
+        CancellationToken cancellationToken = default)
+    {
+        var principal = tokenGenerator.GetPrincipalFromExpiredToken(token);
+        if (principal == null)
+            return Result.Failure(AuthErrors.InvalidCredentials);
+
+        var userId = principal.FindFirstValue(JwtClaimTypes.UserId);
+        if (userId == null)
+            return Result.Failure(AuthErrors.InvalidCredentials);
+
+        var user = await dbContext.Users.FindAsync([Guid.Parse(userId)], cancellationToken);
+        if (user == null) return Result.Failure(AuthErrors.UserNotFound);
+
+        await dbContext.Entry(user).Collection(u => u.RefreshTokens).LoadAsync(cancellationToken);
+
+        var tokenToRevoke = user.RefreshTokens.FirstOrDefault(t => t.Token == refreshToken && t.IsActive);
+        if (tokenToRevoke != null)
+        {
+            tokenToRevoke.RevokedOn = DateTime.UtcNow;
+            await userManager.UpdateAsync(user);
+        }
+
+        return Result.Success();
     }
 
     public async Task<Result> ChangePasswordAsync(
@@ -262,5 +327,37 @@ public class AuthService(
         logger.LogInformation("Password changed successfully for user {UserId}", userId);
 
         return Result.Success();
+    }
+
+    //private async Task AddPharmacistClaimsAsync(
+    //    Guid pharmacistId,
+    //    List<Claim> claims,
+    //    CancellationToken cancellationToken)
+    //{
+    //    var ownedPharmacies = await dbContext.Pharmacies
+    //        .Where(p => p.OwnerUserId == pharmacistId
+    //                    && p.VerificationStatus == VerificationStatus.Verified)
+    //        .Select(p => new
+    //        {
+    //            p.PharmacyId,
+    //            BranchIds = p.Branches.Select(b => b.BranchId)
+    //        })
+    //        .AsNoTracking()
+    //        .ToListAsync(cancellationToken);
+
+    //    foreach (var pharmacy in ownedPharmacies)
+    //    {
+    //        claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+
+    //        claims.AddRange(
+    //            pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+    //    }
+    //}
+    private string GenerateRefreshToken()
+    {
+        var randomNumber = new byte[32];
+        using var rng = RandomNumberGenerator.Create();
+        rng.GetBytes(randomNumber);
+        return Convert.ToBase64String(randomNumber);
     }
 }

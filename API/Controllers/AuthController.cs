@@ -32,7 +32,6 @@ public class AuthController(IAuthService authService) : BaseApiController
         if (result.IsFailure)
             return result.ToProblem();
 
-        // AC #6: 201 Created with the new UserID.
         return CreatedAtAction(
             actionName: nameof(Register),
             routeValues: new { },
@@ -104,7 +103,25 @@ public class AuthController(IAuthService authService) : BaseApiController
     {
         var result = await authService.ResetPassword(resetPasswordDTO, cancellationToken);
 
-        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
+        return result.IsFailure ? result.ToProblem() : Ok(new { Message = result.Value });
+    }
+
+    [HttpPost("refresh")]
+    public async Task<IActionResult> Refresh([FromBody] RefreshTokenRequestDTO request,
+        CancellationToken cancellationToken)
+    {
+        var authResult = await authService.GetRefreshTokenAsync(request.Token, request.RefreshToken, cancellationToken);
+
+        return authResult.IsSuccess ? Ok(authResult.Value) : authResult.ToProblem();
+    }
+
+    [HttpPost("revoke-refresh-token")]
+    public async Task<IActionResult> RevokeRefreshToken([FromBody] RefreshTokenRequestDTO request,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.RevokeRefreshTokenAsync(request.Token, request.RefreshToken, cancellationToken);
+
+        return result.IsSuccess ? Ok() : result.ToProblem();
     }
 
     /// <summary>

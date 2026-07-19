@@ -91,5 +91,28 @@ public class MapsterConfig : IRegister
         config.NewConfig<PrescriptionReviewMedicine, ExtractedMedicineSummaryDTO>()
             .Map(dest => dest.Id, src => src.PrescriptionReviewMedicineId)
             .Map(dest => dest.Name, src => src.MedicineName);
+
+        // CreatePharmacistRequestDTO -> Pharmacist
+        config.NewConfig<CreatePharmacistRequestDTO, Pharmacist>()
+            .Map(dest => dest.UserName, src => src.Email.ToLowerInvariant())
+            .Map(dest => dest.Email, src => src.Email.ToLowerInvariant());
+
+        // PharmacistAssignment -> AssignmentHistoryItemDTO
+        config.NewConfig<PharmacistAssignment, AssignmentHistoryItemDTO>()
+            .Map(dest => dest.AssignmentId, src => src.Id)
+            .Map(dest => dest.PharmacyLegalName, src => src.Pharmacy != null
+                ? src.Pharmacy.LegalName
+                : string.Empty);
+
+        // Pharmacist -> PharmacistResponseDTO
+        config.NewConfig<Pharmacist, PharmacistResponseDTO>()
+            .Map(dest => dest.PharmacistId, src => src.Id)
+            .Map(dest => dest.Status, src => src.Status.ToString());
+
+        // Pharmacist -> PharmacistSummaryDTO
+        config.NewConfig<Pharmacist, PharmacistSummaryDTO>()
+            .Map(dest => dest.PharmacistId, src => src.Id)
+            .Map(dest => dest.Email, src => src.Email ?? string.Empty)
+            .Map(dest => dest.PhoneNumber, src => src.PhoneNumber ?? string.Empty);
     }
 }

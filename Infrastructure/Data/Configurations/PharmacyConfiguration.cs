@@ -20,5 +20,11 @@ public class PharmacyConfiguration : IEntityTypeConfiguration<Pharmacy>
             .WithOne(b => b.Pharmacy)
             .HasForeignKey(b => b.PharmacyId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        builder.HasMany(p => p.Admins)
+            .WithOne(a => a.Pharmacy)
+            .HasForeignKey(a => a.PharmacyId)
+            .IsRequired(false)
+            .OnDelete(DeleteBehavior.Restrict);
     }
 }

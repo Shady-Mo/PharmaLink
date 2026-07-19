@@ -6,12 +6,22 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
+        
+        builder.Entity<AppUser>().OwnsMany(u => u.RefreshTokens, a =>
+        {
+            a.WithOwner().HasForeignKey("UserId");
+            a.Property(r => r.Token).IsRequired().HasMaxLength(200);
+            a.ToTable("RefreshTokens");
+        });
+
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
     }
 
     public DbSet<Patient> Patients { get; set; }
     public DbSet<Pharmacist> Pharmacists { get; set; }
     public DbSet<SystemAdmin> SystemAdmins { get; set; }
+    public DbSet<PharmacyAdmin> PharmacyAdmins { get; set; }
+    public DbSet<AppUser> AppUsers { get; set; }
     public DbSet<Address> Addresses { get; set; }
     public DbSet<Pharmacy> Pharmacies { get; set; }
     public DbSet<PharmacyBranch> PharmacyBranches { get; set; }
@@ -26,4 +36,5 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<CartItem> CartItems { get; set; }
     public DbSet<PrescriptionReview> PrescriptionReviews { get; set; }
     public DbSet<PrescriptionReviewMedicine> PrescriptionReviewMedicines { get; set; }
+    public DbSet<PharmacistAssignment> PharmacistAssignments { get; set; }
 }

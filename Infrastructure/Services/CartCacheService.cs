@@ -1,6 +1,3 @@
-using Application.DTOs.Cart.Responses;
-using Microsoft.Extensions.Caching.Distributed;
-
 namespace Infrastructure.Services;
 
 public class CartCacheService(IDistributedCache cache)

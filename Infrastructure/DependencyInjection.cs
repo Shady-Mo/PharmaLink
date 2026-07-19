@@ -1,7 +1,3 @@
-using Application.Services.Cart;
-using Application.Services.Order;
-using Microsoft.EntityFrameworkCore.Diagnostics;
-
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -16,6 +12,9 @@ public static class DependencyInjection
             if (string.IsNullOrWhiteSpace(connectionString))
                 throw new InvalidOperationException("Connection string 'DefaultConnection' was not found.");
 
+            if (string.IsNullOrWhiteSpace(redisConnectionString))
+                throw new InvalidOperationException("Connection string 'Redis' was not found.");
+
             services.AddDbContext<AppDbContext>(options =>
             {
                 options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
@@ -23,17 +22,9 @@ public static class DependencyInjection
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
-            if (!string.IsNullOrWhiteSpace(redisConnectionString))
-            {
-                services.AddStackExchangeRedisCache(options => {
-                    options.Configuration = redisConnectionString;
-                });
-            }
-            else
-            {
-                // Fallback for environments without Redis configured
-                services.AddDistributedMemoryCache();
-            }
+            services.AddStackExchangeRedisCache(options => {
+                options.Configuration = redisConnectionString;
+            });
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
                 .AddEntityFrameworkStores<AppDbContext>()
@@ -60,8 +51,14 @@ public static class DependencyInjection
             services.AddScoped<IAIExtractionService, GeminiExtractionService>();
 
             services.AddScoped<IEmailService, EmailService>();
-            services.AddScoped<IProfileService, ProfileService>();
-            services.AddScoped<IDashboardService, DashboardService>();
+            services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
+
+            services.AddScoped<IPharmacyService, PharmacyService>();
+
+            services.AddScoped<IPharmacistManagementService, PharmacistManagementService>();
+
+            services.AddScoped<IPatientService, PatientService>();
+
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
@@ -77,7 +74,7 @@ public static class DependencyInjection
 
 
             services.AddScoped<IEmailService, EmailService>();
-            services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
 
 
             services.AddScoped<CartCacheService>();
@@ -140,7 +137,6 @@ public static class DependencyInjection
                         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtOptions.SigningKey)),
                         ClockSkew = TimeSpan.Zero,
 
-                        // Critical: map ASP.NET's [Authorize(Roles = "...")] to your RoleName claim
                         RoleClaimType = JwtClaimTypes.RoleName,
                         NameClaimType = JwtClaimTypes.UserId
                     };
