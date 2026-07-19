@@ -89,7 +89,7 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
     {
         var paginatedResult = await context.Orders
             .Where(o => o.PatientUserId == patientUserId)
-            .OrderByDescending(o => o.OrderId)
+            .OrderByDescending(o => o.CreatedAt)
             .ProjectToType<GetOrderDTO>()
             .ToPaginatedListAsync(request.PageNumber, request.PageSize);
 
@@ -112,7 +112,7 @@ public class OrderService(AppDbContext context, IOrderSplittingService orderSpli
     public async Task<Result<PaginatedList<GetOrderDTO>>> GetOrdersForAdmin(GetOrdersRequest request)
     {
         var paginatedResult = await context.Orders
-            .OrderByDescending(o => o.OrderId)
+            .OrderByDescending(o => o.CreatedAt)
             .ProjectToType<GetOrderDTO>()
             .ToPaginatedListAsync(request.PageNumber, request.PageSize);
 

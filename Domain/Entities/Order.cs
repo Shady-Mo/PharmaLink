@@ -13,6 +13,10 @@ public class Order
     public OrderStatus OrderStatus { get; set; }
     public decimal TotalAmount { get; set; }
 
+    // Required to correctly determine "recent"/"current" order — do not
+    // rely on OrderId (Guid) ordering, it is not chronologically sortable.
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    
     public Patient Patient { get; set; } = null!;
     public Address DeliveryAddress { get; set; } = null!;
     public PrescriptionReview? PrescriptionReview { get; set; }

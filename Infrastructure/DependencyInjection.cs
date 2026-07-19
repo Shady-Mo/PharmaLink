@@ -61,6 +61,7 @@ public static class DependencyInjection
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IProfileService, ProfileService>();
+            services.AddScoped<IDashboardService, DashboardService>();
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));

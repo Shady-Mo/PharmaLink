@@ -32,3 +32,5 @@ global using Application.Services.Cart;
 global using Application.Services.PrescriptionReview;
 global using Application.DTOs.PrescriptionReview.Requests;
 global using Application.DTOs.PrescriptionReview.Responses;
+global using Application.DTOs.Dashboard.Responses;
+global using Application.Services.Dashboard;

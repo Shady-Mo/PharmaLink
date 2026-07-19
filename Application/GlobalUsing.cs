@@ -12,6 +12,7 @@ global using Application.DTOs.Cart.Requests;
 global using Application.DTOs.Cart.Responses;
 global using Application.DTOs.PrescriptionReview.Requests;
 global using Application.DTOs.PrescriptionReview.Responses;
+global using Application.DTOs.Dashboard.Responses;
 global using Application.Services.AI;
 global using Application.Services.PrescriptionReview;
 global using Mapster;
