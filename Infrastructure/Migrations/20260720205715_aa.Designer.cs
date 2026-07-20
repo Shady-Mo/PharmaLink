@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260720205715_aa")]
+    partial class aa
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -440,6 +443,9 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("PharmacyId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid?>("PharmacyId1")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("Id");
 
                     b.HasIndex("AssignedByPharmacyAdminId");
@@ -449,6 +455,8 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId")
                         .HasDatabaseName("IX_PharmacistAssignments_PharmacyId");
+
+                    b.HasIndex("PharmacyId1");
 
                     b.HasIndex("PharmacistId", "IsActive")
                         .HasDatabaseName("IX_PharmacistAssignments_PharmacistId_Active")
@@ -1086,10 +1094,14 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.HasOne("Domain.Entities.Pharmacy", "Pharmacy")
-                        .WithMany("PharmacistAssignments")
+                        .WithMany()
                         .HasForeignKey("PharmacyId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.HasOne("Domain.Entities.Pharmacy", null)
+                        .WithMany("PharmacistAssignments")
+                        .HasForeignKey("PharmacyId1");
 
                     b.Navigation("AssignedByPharmacyAdmin");
 
