@@ -16,4 +16,8 @@ public class DrugDto
     public string DrugClass { get; set; } = string.Empty;
     public bool RequiresPrescription { get; set; }
     public bool IsActive { get; set; }
+    public DrugCategory Category { get; set; }
+
+    // Null when the request didn't include Latitude/Longitude.
+    public DrugAvailabilityStatus? AvailabilityStatus { get; set; }
 }

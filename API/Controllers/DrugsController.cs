@@ -27,7 +27,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("")]
     [ProducesResponseType(typeof(PaginatedList<DrugDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
     public async Task<IActionResult> GetDrugs([FromQuery] DrugSearchRequest filters,
         CancellationToken cancellationToken)
     {
@@ -94,5 +94,18 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
         var result = await drugService.DeleteAsync(id, cancellationToken);
 
         return result.IsSuccess ? NoContent() : result.ToProblem();
+    }
+
+    // run for one time this for add category to all drugs that have null category, this is for backfilling the data
+    [HttpPost("backfill-categories")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [Authorize(Roles = AppRoles.Patient)]
+    public async Task<IActionResult> BackfillCategories(CancellationToken cancellationToken)
+    {
+        var result = await drugService.BackfillCategoriesAsync(cancellationToken);
+
+        return result.IsSuccess
+            ? Ok(new { message = $"Backfilled Category for {result.Value} drug(s)." })
+            : result.ToProblem();
     }
 }

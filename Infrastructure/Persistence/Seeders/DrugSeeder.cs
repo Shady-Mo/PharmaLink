@@ -26,7 +26,6 @@ public class DrugSeeder(AppDbContext context, ILogger<DrugSeeder> logger)
                 return;
             }
 
-            // Get existing brands to ensure idempotency
             var existingBrands = await context.Drugs
                 .Select(d => d.BrandName)
                 .ToHashSetAsync(StringComparer.OrdinalIgnoreCase, cancellationToken);
@@ -57,6 +56,7 @@ public class DrugSeeder(AppDbContext context, ILogger<DrugSeeder> logger)
                     Manufacturer = record.Manufacturer ?? string.Empty,
                     ArabicName = record.CommercialNameAr ?? string.Empty,
                     DrugClass = record.DrugClass ?? string.Empty,
+                    Category = DrugCategoryMapper.Map(record.DrugClass, record.ScientificName),
                     Form = record.Route ?? string.Empty,
                     Price = record.PriceEgp ?? 0,
                     IsActive = true,
@@ -66,7 +66,6 @@ public class DrugSeeder(AppDbContext context, ILogger<DrugSeeder> logger)
                     DrugBankId = string.Empty,
                     Strength = string.Empty
                 });
-
 
                 existingBrands.Add(record.CommercialNameEn);
             }

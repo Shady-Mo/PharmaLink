@@ -17,6 +17,7 @@ public class Drug
     public string ArabicName { get; set; } = string.Empty;
     public string DrugClass { get; set; } = string.Empty;
 
+    public DrugCategory Category { get; set; } = DrugCategory.Other;
     public bool RequiresPrescription { get; set; }
     public bool IsActive { get; set; }
 
