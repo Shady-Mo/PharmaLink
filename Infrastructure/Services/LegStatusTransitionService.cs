@@ -97,6 +97,7 @@ public class LegStatusTransitionService(
             if (!anyIncomplete)
             {
                 leg.Order.OrderStatus = OrderStatus.Completed;
+                leg.Order.DeliveredAt = DateTime.UtcNow;
             }
         }
 
