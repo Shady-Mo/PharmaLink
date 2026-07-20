@@ -464,4 +464,24 @@ public class PrescriptionReviewService(
         await context.SaveChangesAsync();
         return Result.Success();
     }
+
+    public async Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string term)
+    {
+        if (string.IsNullOrWhiteSpace(term) || term.Length < 2)
+        {
+            return Result.Success(new List<MedicineSearchDTO>());
+        }
+
+        var searchResults = await context.Drugs
+            .Where(m => m.BrandName.Contains(term))
+            .Select(m => new MedicineSearchDTO
+            {
+                Id = m.DrugId,
+                Name = m.BrandName
+            })
+            .Take(10)
+            .ToListAsync();
+
+        return Result.Success(searchResults);
+    }
 }
