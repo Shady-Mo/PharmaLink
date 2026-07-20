@@ -97,15 +97,15 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     }
 
     // run for one time this for add category to all drugs that have null category, this is for backfilling the data
-    [HttpPost("backfill-categories")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = AppRoles.Patient)]
-    public async Task<IActionResult> BackfillCategories(CancellationToken cancellationToken)
-    {
-        var result = await drugService.BackfillCategoriesAsync(cancellationToken);
+    //[HttpPost("backfill-categories")]
+    //[ProducesResponseType(StatusCodes.Status200OK)]
+    //[Authorize(Roles = AppRoles.Patient)]
+    //public async Task<IActionResult> BackfillCategories(CancellationToken cancellationToken)
+    //{
+    //    var result = await drugService.BackfillCategoriesAsync(cancellationToken);
 
-        return result.IsSuccess
-            ? Ok(new { message = $"Backfilled Category for {result.Value} drug(s)." })
-            : result.ToProblem();
-    }
+    //    return result.IsSuccess
+    //        ? Ok(new { message = $"Backfilled Category for {result.Value} drug(s)." })
+    //        : result.ToProblem();
+    //}
 }
