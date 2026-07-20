@@ -21,6 +21,7 @@ public class CartController(ICartService cartService) : BaseApiController
     public async Task<IActionResult> GetCart(CancellationToken cancellationToken)
     {
         var result = await cartService.GetCartAsync(User.GetUserId(), cancellationToken);
+        
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -30,7 +31,7 @@ public class CartController(ICartService cartService) : BaseApiController
     /// <remarks>
     /// **Auto-creation:** A new cart is created automatically on first use.
     ///
-    /// **Upsert behaviour:** If the specified drug is already present in the cart,
+    /// **Upsert behavior:** If the specified drug is already present in the cart,
     /// its quantity is incremented by the requested amount rather than creating a duplicate row.
     ///
     /// **Price snapshot:** The drug's current unit price is captured at add-time and stored
@@ -54,6 +55,7 @@ public class CartController(ICartService cartService) : BaseApiController
         CancellationToken cancellationToken)
     {
         var result = await cartService.AddItemAsync(User.GetUserId(), request, cancellationToken);
+        
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -84,6 +86,7 @@ public class CartController(ICartService cartService) : BaseApiController
         CancellationToken cancellationToken)
     {
         var result = await cartService.UpdateItemAsync(User.GetUserId(), itemId, request, cancellationToken);
+        
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -109,6 +112,7 @@ public class CartController(ICartService cartService) : BaseApiController
         CancellationToken cancellationToken)
     {
         var result = await cartService.RemoveItemAsync(User.GetUserId(), itemId, cancellationToken);
+        
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 }
