@@ -86,7 +86,10 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         }
 
         if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Completed))
+        {
             leg.Order.OrderStatus = OrderStatus.Completed;
+            leg.Order.DeliveredAt = leg.Order.DeliveredAt ?? DateTime.UtcNow;
+        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 

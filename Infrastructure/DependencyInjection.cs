@@ -22,9 +22,7 @@ public static class DependencyInjection
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
 
-            services.AddStackExchangeRedisCache(options => {
-                options.Configuration = redisConnectionString;
-            });
+            services.AddStackExchangeRedisCache(options => { options.Configuration = redisConnectionString; });
 
             services.AddIdentity<AppUser, IdentityRole<Guid>>()
                 .AddEntityFrameworkStores<AppDbContext>()
@@ -61,19 +59,24 @@ public static class DependencyInjection
 
             services.AddScoped<IDashboardService, DashboardService>();
 
+            services.AddScoped<IPharmacyDashboardService, PharmacyDashboardService>();
+
 
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
 
-            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
-            {
-                var settings = configuration
-                    .GetSection(GeminiSettings.SectionName)
-                    .Get<GeminiSettings>() ?? new GeminiSettings();
+            services.AddTransient<GeminiRetryHandler>();
 
-                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
-            });
+            services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
+                {
+                    var settings = configuration
+                        .GetSection(GeminiSettings.SectionName)
+                        .Get<GeminiSettings>() ?? new GeminiSettings();
+
+                    client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+                })
+                .AddHttpMessageHandler<GeminiRetryHandler>();
 
 
             services.AddScoped<IEmailService, EmailService>();

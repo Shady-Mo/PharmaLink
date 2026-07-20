@@ -37,7 +37,7 @@ public static class AuthErrors
 
     public static readonly Error TokenError =
        new("Auth.TokenError",
-           "The Token is invalid",
+           "The Token is invalid.",
            StatusCodes.Status400BadRequest);
 
     public static readonly Error CurrentPasswordIncorrect =

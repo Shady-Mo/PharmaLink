@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.DTOs.Auth.Requests
+﻿namespace Application.DTOs.Auth.Requests
 {
     public class ResetPasswordDTO
     {

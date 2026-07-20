@@ -8,6 +8,14 @@ public static class UserExtensions
     public static string? GetRoleName(this ClaimsPrincipal user) =>
         user.FindFirstValue(JwtClaimTypes.RoleName) ?? user.FindFirstValue(ClaimTypes.Role);
 
+    public static Guid? GetPharmacyId(this ClaimsPrincipal user) =>
+        Guid.TryParse(user.FindFirstValue(JwtClaimTypes.PharmacyId), out var id) && id != Guid.Empty
+            ? id
+            : null;
+
+    public static Guid? GetBranchId(this ClaimsPrincipal user, Guid branchId) =>
+        user.GetBranchIds().Contains(branchId) ? branchId : null;
+
     public static List<Guid> GetBranchIds(this ClaimsPrincipal user) =>
         user.FindAll(JwtClaimTypes.BranchId)
             .Select(c => Guid.TryParse(c.Value, out var id) ? id : Guid.Empty)

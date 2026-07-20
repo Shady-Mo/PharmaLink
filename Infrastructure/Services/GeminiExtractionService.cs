@@ -111,7 +111,8 @@ public class GeminiExtractionService(
 
             var geminiResponse =
                 await response.Content.ReadFromJsonAsync<GeminiResponse>(cancellationToken: cancellationToken);
-            var text = geminiResponse?.Candidates?[0]?.Content?.Parts?[0]?.Text;
+            var parts = geminiResponse?.Candidates?[0]?.Content?.Parts;
+            var text = parts != null ? string.Join("\n", parts.Select(p => p.Text)) : null;
 
             if (string.IsNullOrWhiteSpace(text))
             {
@@ -120,8 +121,38 @@ public class GeminiExtractionService(
             }
 
             logger.LogDebug("Gemini raw response text: {Text}", text);
+            
+            var jsonText = text.Trim();
+            if (jsonText.StartsWith("```"))
+            {
+                var firstNewline = jsonText.IndexOf('\n');
+                if (firstNewline != -1)
+                {
+                    jsonText = jsonText.Substring(firstNewline + 1);
+                }
+                if (jsonText.EndsWith("```"))
+                {
+                    jsonText = jsonText.Substring(0, jsonText.Length - 3).Trim();
+                }
+            }
+            
+            var startIndex = jsonText.IndexOf('{');
+            var endIndex = jsonText.LastIndexOf('}');
+            if (startIndex >= 0 && endIndex >= startIndex)
+            {
+                jsonText = jsonText.Substring(startIndex, endIndex - startIndex + 1);
+            }
+
             var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-            var extractedResult = JsonSerializer.Deserialize<GeminiExtractedJson>(text, options);
+            GeminiExtractedJson? extractedResult = null;
+            try
+            {
+                extractedResult = JsonSerializer.Deserialize<GeminiExtractedJson>(jsonText, options);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "Failed to deserialize Gemini response. Cleaned text: {JsonText}", jsonText);
+            }
 
             if (extractedResult?.Medicines == null)
             {
