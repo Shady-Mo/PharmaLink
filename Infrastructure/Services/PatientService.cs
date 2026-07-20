@@ -51,7 +51,7 @@ public class PatientService(
         cancellationToken.ThrowIfCancellationRequested();
 
         var existingByPhone = await context.AppUsers
-                .FirstOrDefaultAsync(p => p.PhoneNumber == updateDto.PhoneNumber, cancellationToken);
+                .FirstOrDefaultAsync(p => p.PhoneNumber == updateDto.PhoneNumber && p.Id != patientId, cancellationToken);
         if (existingByPhone is not null) {
             logger.LogWarning("Patient tried to update his profile with existing phone: {Phone}", updateDto.PhoneNumber);
             return Result.Failure<PatientProfileDto>(PatientErrors.PhoneAlreadyExists);
