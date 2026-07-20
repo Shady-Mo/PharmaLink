@@ -17,7 +17,7 @@ namespace Infrastructure.Services
         public async Task<Result<UpdatePharmacyProfileResponseDTO>> UpdateAsync(Guid guid, UpdatePharmacistProfileRequestDTO updatePharmacy, CancellationToken cancellationToken)
         {
             var existingByPhone = await context.AppUsers
-                .FirstOrDefaultAsync(p => p.PhoneNumber == updatePharmacy.PhoneNumber, cancellationToken);
+                .FirstOrDefaultAsync(p => p.PhoneNumber == updatePharmacy.PhoneNumber && p.Id != guid, cancellationToken);
             if (existingByPhone is not null)
             {
                 logger.LogWarning("Pharmasict tried to update his profile with existing phone: {Phone}", updatePharmacy.PhoneNumber);
