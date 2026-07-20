@@ -477,7 +477,14 @@ public class PrescriptionReviewService(
             .Select(m => new MedicineSearchDTO
             {
                 Id = m.DrugId,
-                Name = m.BrandName
+                Name = m.BrandName,
+                GenericName = m.GenericName,
+                Strength = m.Strength,
+                DosageForm = m.Form,
+                Route = m.Form,
+                Category = m.DrugClass,
+                Company = m.Manufacturer,
+                Price = m.Price
             })
             .Take(10)
             .ToListAsync();
