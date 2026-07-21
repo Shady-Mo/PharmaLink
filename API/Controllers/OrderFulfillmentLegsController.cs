@@ -37,4 +37,19 @@ public class OrderFulfillmentLegsController(IOrderFulfillmentLegService legServi
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+
+    [HttpGet("assigned")]
+    public async Task<IActionResult> GetAssignedOrders(
+        [FromQuery] GetBranchOrdersRequest request,
+        CancellationToken cancellationToken)
+    {
+        var result = await legService.GetBranchOrdersAsync(request, User, cancellationToken);
+
+        if (result.IsSuccess)
+        {
+            return Ok(result);
+        }
+
+        return result.ToProblem(); // أو return BadRequest(result); حسب الـ Base API Controller بتاعك
+    }
 }
