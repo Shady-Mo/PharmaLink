@@ -52,8 +52,8 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.SupportsPickup, src => src.Branch.SupportsPickup)
             .Map(dest => dest.DistanceKm, src => (src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null) 
                 ? src.Branch.GeoLocation.Distance(src.Order.DeliveryAddress.GeoLocation) / 1000.0 : (double?)null)
-            .Map(dest => dest.IsReady, src => src.LegStatus == LegStatus.ReadyForPickup || src.LegStatus == LegStatus.PickedUpByCourier)
-            .Map(dest => dest.IsCompleted, src => src.LegStatus == LegStatus.Completed)
+            .Map(dest => dest.IsReady, src => src.LegStatus == LegStatus.ReadyForPickup || src.LegStatus == LegStatus.OutForDelivery)
+            .Map(dest => dest.IsCompleted, src => src.LegStatus == LegStatus.Delivered)
             .Map(dest => dest.EstimatedPreparationMinutes, src => (int)((src.ReadyByEstimate - DateTime.UtcNow).TotalMinutes))
             .Map(dest => dest.Items, src => src.Order.Items.Where(i => i.BranchId == src.BranchId));
 

@@ -22,37 +22,21 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
             if (!pharmacyExists)
                 return Result.Failure<PharmacyDashboardDTO>(DashboardErrors.PharmacyNotFound);
 
-            var branchIds = await context.PharmacyBranches
+            var branches = await context.PharmacyBranches
                 .Where(b => b.PharmacyId == pharmacyId)
-                .Select(b => b.BranchId)
+                .Select(b => new BranchesDTO
+                {
+                    BranchId = b.BranchId,
+                    BranchName = b.BranchName
+                })
                 .ToListAsync(cancellationToken);
 
-            var pharmacyOrderIds = context.OrderItems
-                .Where(oi => oi.BranchId != null && branchIds.Contains(oi.BranchId.Value))
-                .Select(oi => oi.OrderId)
-                .Distinct();
+            var branchIds = branches
+                .Select(b => b.BranchId)
+                .ToList();
 
-            var kpis = await BuildKpisAsync(branchIds, pharmacyOrderIds, lowStockThreshold, cancellationToken);
-
-            var lowStockAlert = new LowStockAlertDTO
-            {
-                LowStockCount = kpis.LowStockMedicinesCount,
-                Threshold = lowStockThreshold,
-                RestockNeeded = kpis.LowStockMedicinesCount > 0
-            };
-
-            var salesTrend = await BuildSalesTrendAsync(pharmacyOrderIds, cancellationToken);
-
-            var recentOrders = await BuildRecentOrdersAsync(
-                branchIds, pharmacyOrderIds, recentOrdersCount, cancellationToken);
-
-            var dashboard = new PharmacyDashboardDTO
-            {
-                Kpis = kpis,
-                LowStockAlert = lowStockAlert,
-                SalesTrend = salesTrend,
-                RecentOrders = recentOrders
-            };
+            var dashboard = await BuildDashboardAsync(
+                branches, branchIds, lowStockThreshold, recentOrdersCount, cancellationToken);
 
             return Result.Success(dashboard);
         }
@@ -68,11 +52,13 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
         Guid pharmacyId,
         int lowStockThreshold,
         int recentOrdersCount,
-        CancellationToken cancellationToken = default) {
+        CancellationToken cancellationToken = default)
+    {
         if (id == Guid.Empty)
             return Result.Failure<PharmacyDashboardDTO>(DashboardErrors.BranchContextMissing);
 
-        try {
+        try
+        {
             var pharmacyExists = await context.Pharmacies
                 .AnyAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
 
@@ -85,47 +71,61 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
             if (!branchExists)
                 return Result.Failure<PharmacyDashboardDTO>(DashboardErrors.BranchNotFound);
 
-            var branchId = await context.PharmacyBranches
-                .Where(b => b.PharmacyId == pharmacyId && b.BranchId == id)
-                .Select(b => b.BranchId)
+            var branches = await context.PharmacyBranches
+                .Where(b => b.PharmacyId == pharmacyId)
+                .Select(b => new BranchesDTO
+                {
+                    BranchId = b.BranchId,
+                    BranchName = b.BranchName
+                })
                 .ToListAsync(cancellationToken);
 
-            var pharmacyOrderIds = context.OrderItems
-                .Where(oi => oi.BranchId != null && branchId.Contains(oi.BranchId.Value))
-                .Select(oi => oi.OrderId)
-                .Distinct();
+            var branchIds = new List<Guid> { id };
 
-            var kpis = await BuildKpisAsync(branchId, pharmacyOrderIds, lowStockThreshold, cancellationToken);
-
-            var lowStockAlert = new LowStockAlertDTO {
-                LowStockCount = kpis.LowStockMedicinesCount,
-                Threshold = lowStockThreshold,
-                RestockNeeded = kpis.LowStockMedicinesCount > 0
-            };
-
-            var salesTrend = await BuildSalesTrendAsync(pharmacyOrderIds, cancellationToken);
-
-            var recentOrders = await BuildRecentOrdersAsync(
-                branchId, pharmacyOrderIds, recentOrdersCount, cancellationToken);
-
-            var dashboard = new PharmacyDashboardDTO {
-                Kpis = kpis,
-                LowStockAlert = lowStockAlert,
-                SalesTrend = salesTrend,
-                RecentOrders = recentOrders
-            };
+            var dashboard = await BuildDashboardAsync(
+                branches, branchIds, lowStockThreshold, recentOrdersCount, cancellationToken);
 
             return Result.Success(dashboard);
         }
-        catch (Exception ex) {
-            logger.LogError(ex, "Failed to build pharmacy dashboard for PharmacyId {PharmacyId}", pharmacyId);
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to build branch dashboard for BranchId {BranchId}", id);
             return Result.Failure<PharmacyDashboardDTO>(DashboardErrors.BranchRetrievalFailed);
         }
     }
 
+    private async Task<PharmacyDashboardDTO> BuildDashboardAsync(
+        List<BranchesDTO> branches,
+        List<Guid> branchIds,
+        int lowStockThreshold,
+        int recentOrdersCount,
+        CancellationToken cancellationToken)
+    {
+        var kpis = await BuildKpisAsync(branchIds, lowStockThreshold, cancellationToken);
+
+        var lowStockAlert = new LowStockAlertDTO
+        {
+            LowStockCount = kpis.LowStockMedicinesCount,
+            Threshold = lowStockThreshold,
+            RestockNeeded = kpis.LowStockMedicinesCount > 0
+        };
+
+        var salesTrend = await BuildSalesTrendAsync(branchIds, cancellationToken);
+
+        var recentOrders = await BuildRecentOrdersAsync(branchIds, recentOrdersCount, cancellationToken);
+
+        return new PharmacyDashboardDTO
+        {
+            Branches = branches,
+            Kpis = kpis,
+            LowStockAlert = lowStockAlert,
+            SalesTrend = salesTrend,
+            RecentOrders = recentOrders
+        };
+    }
+
     private async Task<PharmacyKpiDTO> BuildKpisAsync(
         List<Guid> branchIds,
-        IQueryable<Guid> pharmacyOrderIds,
         int lowStockThreshold,
         CancellationToken cancellationToken)
     {
@@ -144,27 +144,27 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
             .CountAsync(cancellationToken);
 
         var lowStockCount = await context.PharmacyInventories
-            .Where(i => branchIds.Contains(i.BranchId)
-                        && (i.StockQuantity - i.ReservedQuantity) <= lowStockThreshold)
+            .Where(i => branchIds.Contains(i.BranchId) && i.StockQuantity <= lowStockThreshold)
             .CountAsync(cancellationToken);
 
-        var scopedOrders = context.Orders.Where(o => pharmacyOrderIds.Contains(o.OrderId));
+        var scopedLegs = context.OrderFulfillmentLegs
+            .Where(l => branchIds.Contains(l.BranchId));
 
-        var todaysOrdersCount = await scopedOrders
-            .CountAsync(o => o.CreatedAt >= today && o.CreatedAt < tomorrow, cancellationToken);
+        var todaysOrdersCount = await scopedLegs
+            .CountAsync(l => l.Order.CreatedAt >= today && l.Order.CreatedAt < tomorrow, cancellationToken);
 
-        var yesterdaysOrdersCount = await scopedOrders
-            .CountAsync(o => o.CreatedAt >= yesterday && o.CreatedAt < today, cancellationToken);
+        var yesterdaysOrdersCount = await scopedLegs
+            .CountAsync(l => l.Order.CreatedAt >= yesterday && l.Order.CreatedAt < today, cancellationToken);
 
-        var monthlyRevenue = await scopedOrders
-            .Where(o => o.OrderStatus != OrderStatus.Cancelled
-                        && o.CreatedAt >= monthStart && o.CreatedAt < nextMonthStart)
-            .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0m;
+        var completedLegs = scopedLegs.Where(l => l.LegStatus == LegStatus.Delivered && l.CompletedAt != null);
 
-        var prevMonthRevenue = await scopedOrders
-            .Where(o => o.OrderStatus != OrderStatus.Cancelled
-                        && o.CreatedAt >= prevMonthStart && o.CreatedAt < monthStart)
-            .SumAsync(o => (decimal?)o.TotalAmount, cancellationToken) ?? 0m;
+        var monthlyRevenue = await completedLegs
+            .Where(l => l.CompletedAt >= monthStart && l.CompletedAt < nextMonthStart)
+            .SumAsync(l => (decimal?)l.Order.TotalAmount, cancellationToken) ?? 0m;
+
+        var prevMonthRevenue = await completedLegs
+            .Where(l => l.CompletedAt >= prevMonthStart && l.CompletedAt < monthStart)
+            .SumAsync(l => (decimal?)l.Order.TotalAmount, cancellationToken) ?? 0m;
 
         return new PharmacyKpiDTO
         {
@@ -178,20 +178,21 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
     }
 
     private async Task<List<DailySalesDTO>> BuildSalesTrendAsync(
-        IQueryable<Guid> pharmacyOrderIds,
+        List<Guid> branchIds,
         CancellationToken cancellationToken)
     {
         var today = DateTime.UtcNow.Date;
         var windowStart = today.AddDays(-(SalesTrendDays - 1));
         var windowEnd = today.AddDays(1);
 
-        var grouped = await context.Orders
-            .Where(o => pharmacyOrderIds.Contains(o.OrderId)
-                        && o.OrderStatus == OrderStatus.Completed
-                        && o.DeliveredAt != null
-                        && o.DeliveredAt >= windowStart && o.DeliveredAt < windowEnd)
-            .GroupBy(o => o.DeliveredAt.Value.Date)
-            .Select(g => new { Day = g.Key, Total = g.Sum(o => o.TotalAmount) })
+        var grouped = await context.OrderFulfillmentLegs
+            .Where(l => branchIds.Contains(l.BranchId)
+                        && l.LegStatus == LegStatus.Delivered
+                        && l.CompletedAt != null
+                        && l.CompletedAt >= windowStart
+                        && l.CompletedAt < windowEnd)
+            .GroupBy(l => l.CompletedAt!.Value.Date)
+            .Select(g => new { Day = g.Key, Total = g.Sum(l => l.Order.TotalAmount) })
             .ToListAsync(cancellationToken);
 
         var totalsByDay = grouped.ToDictionary(x => x.Day, x => x.Total);
@@ -212,39 +213,40 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
 
     private async Task<List<PharmacyRecentOrderDTO>> BuildRecentOrdersAsync(
         List<Guid> branchIds,
-        IQueryable<Guid> pharmacyOrderIds,
         int recentOrdersCount,
         CancellationToken cancellationToken)
     {
-        var raw = await context.Orders
-            .Where(o => pharmacyOrderIds.Contains(o.OrderId))
-            .OrderByDescending(o => o.CreatedAt)
+        var raw = await context.OrderFulfillmentLegs
+            .Where(l => branchIds.Contains(l.BranchId))
+            .OrderByDescending(l => l.Order.CreatedAt)
+            .ThenByDescending(l => l.CompletedAt)
             .Take(recentOrdersCount)
-            .Select(o => new
+            .Select(l => new
             {
-                o.OrderId,
-                o.CreatedAt,
-                o.TotalAmount,
-                o.OrderStatus,
-                PatientName = o.Patient.FullName,
-                Medicines = o.Items
-                    .Where(i => i.BranchId != null && branchIds.Contains(i.BranchId.Value))
-                    .Select(i => i.Drug.ArabicName)
+                l.LegId,
+                l.OrderId,
+                l.LegStatus,
+                OrderCreatedAt = l.Order.CreatedAt,
+                OrderTotal = l.Order.TotalAmount,
+                PatientName = l.Order.Patient.FullName,
+                Medicines = l.Order.Items
+                    .Select(i => i.Drug.BrandName)
                     .ToList()
             })
             .ToListAsync(cancellationToken);
 
-        return raw.Select(o => new PharmacyRecentOrderDTO
+        return raw.Select(l => new PharmacyRecentOrderDTO
         {
-            OrderId = o.OrderId,
-            OrderNumber = BuildOrderNumber(o.OrderId),
-            PatientName = string.IsNullOrWhiteSpace(o.PatientName) ? "Unknown" : o.PatientName,
-            OrderedMedicinesCount = o.Medicines.Count,
-            Summary = BuildMedicinesSummary(o.Medicines),
-            TotalAmount = o.TotalAmount,
-            OrderDate = o.CreatedAt,
-            OrderStatus = o.OrderStatus,
-            OrderStatusLabel = MapStatusLabel(o.OrderStatus)
+            LegId = l.LegId,
+            OrderId = l.OrderId,
+            OrderNumber = BuildOrderNumber(l.OrderId),
+            PatientName = string.IsNullOrWhiteSpace(l.PatientName) ? "Unknown" : l.PatientName,
+            OrderedMedicinesCount = l.Medicines.Count,
+            Summary = BuildMedicinesSummary(l.Medicines),
+            TotalAmount = l.OrderTotal,
+            OrderDate = l.OrderCreatedAt,
+            LegStatus = l.LegStatus,
+            LegStatusLabel = MapLegStatusLabel(l.LegStatus)
         }).ToList();
     }
 
@@ -272,13 +274,14 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
         return remaining > 0 ? $"{preview} +{remaining} more" : preview;
     }
 
-    private static string MapStatusLabel(OrderStatus status) => status switch
+    private static string MapLegStatusLabel(LegStatus status) => status switch
     {
-        OrderStatus.Pending => "Pending",
-        OrderStatus.Processing => "Preparing",
-        OrderStatus.Shipped => "Out for Delivery",
-        OrderStatus.Completed => "Delivered",
-        OrderStatus.Cancelled => "Cancelled",
+        LegStatus.Assigned => "Assigned",
+        LegStatus.Preparing => "Preparing",
+        LegStatus.ReadyForPickup => "Ready for Pickup",
+        LegStatus.OutForDelivery => "Out for Delivery",
+        LegStatus.Delivered => "Delivered",
+        LegStatus.Cancelled => "Cancelled",
         _ => status.ToString()
     };
 }

@@ -49,8 +49,8 @@ public enum LegStatus : byte
     Assigned = 1,
     Preparing = 2,
     ReadyForPickup = 3,
-    PickedUpByCourier = 4,
-    Completed = 5,
+    OutForDelivery = 4,
+    Delivered = 5,
     Cancelled = 6
 }
 

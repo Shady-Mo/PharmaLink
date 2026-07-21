@@ -2,6 +2,8 @@ namespace Application.DTOs.Dashboard.Responses;
 
 public class PharmacyDashboardDTO
 {
+    public List<BranchesDTO> Branches { get; set; }
+
     public PharmacyKpiDTO Kpis { get; set; } = null!;
 
     public LowStockAlertDTO LowStockAlert { get; set; } = null!;

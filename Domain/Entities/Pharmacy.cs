@@ -6,8 +6,8 @@ public class Pharmacy
     public string LegalName { get; set; } = string.Empty;
     public string LicenseNumber { get; set; } = string.Empty;
     public string LogoUrl { get; set; } = string.Empty;
-    
-    public VerificationStatus VerificationStatus { get; set; }
+
+    public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Verified;
 
     public ICollection<PharmacyAdmin> Admins { get; set; } = new HashSet<PharmacyAdmin>();
     public ICollection<PharmacistAssignment> PharmacistAssignments { get; set; } = new HashSet<PharmacistAssignment>();
