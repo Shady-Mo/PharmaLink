@@ -7,6 +7,7 @@ namespace Application.DTOs.PreparationList.Response
     public class PreparationListDTO
     {
         public Guid OrderNumber { get; set; }
+        public Guid LegId { get; set; }
         public string PatientName { get; set; }
         public List<MedcineDTO> MedcineDTOs { get; set; }
         public LegStatus Status { get; set; }
