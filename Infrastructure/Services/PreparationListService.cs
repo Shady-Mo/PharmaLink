@@ -16,7 +16,7 @@ namespace Infrastructure.Services
                 .AsNoTracking()
                 .Where(p => p.Branch.Pharmacy.PharmacistAssignments
                 .Any(pa => pa.PharmacistId == id) 
-                && p.LegStatus != LegStatus.Completed
+                && p.LegStatus != LegStatus.Delivered
                 && p.LegStatus != LegStatus.Cancelled)
                 .AsQueryable();
 
