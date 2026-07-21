@@ -67,23 +67,20 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
             ? leg.CompletedAt ?? DateTime.UtcNow
             : null;
 
-        if (role == AppRoles.Admin)
-        {
-            var userId = GetCurrentUserId(user);
-            if (userId is null)
-                return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.InvalidUserContext);
+        var userId = GetCurrentUserId(user);
+        if (userId is null)
+            return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.InvalidUserContext);
 
-            dbContext.OrderFulfillmentLegStatusAudits.Add(new OrderFulfillmentLegStatusAudit
-            {
-                AuditId = Guid.NewGuid(),
-                LegId = leg.LegId,
-                ChangedByUserId = userId.Value,
-                OldStatus = oldStatus,
-                NewStatus = request.Status,
-                Reason = request.Reason!.Trim(),
-                ChangedAtUtc = DateTime.UtcNow
-            });
-        }
+        dbContext.OrderFulfillmentLegStatusAudits.Add(new OrderFulfillmentLegStatusAudit
+        {
+            AuditId = Guid.NewGuid(),
+            LegId = leg.LegId,
+            ChangedByUserId = userId.Value,
+            OldStatus = oldStatus,
+            NewStatus = request.Status,
+            Reason = string.IsNullOrWhiteSpace(request.Reason) ? request.Status.ToString() : request.Reason.Trim(),
+            ChangedAtUtc = DateTime.UtcNow
+        });
 
         if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered))
             leg.Order.OrderStatus = OrderStatus.Completed;
