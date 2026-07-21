@@ -2,12 +2,14 @@ namespace Infrastructure.Services
 {
     public class PharmacistProfileService
         (AppDbContext context,
+        IHttpContextAccessor httpContextAccessor,
         ILogger<PharmacistProfileService> logger)
         : IPharmacistProfileService
     {
         public async Task<Result<GetPharmacyProfileResponseDTO>> GetByIdAsync(Guid guid, CancellationToken cancellationToken)
         {
-            var pharmacist = await context.Pharmacists.FirstOrDefaultAsync(p => p.Id == guid, cancellationToken);
+
+            var pharmacist = await context.PharmacistAssignments.Include(p => p.Pharmacy).Include(p => p.Pharmacist).FirstOrDefaultAsync(p => p.PharmacistId == guid, cancellationToken);
 
             var result = pharmacist.Adapt<GetPharmacyProfileResponseDTO>();
 

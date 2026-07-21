@@ -1,5 +1,6 @@
 using Application.DTOs.Addresses.Requests;
 using Application.DTOs.Addresses.Response;
+using Application.DTOs.Pharmacy.Responses;
 using Application.DTOs.PharmacyInventory.Response;
 
 namespace Application.Mappings;
@@ -114,5 +115,14 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.PharmacistId, src => src.Id)
             .Map(dest => dest.Email, src => src.Email ?? string.Empty)
             .Map(dest => dest.PhoneNumber, src => src.PhoneNumber ?? string.Empty);
+
+
+
+        config.NewConfig<PharmacistAssignment, GetPharmacyProfileResponseDTO>()
+            .Map(dest => dest.Id, src => src.Pharmacist.Id)
+            .Map(dest => dest.FullName, src => src.Pharmacist.FullName)
+            .Map(dest => dest.Email, src => src.Pharmacist.Email)
+            .Map(dest => dest.PhoneNumber, src => src.Pharmacist.PhoneNumber)
+            .Map(dest => dest.AdministeredPharmacies, src => new[] { src.Pharmacy });
     }
 }

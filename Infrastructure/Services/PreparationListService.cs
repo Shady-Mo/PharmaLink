@@ -12,7 +12,7 @@ namespace Infrastructure.Services
             var query = context.OrderFulfillmentLegs
                 .AsNoTracking()
                 .Where(p => p.Branch.Pharmacy.PharmacistAssignments
-                .Any(pa => pa.PharmacistId == id) 
+                .Any(pa => pa.PharmacistId == id && pa.IsActive) 
                 && p.LegStatus != LegStatus.Delivered
                 && p.LegStatus != LegStatus.Cancelled)
                 .AsQueryable();
