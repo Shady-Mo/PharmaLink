@@ -5,4 +5,5 @@ namespace Application.DTOs.PrescriptionReview.Requests;
 public class GetPrescriptionReviewsRequest : PaginatedRequest
 {
     public PrescriptionReviewStatus? Status { get; set; }
+    public string? SearchTerm { get; set; }
 }
