@@ -69,9 +69,9 @@ public class LegStatusTransitionService(
         {
             LegStatus.Assigned => newStatus == LegStatus.Preparing,
             LegStatus.Preparing => (legType == LegType.Preparation && newStatus == LegStatus.ReadyForPickup) ||
-                                   (legType == LegType.Delivery && newStatus == LegStatus.PickedUpByCourier),
-            LegStatus.ReadyForPickup => newStatus == LegStatus.Completed,
-            LegStatus.PickedUpByCourier => newStatus == LegStatus.Completed,
+                                   (legType == LegType.Delivery && newStatus == LegStatus.OutForDelivery),
+            LegStatus.ReadyForPickup => newStatus == LegStatus.Delivered,
+            LegStatus.OutForDelivery => newStatus == LegStatus.Delivered,
             _ => false
         };
 
@@ -87,18 +87,15 @@ public class LegStatusTransitionService(
     {
         leg.LegStatus = newStatus;
 
-        if (newStatus == LegStatus.Completed)
+        if (newStatus == LegStatus.Delivered)
         {
             leg.CompletedAt = DateTime.UtcNow;
             
             bool anyIncomplete = await context.OrderFulfillmentLegs
-                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Completed, cancellationToken);
+                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Delivered, cancellationToken);
 
             if (!anyIncomplete)
-            {
                 leg.Order.OrderStatus = OrderStatus.Completed;
-                leg.Order.DeliveredAt = DateTime.UtcNow;
-            }
         }
 
         await context.SaveChangesAsync(cancellationToken);

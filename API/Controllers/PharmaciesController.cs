@@ -2,7 +2,7 @@
 {
     [Route("api/v1/[controller]")]
     [ApiController]
-    [Authorize(Roles = AppRoles.Admin)]
+    [Authorize(Roles = AppRoles.PharmacyAdmin)]
     public class PharmaciesController(IPharmacyService pharmacyService) : ControllerBase
     {
         [HttpGet("{id}")]

@@ -2,6 +2,8 @@ namespace Application.DTOs.Dashboard.Responses;
 
 public class PharmacyRecentOrderDTO
 {
+    public Guid LegId { get; set; }
+
     public Guid OrderId { get; set; }
 
     public string OrderNumber { get; set; } = string.Empty;
@@ -16,7 +18,7 @@ public class PharmacyRecentOrderDTO
 
     public DateTime OrderDate { get; set; }
 
-    public OrderStatus OrderStatus { get; set; }
+    public LegStatus LegStatus { get; set; }
 
-    public string OrderStatusLabel { get; set; } = string.Empty;
+    public string LegStatusLabel { get; set; } = string.Empty;
 }
