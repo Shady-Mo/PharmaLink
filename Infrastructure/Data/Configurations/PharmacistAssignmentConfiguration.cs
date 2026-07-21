@@ -22,7 +22,7 @@ public class PharmacistAssignmentConfiguration : IEntityTypeConfiguration<Pharma
             .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(a => a.Pharmacy)
-            .WithMany()
+            .WithMany(a => a.PharmacistAssignments)
             .HasForeignKey(a => a.PharmacyId)
             .OnDelete(DeleteBehavior.Restrict);
 

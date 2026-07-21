@@ -10,5 +10,6 @@ public class Pharmacy
     public VerificationStatus VerificationStatus { get; set; } = VerificationStatus.Verified;
 
     public ICollection<PharmacyAdmin> Admins { get; set; } = new HashSet<PharmacyAdmin>();
+    public ICollection<PharmacistAssignment> PharmacistAssignments { get; set; } = new HashSet<PharmacistAssignment>();
     public ICollection<PharmacyBranch> Branches { get; set; } = new HashSet<PharmacyBranch>();
 }

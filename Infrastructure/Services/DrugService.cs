@@ -1,7 +1,10 @@
 namespace Infrastructure.Services;
 
-public class DrugService(AppDbContext context) : IDrugService
+public class DrugService(AppDbContext context, IGeoLookupService geoLookupService) : IDrugService
 {
+    // Available stock (StockQuantity - ReservedQuantity) below this is "Low Stock" rather than "In Stock".
+    private const int LowStockThreshold = 10;
+
     public async Task<Result<PaginatedList<DrugDto>>> SearchCatalogAsync(
         DrugSearchRequest filters,
         CancellationToken cancellationToken = default)
@@ -11,15 +14,22 @@ public class DrugService(AppDbContext context) : IDrugService
         if (!string.IsNullOrWhiteSpace(filters.SearchValue))
         {
             var searchTerm = filters.SearchValue.Trim();
-            
-            query = query.Where(d => d.GenericName.Contains(searchTerm) || d.BrandName.Contains(searchTerm));
+
+            query = query.Where(d => d.GenericName.Contains(searchTerm)
+                                   || d.BrandName.Contains(searchTerm)
+                                   || d.ArabicName.Contains(searchTerm));
         }
 
         if (!string.IsNullOrWhiteSpace(filters.Form))
         {
             var formTerm = filters.Form.Trim();
-            
+
             query = query.Where(d => d.Form == formTerm);
+        }
+
+        if (filters.Category.HasValue)
+        {
+            query = query.Where(d => d.Category == filters.Category.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(filters.SortColumn))
@@ -37,8 +47,59 @@ public class DrugService(AppDbContext context) : IDrugService
 
         var resultQuery = query.ProjectToType<DrugDto>();
 
-        return Result.Success(
-            await resultQuery.ToPaginatedListAsync(filters.PageNumber, filters.PageSize, cancellationToken));
+        var page = await resultQuery.ToPaginatedListAsync(filters.PageNumber, filters.PageSize, cancellationToken);
+
+        if (filters.Latitude.HasValue && filters.Longitude.HasValue && page.Items.Count > 0)
+        {
+            await AttachAvailabilityAsync(page.Items, filters.Latitude.Value, filters.Longitude.Value,
+                cancellationToken);
+        }
+
+        return Result.Success(page);
+    }
+
+    /// <summary>
+    /// Computes each drug's AvailabilityStatus from stock at the single nearest reachable
+    /// branch to the patient. If no branch is reachable at all, every drug on the page is
+    /// reported OutOfStock, since nothing is realistically deliverable/pickup-able right now.
+    /// </summary>
+    private async Task AttachAvailabilityAsync(
+        IReadOnlyCollection<DrugDto> drugs, double latitude, double longitude,
+        CancellationToken cancellationToken)
+    {
+        var patientLocation = new Point(longitude, latitude) { SRID = 4326 };
+
+        var nearbyBranches = await geoLookupService.FindNearbyBranchesAsync(
+            patientLocation, cancellationToken: cancellationToken);
+
+        var nearestBranch = nearbyBranches.FirstOrDefault();
+
+        if (nearestBranch is null)
+        {
+            foreach (var drug in drugs)
+                drug.AvailabilityStatus = DrugAvailabilityStatus.OutOfStock;
+
+            return;
+        }
+
+        var drugIds = drugs.Select(d => d.DrugId).ToList();
+
+        var stockByDrugId = await context.PharmacyInventories
+            .AsNoTracking()
+            .Where(pi => pi.BranchId == nearestBranch.BranchID && drugIds.Contains(pi.DrugId))
+            .Select(pi => new { pi.DrugId, Available = pi.StockQuantity - pi.ReservedQuantity })
+            .ToDictionaryAsync(pi => pi.DrugId, pi => pi.Available, cancellationToken);
+
+        foreach (var drug in drugs)
+        {
+            var available = stockByDrugId.GetValueOrDefault(drug.DrugId, 0);
+
+            drug.AvailabilityStatus = available <= 0
+                ? DrugAvailabilityStatus.OutOfStock
+                : available < LowStockThreshold
+                    ? DrugAvailabilityStatus.LowStock
+                    : DrugAvailabilityStatus.InStock;
+        }
     }
 
     public async Task<Result<DrugDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -58,6 +119,8 @@ public class DrugService(AppDbContext context) : IDrugService
         drug.DrugId = Guid.NewGuid();
 
         drug.IsActive = true;
+
+        drug.Category = DrugCategoryMapper.Map(drug.DrugClass, drug.GenericName);
 
         context.Drugs.Add(drug);
 
@@ -93,5 +156,25 @@ public class DrugService(AppDbContext context) : IDrugService
         await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success();
+    }
+
+    public async Task<Result<int>> BackfillCategoriesAsync(CancellationToken cancellationToken = default)
+    {
+        // The pre-migration DB default is raw 0 (byte's CLR default), which doesn't
+        // correspond to any DrugCategory member (enum starts at 1). Target that raw
+        // value directly instead of comparing against DrugCategory.Other.
+        var drugsNeedingBackfill = await context.Drugs
+            .Where(d => (byte)d.Category == 0)
+            .ToListAsync(cancellationToken);
+
+        foreach (var drug in drugsNeedingBackfill)
+        {
+            drug.Category = DrugCategoryMapper.Map(drug.DrugClass, drug.GenericName);
+        }
+
+        if (drugsNeedingBackfill.Count > 0)
+            await context.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(drugsNeedingBackfill.Count);
     }
 }

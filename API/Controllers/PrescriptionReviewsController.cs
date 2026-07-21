@@ -1,3 +1,5 @@
+using Twilio.TwiML.Voice;
+
 namespace API.Controllers;
 
 /// <summary>
@@ -111,5 +113,14 @@ public class PrescriptionReviewsController(
     {
         var result = await service.RejectAsync(id, User.GetUserId(), dto);
         return result.IsSuccess ? NoContent() : result.ToProblem();
+    }
+
+    [HttpGet("search")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchMedicines([FromQuery] string term)
+    {
+        var result = await service.SearchMedicinesAsync(term);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 }
