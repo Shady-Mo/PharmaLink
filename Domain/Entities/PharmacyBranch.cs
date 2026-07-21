@@ -21,5 +21,6 @@ public class PharmacyBranch
     public Pharmacy Pharmacy { get; set; } = null!;
     public ICollection<PharmacyInventory> Inventories { get; set; } = new HashSet<PharmacyInventory>();
     public ICollection<OrderItem> SuppliedOrderItems { get; set; } = new HashSet<OrderItem>();
+    public ICollection<PharmacistAssignment> PharmacistAssignments { get; set; } = new HashSet<PharmacistAssignment>();
     public ICollection<OrderFulfillmentLeg> FulfillmentLegs { get; set; } = new HashSet<OrderFulfillmentLeg>();
 }

@@ -13,8 +13,8 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260720214857_ab")]
-    partial class ab
+    [Migration("20260721142720_AddBranchToPharmacistAssignment")]
+    partial class AddBranchToPharmacistAssignment
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -429,6 +429,9 @@ namespace Infrastructure.Migrations
                     b.Property<Guid>("AssignedByPharmacyAdminId")
                         .HasColumnType("uniqueidentifier");
 
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<DateTime?>("EndedAt")
                         .HasColumnType("datetime2");
 
@@ -447,11 +450,18 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("AssignedByPharmacyAdminId");
 
+                    b.HasIndex("BranchId")
+                        .HasDatabaseName("IX_PharmacistAssignments_BranchId");
+
                     b.HasIndex("PharmacistId")
                         .HasDatabaseName("IX_PharmacistAssignments_PharmacistId");
 
                     b.HasIndex("PharmacyId")
                         .HasDatabaseName("IX_PharmacistAssignments_PharmacyId");
+
+                    b.HasIndex("BranchId", "IsActive")
+                        .HasDatabaseName("IX_PharmacistAssignments_BranchId_Active")
+                        .HasFilter("[IsActive] = 1");
 
                     b.HasIndex("PharmacistId", "IsActive")
                         .HasDatabaseName("IX_PharmacistAssignments_PharmacistId_Active")
@@ -1082,6 +1092,12 @@ namespace Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.PharmacyBranch", "Branch")
+                        .WithMany("PharmacistAssignments")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("Domain.Entities.Pharmacist", "Pharmacist")
                         .WithMany("Assignments")
                         .HasForeignKey("PharmacistId")
@@ -1095,6 +1111,8 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("AssignedByPharmacyAdmin");
+
+                    b.Navigation("Branch");
 
                     b.Navigation("Pharmacist");
 
@@ -1286,6 +1304,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("FulfillmentLegs");
 
                     b.Navigation("Inventories");
+
+                    b.Navigation("PharmacistAssignments");
 
                     b.Navigation("SuppliedOrderItems");
                 });
