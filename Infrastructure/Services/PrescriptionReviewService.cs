@@ -146,10 +146,45 @@ public class PrescriptionReviewService(
             }
         }
 
+       if (!string.IsNullOrWhiteSpace(request.SortBy))
+        {
+            switch(request.SortBy.ToLower())
+            {
+                case "patientname":
+                    query = request.IsDescending
+                        ? query.OrderByDescending(r => r.Patient.FullName)
+                        : query.OrderBy(r => r.Patient.FullName);
+                    break;
+                case "status":
+                    query = request.IsDescending
+                        ? query.OrderByDescending(r => r.Patient.Status)
+                        : query.OrderBy(r => r.Patient.Status);
+                    break;
+                case "medicinecount":
+                    query = request.IsDescending
+                        ? query.OrderByDescending(r => r.Medicines.Count)
+                        : query.OrderBy(r => r.Medicines.Count);
+                    break;
+                case "createdat":
+                    query = request.IsDescending
+                        ? query.OrderByDescending(r => r.CreatedAt)
+                        : query.OrderBy(r => r.CreatedAt);
+                    break;
+                case "reviewedat":
+                    query = request.IsDescending
+                        ? query.OrderByDescending(r => r.ReviewedAt)
+                        : query.OrderBy(r => r.ReviewedAt);
+                    break;
+                default:
+                    query.OrderBy(r => r.PrescriptionReviewId);
+                    break;
+            }
+        }
+
+
         var totalCount = await query.CountAsync();
 
         var projectedQuery = query
-            .OrderByDescending(r => r.CreatedAt)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
             .Select(r => new
