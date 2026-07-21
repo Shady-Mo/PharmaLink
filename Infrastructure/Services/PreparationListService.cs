@@ -38,6 +38,7 @@ namespace Infrastructure.Services
                 .Take(parameters.PageSize)
                 .Select(p => new PreparationListDTO
                 {
+                    LegId = p.LegId,
                     OrderNumber = p.OrderId,
                     PatientName = p.Order.Patient.FullName,
                     Status = p.LegStatus,
