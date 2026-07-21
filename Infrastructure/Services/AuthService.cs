@@ -170,22 +170,20 @@ public class AuthService(
         List<Claim> claims,
         CancellationToken cancellationToken)
     {
-        var assignedPharmacies = await dbContext.PharmacistAssignments
-            .Where(pha => pha.PharmacistId == pharmacistId && pha.IsActive)
-            .Select(pha => new
-            {
-                pha.PharmacyId,
-                BranchIds = pha.Pharmacy.Branches.Select(b => b.BranchId)
-            })
+        var assignedPharmacy = await dbContext.PharmacistAssignments
             .AsNoTracking()
-            .ToListAsync(cancellationToken);
-
-        foreach (var pharmacy in assignedPharmacies)
+            .FirstOrDefaultAsync(pha => pha.PharmacistId == pharmacistId && pha.IsActive, cancellationToken);
+        //.Select(pha => new
+        //{
+        //    pha.PharmacyId,
+        //    BranchIds = pha.Pharmacy.Branches.Select(b => b.BranchId)
+        //})
+        Console.WriteLine(assignedPharmacy.PharmacistId);
+        if (assignedPharmacy is not null)
         {
-            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+            claims.Add(new Claim(JwtClaimTypes.PharmacyId, assignedPharmacy.PharmacyId.ToString()));
 
-            claims.AddRange(
-                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+            claims.Add(new Claim(JwtClaimTypes.BranchId, assignedPharmacy.BranchId.ToString()));
         }
     }
 
