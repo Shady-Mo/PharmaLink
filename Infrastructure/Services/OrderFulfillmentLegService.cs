@@ -38,7 +38,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         if (leg is null)
             return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.NotFound);
 
-        var role = user.FindFirstValue(JwtClaimTypes.RoleName);
+        var role = GetUserRole(user);
 
         if (role == AppRoles.Patient)
             return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.Forbidden);
@@ -110,10 +110,10 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
     }
 
     private static bool UserHasBranchScope(ClaimsPrincipal user, Guid branchId) =>
-        user.FindAll(JwtClaimTypes.BranchId)
-            .Select(c => c.Value)
-            .Any(value => Guid.TryParse(value, out var claimBranchId) && claimBranchId == branchId);
-
+         user.Claims
+             .Where(c => c.Type.Equals("BranchId", StringComparison.OrdinalIgnoreCase) || c.Type == JwtClaimTypes.BranchId)
+             .Select(c => c.Value)
+             .Any(value => Guid.TryParse(value, out var claimBranchId) && claimBranchId == branchId);
     private static Guid? GetCurrentUserId(ClaimsPrincipal user) =>
         Guid.TryParse(user.FindFirstValue(JwtClaimTypes.UserId), out var userId)
             ? userId
@@ -140,4 +140,10 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         ReadyByEstimate = leg.ReadyByEstimate,
         CompletedAt = leg.CompletedAt
     };
+
+    private static string? GetUserRole(ClaimsPrincipal user) =>
+        user.Claims.FirstOrDefault(c =>
+            c.Type.Equals("RoleName", StringComparison.OrdinalIgnoreCase) ||
+            c.Type.Equals("role", StringComparison.OrdinalIgnoreCase) ||
+            c.Type == JwtClaimTypes.RoleName)?.Value;
 }

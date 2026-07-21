@@ -11,6 +11,7 @@ namespace Application.DTOs.PreparationList.Response
         public string PatientName { get; set; }
         public List<MedcineDTO> MedcineDTOs { get; set; }
         public LegStatus Status { get; set; }
+        public byte LegType { get; set; }
     }
 
     public class MedcineDTO

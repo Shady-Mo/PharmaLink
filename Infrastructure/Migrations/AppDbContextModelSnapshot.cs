@@ -58,7 +58,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("Addresses", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -167,7 +167,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("PatientUserId")
                         .IsUnique();
 
-                    b.ToTable("Carts");
+                    b.ToTable("Carts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CartItem", b =>
@@ -196,7 +196,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CartId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("CartItems", t =>
+                    b.ToTable("CartItems", null, t =>
                         {
                             t.HasCheckConstraint("CK_CartItem_Quantity", "\"Quantity\" > 0");
                         });
@@ -276,7 +276,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs");
+                    b.ToTable("Drugs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -312,7 +312,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -344,7 +344,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs");
+                    b.ToTable("OrderFulfillmentLegs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLegStatusAudit", b =>
@@ -379,7 +379,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("LegId");
 
-                    b.ToTable("OrderFulfillmentLegStatusAudits");
+                    b.ToTable("OrderFulfillmentLegStatusAudits", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -411,7 +411,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacistAssignment", b =>
@@ -482,7 +482,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("PharmacyId");
 
-                    b.ToTable("Pharmacies");
+                    b.ToTable("Pharmacies", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -537,7 +537,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches");
+                    b.ToTable("PharmacyBranches", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -580,7 +580,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories");
+                    b.ToTable("PharmacyInventories", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
@@ -672,7 +672,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacistUserId");
 
-                    b.ToTable("PrescriptionReviews");
+                    b.ToTable("PrescriptionReviews", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
@@ -738,7 +738,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PrescriptionReviewId");
 
-                    b.ToTable("PrescriptionReviewMedicines");
+                    b.ToTable("PrescriptionReviewMedicines", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>

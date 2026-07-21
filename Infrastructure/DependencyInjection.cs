@@ -61,7 +61,7 @@ public static class DependencyInjection
 
             services.AddScoped<IPharmacyDashboardService, PharmacyDashboardService>();
             services.AddScoped<IPreparationListService, PreparationListService>();
-
+            services.AddScoped<IOrderFulfillmentLegService, OrderFulfillmentLegService>();
 
 
             services.Configure<GeminiSettings>(

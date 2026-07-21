@@ -14,7 +14,10 @@ namespace Infrastructure.Services
 
             var query = context.OrderFulfillmentLegs
                 .AsNoTracking()
-                .Where(p => p.Branch.Pharmacy.PharmacistAssignments.Any(pa => pa.PharmacistId == id))
+                .Where(p => p.Branch.Pharmacy.PharmacistAssignments
+                .Any(pa => pa.PharmacistId == id) 
+                && p.LegStatus != LegStatus.Completed
+                && p.LegStatus != LegStatus.Cancelled)
                 .AsQueryable();
 
             if (parameters.Status.HasValue)
@@ -42,6 +45,7 @@ namespace Infrastructure.Services
                     OrderNumber = p.OrderId,
                     PatientName = p.Order.Patient.FullName,
                     Status = p.LegStatus,
+                    LegType = (byte)p.LegType,
                     MedcineDTOs = p.Branch.SuppliedOrderItems
                         .Where(oi => oi.OrderId == p.OrderId && oi.BranchId == p.BranchId)
                         .Select(oi => new MedcineDTO
