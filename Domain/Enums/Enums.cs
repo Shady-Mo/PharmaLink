@@ -11,7 +11,8 @@ public enum VerificationStatus : byte
 {
     Pending = 1,
     Verified = 2,
-    Rejected = 3
+    Rejected = 3,
+    Deleted = 4
 }
 
 public enum FulfillmentMode : byte
@@ -60,7 +61,9 @@ public enum PrescriptionReviewStatus : byte
     Approved = 2,
     Rejected = 3,
     OrderCreated = 4
-}public enum DrugCategory : byte
+}
+
+public enum DrugCategory : byte
 {
     PainRelievers = 1,
     Antibiotics = 2,
@@ -77,4 +80,4 @@ public enum DrugAvailabilityStatus : byte
     OutOfStock = 1,
     LowStock = 2,
     InStock = 3
-}
+}
