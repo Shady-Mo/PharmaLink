@@ -121,52 +121,51 @@ public class PrescriptionReviewService(
     }
 
     public async Task<Result<PaginatedList<PrescriptionReviewSummaryDTO>>> GetAllAsync(
-        GetPrescriptionReviewsRequest request)
+    GetPrescriptionReviewsRequest request)
     {
-        var query = context.PrescriptionReviews
-            .Include(r => r.Patient)
-            .Include(r => r.Medicines)
-            .AsQueryable();
-
-        logger.LogInformation("Before filter = {Count}", await query.CountAsync());
+        var query = context.PrescriptionReviews.AsNoTracking();
 
         if (request.Status.HasValue)
         {
             query = query.Where(r => r.ReviewStatus == request.Status.Value);
+        }
 
-            logger.LogInformation("After filter = {Count}", await query.CountAsync());
+        if (!string.IsNullOrWhiteSpace(request.SearchTerm))
+        {
+            var searchTerm = request.SearchTerm.Trim();
+            bool isGuid = Guid.TryParse(searchTerm, out Guid parsedGuid);
+
+            if (isGuid)
+            {
+                query = query.Where(r => r.PrescriptionReviewId == parsedGuid ||
+                                         (r.Patient != null && r.Patient.FullName.Contains(searchTerm)));
+            }
+            else
+            {
+                query = query.Where(r => r.Patient != null && r.Patient.FullName.Contains(searchTerm));
+            }
         }
 
         var totalCount = await query.CountAsync();
 
-        logger.LogInformation("Total Count = {TotalCount}", totalCount);
-
-        logger.LogInformation(
-            "PageNumber = {PageNumber}, PageSize = {PageSize}, Skip = {Skip}",
-            request.PageNumber,
-            request.PageSize,
-            (request.PageNumber - 1) * request.PageSize);
-
-        var items = await query
+        var projectedQuery = query
             .OrderByDescending(r => r.CreatedAt)
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
-            .ToListAsync();
+            .Select(r => new
+            {
+                r.PrescriptionReviewId,
+                PatientName = r.Patient != null ? r.Patient.FullName : "Unknown",
+                r.PrescriptionImagePath,
+                r.ReviewStatus,
+                MedicineCount = r.Medicines.Count,
+                r.CreatedAt,
+                r.ReviewedAt
+            });
 
-        logger.LogInformation("Items Count After ToListAsync = {Count}", items.Count);
-
-        foreach (var item in items)
-        {
-            logger.LogInformation(
-                "ReviewId = {Id}, Patient = {Patient}, Medicines = {MedicineCount}, Status = {Status}",
-                item.PrescriptionReviewId,
-                item.Patient?.FullName,
-                item.Medicines.Count,
-                item.ReviewStatus);
-        }
+        var items = await projectedQuery.ToListAsync();
 
         var requestHttp = httpContextAccessor.HttpContext?.Request;
-
         var baseUrl = requestHttp != null
             ? $"{requestHttp.Scheme}://{requestHttp.Host}/"
             : "/";
@@ -174,31 +173,20 @@ public class PrescriptionReviewService(
         var dtos = items.Select(r => new PrescriptionReviewSummaryDTO
         {
             ReviewId = r.PrescriptionReviewId,
-            PatientName = r.Patient?.FullName ?? "Unknown",
+            PatientName = r.PatientName,
             ImageUrl = $"{baseUrl}{r.PrescriptionImagePath}",
             Status = r.ReviewStatus.ToString(),
-            MedicineCount = r.Medicines.Count,
+            MedicineCount = r.MedicineCount,
             CreatedAt = r.CreatedAt,
             ReviewedAt = r.ReviewedAt
         }).ToList();
-
-        logger.LogInformation("DTO Count = {Count}", dtos.Count);
-
-        foreach (var dto in dtos)
-        {
-            logger.LogInformation(
-                "DTO -> ReviewId = {Id}, Patient = {Patient}, Medicines = {MedicineCount}",
-                dto.ReviewId,
-                dto.PatientName,
-                dto.MedicineCount);
-        }
 
         var paginatedList = new PaginatedList<PrescriptionReviewSummaryDTO>(
             dtos,
             request.PageNumber,
             totalCount,
             request.PageSize);
-        
+
         return Result.Success(paginatedList);
     }
 
