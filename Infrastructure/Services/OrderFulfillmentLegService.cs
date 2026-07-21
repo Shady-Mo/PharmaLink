@@ -63,7 +63,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
 
         var oldStatus = leg.LegStatus;
         leg.LegStatus = request.Status;
-        leg.CompletedAt = request.Status == LegStatus.Completed
+        leg.CompletedAt = request.Status == LegStatus.Delivered
             ? leg.CompletedAt ?? DateTime.UtcNow
             : null;
 
@@ -85,11 +85,8 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
             });
         }
 
-        if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Completed))
-        {
+        if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered))
             leg.Order.OrderStatus = OrderStatus.Completed;
-            leg.Order.DeliveredAt = leg.Order.DeliveredAt ?? DateTime.UtcNow;
-        }
 
         await dbContext.SaveChangesAsync(cancellationToken);
 
@@ -124,9 +121,9 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         {
             (LegStatus.Assigned, LegStatus.Preparing) => true,
             (LegStatus.Preparing, LegStatus.ReadyForPickup) => true,
-            (LegStatus.Preparing, LegStatus.PickedUpByCourier) => true,
-            (LegStatus.ReadyForPickup, LegStatus.Completed) => true,
-            (LegStatus.PickedUpByCourier, LegStatus.Completed) => true,
+            (LegStatus.Preparing, LegStatus.OutForDelivery) => true,
+            (LegStatus.ReadyForPickup, LegStatus.Delivered) => true,
+            (LegStatus.OutForDelivery, LegStatus.Delivered) => true,
             _ => false
         };
 
