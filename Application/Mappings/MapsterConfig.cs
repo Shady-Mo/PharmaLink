@@ -1,6 +1,8 @@
 using Application.DTOs.Addresses.Requests;
 using Application.DTOs.Addresses.Response;
 using Application.DTOs.PharmacyInventory.Response;
+using Application.DTOs.Pharmacy.Responses;
+using Application.DTOs.PharmacyOwner.Responses;
 
 namespace Application.Mappings;
 
@@ -114,5 +116,64 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.PharmacistId, src => src.Id)
             .Map(dest => dest.Email, src => src.Email ?? string.Empty)
             .Map(dest => dest.PhoneNumber, src => src.PhoneNumber ?? string.Empty);
+
+        // Admin Pharmacy Mappings
+        config.NewConfig<PharmacyAdmin, PharmacyOwnerDTO>()
+            .Map(dest => dest.Id, src => src.Id)
+            .Map(dest => dest.FullName, src => src.FullName)
+            .Map(dest => dest.Email, src => src.Email ?? string.Empty)
+            .Map(dest => dest.PhoneNumber, src => src.PhoneNumber ?? string.Empty);
+
+        config.NewConfig<PharmacyBranch, AdminPharmacyBranchDTO>()
+            .Map(dest => dest.BranchId, src => src.BranchId)
+            .Map(dest => dest.BranchName, src => src.BranchName)
+            .Map(dest => dest.City, src => src.City)
+            .Map(dest => dest.Governorate, src => src.Governorate)
+            .Map(dest => dest.PhoneNumber, src => src.PhoneNumber)
+            .Map(dest => dest.WorkingHours, src => src.WorkingHours)
+            .Map(dest => dest.Latitude, src => src.GeoLocation != null ? src.GeoLocation.Y : 0)
+            .Map(dest => dest.Longitude, src => src.GeoLocation != null ? src.GeoLocation.X : 0)
+            .Map(dest => dest.ServiceRadiusKm, src => src.ServiceRadiusKm)
+            .Map(dest => dest.SupportsDelivery, src => src.SupportsDelivery)
+            .Map(dest => dest.SupportsPickup, src => src.SupportsPickup);
+
+        config.NewConfig<Pharmacy, AdminPharmacySummaryDTO>()
+            .Map(dest => dest.PharmacyId, src => src.PharmacyId)
+            .Map(dest => dest.LegalName, src => src.LegalName)
+            .Map(dest => dest.LicenseNumber, src => src.LicenseNumber)
+            .Map(dest => dest.LogoUrl, src => src.LogoUrl)
+            .Map(dest => dest.VerificationStatus, src => src.VerificationStatus)
+            .Map(dest => dest.BranchesCount, src => src.Branches.Count)
+            .Map(dest => dest.DrugsCount, src => src.Branches.SelectMany(b => b.Inventories).Select(i => i.DrugId).Distinct().Count())
+            .Map(dest => dest.Owner, src => src.Admins.FirstOrDefault(a => a.IsSuperAdmin == true))
+            .Map(dest => dest.Branches, src => src.Branches);
+
+        config.NewConfig<Pharmacy, AdminPharmacyDetailDTO>()
+            .Map(dest => dest.PharmacyId, src => src.PharmacyId)
+            .Map(dest => dest.LegalName, src => src.LegalName)
+            .Map(dest => dest.LicenseNumber, src => src.LicenseNumber)
+            .Map(dest => dest.LogoUrl, src => src.LogoUrl)
+            .Map(dest => dest.VerificationStatus, src => src.VerificationStatus)
+            .Map(dest => dest.BranchesCount, src => src.Branches.Count)
+            .Map(dest => dest.DrugsCount, src => src.Branches.SelectMany(b => b.Inventories).Select(i => i.DrugId).Distinct().Count())
+            .Map(dest => dest.Owner, src => src.Admins.FirstOrDefault(a => a.IsSuperAdmin == true))
+            .Map(dest => dest.Branches, src => src.Branches);
+
+        config.NewConfig<PharmacyAdmin, PharmacyOwnerResponseDTO>()
+            .Map(dest => dest.Id, src => src.Id)
+            .Map(dest => dest.FullName, src => src.FullName)
+            .Map(dest => dest.Email, src => src.Email ?? string.Empty)
+            .Map(dest => dest.PhoneNumber, src => src.PhoneNumber ?? string.Empty)
+            .Map(dest => dest.Status, src => src.Status.ToString())
+            .Map(dest => dest.CreatedAt, src => src.CreatedAt)
+            .Map(dest => dest.PharmacyId, src => src.PharmacyId)
+            .Map(dest => dest.IsSuperAdmin, src => src.IsSuperAdmin)
+            .Map(dest => dest.Pharmacy, src => src.Pharmacy);
+
+        config.NewConfig<Pharmacy, PharmacyOwnerDetailsDTO>()
+            .Map(dest => dest.PharmacyId, src => src.PharmacyId)
+            .Map(dest => dest.LegalName, src => src.LegalName)
+            .Map(dest => dest.LicenseNumber, src => src.LicenseNumber)
+            .Map(dest => dest.LogoUrl, src => src.LogoUrl);
     }
 }
