@@ -13,16 +13,20 @@ namespace Application.DTOs.Pharmacy.Responses
 
         public string PhoneNumber { get; set; } = string.Empty;
 
-        public List<PharmacyDTO> AdministeredPharmacies { get; set; }
+        public PharmacyDTO AdministeredPharmacies { get; set; }
 
     }
 
     public class PharmacyDTO
     {
         public Guid PharmacyId { get; set; }
+        public Guid BranchId { get; set; }
         public Guid OwnerUserId { get; set; }
         public string LegalName { get; set; } = string.Empty;
         public string LicenseNumber { get; set; } = string.Empty;
+        public string BranchName { get; set; }
+        public string City { get; set; } = string.Empty;
+        public string Governorate { get; set; } = string.Empty;
 
         public VerificationStatus VerificationStatus { get; set; }
     }

@@ -9,11 +9,30 @@ namespace Infrastructure.Services
         public async Task<Result<GetPharmacyProfileResponseDTO>> GetByIdAsync(Guid guid, CancellationToken cancellationToken)
         {
 
-            var pharmacist = await context.PharmacistAssignments.Include(p => p.Pharmacy).Include(p => p.Pharmacist).FirstOrDefaultAsync(p => p.PharmacistId == guid, cancellationToken);
+            //var pharmacist = await context.PharmacistAssignments.Include(p => p.Pharmacy).Include(p => p.Pharmacist).FirstOrDefaultAsync(p => p.PharmacistId == guid, cancellationToken);
+            var pharmacist =  context.PharmacistAssignments.Where(p => p.PharmacistId == guid && p.IsActive)
+                .Select(p => new GetPharmacyProfileResponseDTO
+                        {
+                            Id = p.PharmacistId,
+                            Email = p.Pharmacist.Email,
+                            FullName = p.Pharmacist.FullName,
+                            PhoneNumber = p.Pharmacist.PhoneNumber,
+                            AdministeredPharmacies = new PharmacyDTO
+                            {
+                                BranchId = p.BranchId,
+                                BranchName = p.Branch.BranchName,
+                                City = p.Branch.City,
+                                Governorate =p.Branch.Governorate,
+                                LegalName = p.Pharmacy.LegalName,
+                                LicenseNumber = p.Pharmacy.LicenseNumber,
+                                OwnerUserId = p.AssignedByPharmacyAdminId,
+                                PharmacyId = p.PharmacyId,
+                                VerificationStatus = p.Pharmacy.VerificationStatus
+                            }
+                        }).FirstOrDefault();
 
-            var result = pharmacist.Adapt<GetPharmacyProfileResponseDTO>();
 
-            return Result.Success(result);
+            return Result.Success(pharmacist);
         }
 
         public async Task<Result<UpdatePharmacyProfileResponseDTO>> UpdateAsync(Guid guid, UpdatePharmacistProfileRequestDTO updatePharmacy, CancellationToken cancellationToken)

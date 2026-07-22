@@ -14,7 +14,6 @@
             var id = User.FindFirst(JwtClaimTypes.UserId)?.Value;
             Guid.TryParse(id, out Guid userId);
 
-            
 
             var result = await PharmacistProfileService.GetByIdAsync(userId, cancellationToken);
 
