@@ -181,6 +181,31 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
         return Result.Success();
     }
 
+    public async Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string term) {
+        if (string.IsNullOrWhiteSpace(term) || term.Length < 2) {
+            return Result.Success(new List<MedicineSearchDTO>());
+        }
+
+        var searchResults = await context.Drugs
+            .Where(m => m.BrandName.Contains(term) || m.ArabicName.Contains(term))
+            .Select(m => new MedicineSearchDTO {
+                Id = m.DrugId,
+                Name = m.BrandName,
+                GenericName = m.GenericName,
+                ArabicName = m.ArabicName,
+                Strength = m.Strength,
+                DosageForm = m.Form,
+                Route = m.Form,
+                Category = m.DrugClass,
+                Company = m.Manufacturer,
+                Price = m.Price
+            })
+            .Take(10)
+            .ToListAsync();
+
+        return Result.Success(searchResults);
+    }
+
     public async Task<Result<int>> BackfillCategoriesAsync(CancellationToken cancellationToken = default)
     {
         // The pre-migration DB default is raw 0 (byte's CLR default), which doesn't
