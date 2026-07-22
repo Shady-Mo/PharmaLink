@@ -312,6 +312,21 @@ public class InventoryService(
                 DateTime.UtcNow);
         }
 
+        if (parameters.Status == StockStatus.LowStock)
+            query = query.Where(i => i.StockQuantity < 10);
+
+        if (parameters.Status == StockStatus.ExpiredSoon)
+        {
+            var targetExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddDays(30));
+            query = query.Where(i => i.ExpiryDate < targetExpiryDate);
+        }
+
+        if (!string.IsNullOrWhiteSpace(parameters.SerachByName))
+        {
+            var search = parameters.SerachByName.Trim();
+            query = query.Where(i => (i.Drug != null && i.Drug.BrandName.Contains(search) || (i.Drug != null && i.Drug.GenericName.Contains(search)) || (i.Drug != null && i.Drug.ArabicName.Contains(search))));
+        }
+
         var result = await query
             .OrderBy(i => i.InventoryId)
             .ProjectToType<GetPharmacyInventoryDTO>()
