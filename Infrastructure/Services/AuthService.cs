@@ -173,11 +173,7 @@ public class AuthService(
         var assignedPharmacy = await dbContext.PharmacistAssignments
             .AsNoTracking()
             .FirstOrDefaultAsync(pha => pha.PharmacistId == pharmacistId && pha.IsActive, cancellationToken);
-        //.Select(pha => new
-        //{
-        //    pha.PharmacyId,
-        //    BranchIds = pha.Pharmacy.Branches.Select(b => b.BranchId)
-        //})
+
         if (assignedPharmacy is not null)
         {
             claims.Add(new Claim(JwtClaimTypes.PharmacyId, assignedPharmacy.PharmacyId.ToString()));

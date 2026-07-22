@@ -23,6 +23,8 @@ global using Application.DTOs.Dashboard.Responses;
 global using Application.Errors;
 global using Infrastructure.Extensions;
 global using System.Linq.Dynamic.Core;
+global using System.Linq.Expressions;
+
 global using Mapster;
 global using System.Text.Json.Serialization;
 global using Infrastructure.Persistence.Seeders;
