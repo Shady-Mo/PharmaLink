@@ -81,3 +81,20 @@ public enum DrugAvailabilityStatus : byte
     LowStock = 2,
     InStock = 3
 }
+
+public enum InventoryStockStatus : byte
+{
+    OutOfStock = 1,
+    LowStock = 2,
+    Available = 3
+}
+
+public enum InventoryStatusFilter : byte
+{
+    All = 0,
+    Available = 1,
+    LowStock = 2,
+    OutOfStock = 3
+}
+
+
