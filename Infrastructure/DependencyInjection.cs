@@ -53,6 +53,7 @@ public static class DependencyInjection
 
             services.AddScoped<IPharmacyService, PharmacyService>();
             services.AddScoped<IAdminPharmacyService, AdminPharmacyService>();
+            services.AddScoped<IPharmacyOwnerService, PharmacyOwnerService>();
 
             services.AddScoped<IPharmacistManagementService, PharmacistManagementService>();
 
@@ -66,6 +67,7 @@ public static class DependencyInjection
 
             services.AddScoped<IPharmacistDashboardService, PharmacistDashboardService>();
 
+            services.AddScoped<IAdminDashboardService, AdminDashboardService>();
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));

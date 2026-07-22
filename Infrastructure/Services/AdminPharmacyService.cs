@@ -16,7 +16,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace Infrastructure.Services.Pharmacy
 {
-    public class AdminPharmacyService(AppDbContext context) : IAdminPharmacyService
+    public class AdminPharmacyService(AppDbContext context, IMapper mapper) : IAdminPharmacyService
     {
         public async Task<Result<PaginatedList<AdminPharmacySummaryDTO>>> GetAllPharmaciesAsync(
             GetAdminPharmaciesRequest request,
@@ -45,40 +45,9 @@ namespace Infrastructure.Services.Pharmacy
                 query = query.Where(p => p.Branches.Any(b => b.City.ToLower().Contains(cityTerm)));
             }
 
-            var projectedQuery = query.Select(p => new AdminPharmacySummaryDTO
-            {
-                PharmacyId = p.PharmacyId,
-                LegalName = p.LegalName,
-                LicenseNumber = p.LicenseNumber,
-                LogoUrl = p.LogoUrl,
-                VerificationStatus = p.VerificationStatus,
-                BranchesCount = p.Branches.Count,
-                DrugsCount = p.Branches.SelectMany(b => b.Inventories).Select(i => i.DrugId).Distinct().Count(),
-                Owner = p.Admins
-                    .Where(a => a.IsSuperAdmin == true)
-                    .Select(a => new PharmacyOwnerDTO
-                    {
-                        Id = a.Id,
-                        FullName = a.FullName,
-                        Email = a.Email ?? string.Empty,
-                        PhoneNumber = a.PhoneNumber ?? string.Empty
-                    })
-                    .FirstOrDefault(),
-                Branches = p.Branches.Select(b => new AdminPharmacyBranchDTO
-                {
-                    BranchId = b.BranchId,
-                    BranchName = b.BranchName,
-                    City = b.City,
-                    Governorate = b.Governorate,
-                    PhoneNumber = b.PhoneNumber,
-                    WorkingHours = b.WorkingHours,
-                    Latitude = b.GeoLocation != null ? b.GeoLocation.Y : 0,
-                    Longitude = b.GeoLocation != null ? b.GeoLocation.X : 0,
-                    ServiceRadiusKm = b.ServiceRadiusKm,
-                    SupportsDelivery = b.SupportsDelivery,
-                    SupportsPickup = b.SupportsPickup
-                }).ToList()
-            }).OrderBy(p => p.LegalName);
+            var projectedQuery = query
+                .ProjectToType<AdminPharmacySummaryDTO>()
+                .OrderBy(p => p.LegalName);
 
             var paginated = await projectedQuery.ToPaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
             return Result.Success(paginated);
@@ -90,40 +59,7 @@ namespace Infrastructure.Services.Pharmacy
         {
             var pharmacy = await context.Pharmacies
                 .AsNoTracking()
-                .Select(p => new AdminPharmacyDetailDTO
-                {
-                    PharmacyId = p.PharmacyId,
-                    LegalName = p.LegalName,
-                    LicenseNumber = p.LicenseNumber,
-                    LogoUrl = p.LogoUrl,
-                    VerificationStatus = p.VerificationStatus,
-                    BranchesCount = p.Branches.Count,
-                    DrugsCount = p.Branches.SelectMany(b => b.Inventories).Select(i => i.DrugId).Distinct().Count(),
-                    Owner = p.Admins
-                        .Where(a => a.IsSuperAdmin == true)
-                        .Select(a => new PharmacyOwnerDTO
-                        {
-                            Id = a.Id,
-                            FullName = a.FullName,
-                            Email = a.Email ?? string.Empty,
-                            PhoneNumber = a.PhoneNumber ?? string.Empty
-                        })
-                        .FirstOrDefault(),
-                    Branches = p.Branches.Select(b => new AdminPharmacyBranchDTO
-                    {
-                        BranchId = b.BranchId,
-                        BranchName = b.BranchName,
-                        City = b.City,
-                        Governorate = b.Governorate,
-                        PhoneNumber = b.PhoneNumber,
-                        WorkingHours = b.WorkingHours,
-                        Latitude = b.GeoLocation != null ? b.GeoLocation.Y : 0,
-                        Longitude = b.GeoLocation != null ? b.GeoLocation.X : 0,
-                        ServiceRadiusKm = b.ServiceRadiusKm,
-                        SupportsDelivery = b.SupportsDelivery,
-                        SupportsPickup = b.SupportsPickup
-                    }).ToList()
-                })
+                .ProjectToType<AdminPharmacyDetailDTO>()
                 .FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
 
             if (pharmacy is null)
@@ -230,11 +166,18 @@ namespace Infrastructure.Services.Pharmacy
             Guid id,
             CancellationToken cancellationToken = default)
         {
-            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
+            var pharmacy = await context.Pharmacies
+                .Include(p => p.Admins)
+                .FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
             if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
 
             pharmacy.VerificationStatus = VerificationStatus.Deleted;
+            foreach (var adminUser in pharmacy.Admins)
+            {
+                adminUser.IsSuperAdmin = false;
+            }
+
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
@@ -244,11 +187,21 @@ namespace Infrastructure.Services.Pharmacy
             VerificationStatus status,
             CancellationToken cancellationToken = default)
         {
-            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
+            var pharmacy = await context.Pharmacies
+                .Include(p => p.Admins)
+                .FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
             if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
 
             pharmacy.VerificationStatus = status;
+            if (status == VerificationStatus.Deleted || status == VerificationStatus.Rejected)
+            {
+                foreach (var adminUser in pharmacy.Admins)
+                {
+                    adminUser.IsSuperAdmin = false;
+                }
+            }
+
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
@@ -258,13 +211,19 @@ namespace Infrastructure.Services.Pharmacy
             Guid ownerId,
             CancellationToken cancellationToken = default)
         {
-            var pharmacyExists = await context.Pharmacies.AnyAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
-            if (!pharmacyExists)
+            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
+            if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
+
+            if (pharmacy.VerificationStatus == VerificationStatus.Deleted || pharmacy.VerificationStatus == VerificationStatus.Rejected)
+                return Result.Failure(PharmacyErrors.PharmacyNotEligible);
 
             var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == ownerId, cancellationToken);
             if (admin is null)
-                return Result.Failure(new Error("PharmacyAdminNotFound", "The specified user is not registered as a Pharmacy Admin.", 404));
+                return Result.Failure(PharmacyOwnerErrors.PharmacyOwnerNotFound);
+
+            if (admin.Status != UserStatus.Active)
+                return Result.Failure(PharmacyOwnerErrors.OwnerNotActive);
 
             // Clear any existing super admins for this pharmacy
             var existingSuperAdmins = await context.PharmacyAdmins
