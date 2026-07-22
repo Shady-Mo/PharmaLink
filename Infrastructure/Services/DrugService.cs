@@ -181,7 +181,7 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
         return Result.Success();
     }
 
-    public async Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string term) {
+    public async Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string? term) {
         if (string.IsNullOrWhiteSpace(term) || term.Length < 2) {
             return Result.Success(new List<MedicineSearchDTO>());
         }

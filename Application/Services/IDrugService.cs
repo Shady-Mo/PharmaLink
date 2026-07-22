@@ -15,5 +15,5 @@ public interface IDrugService
 
     Task<Result<int>> BackfillCategoriesAsync(CancellationToken cancellationToken = default);
 
-    Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string term);
+    Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string? term);
 }

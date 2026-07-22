@@ -24,7 +24,8 @@ global using Application.Errors;
 global using Infrastructure.Extensions;
 global using System.Linq.Dynamic.Core;
 global using System.Linq.Expressions;
-
+global using Application.DTOs.PharmacyBranch.Request;
+global using Application.DTOs.PharmacyBranch.Response;
 global using Mapster;
 global using System.Text.Json.Serialization;
 global using Infrastructure.Persistence.Seeders;

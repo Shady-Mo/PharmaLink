@@ -1,10 +1,11 @@
 using Application.DTOs.Addresses.Requests;
 using Application.DTOs.Addresses.Response;
 using Application.DTOs.Pharmacy.Responses;
-using Application.DTOs.PharmacyInventory.Response;
-using Application.DTOs.Pharmacy.Responses;
-using Application.DTOs.PharmacyOwner.Responses;
+using Application.DTOs.PharmacyBranch.Request;
+using Application.DTOs.PharmacyBranch.Response;
 using Application.DTOs.PharmacyInventory.Request;
+using Application.DTOs.PharmacyInventory.Response;
+using Application.DTOs.PharmacyOwner.Responses;
 
 namespace Application.Mappings;
 
@@ -157,6 +158,10 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.ServiceRadiusKm, src => src.ServiceRadiusKm)
             .Map(dest => dest.SupportsDelivery, src => src.SupportsDelivery)
             .Map(dest => dest.SupportsPickup, src => src.SupportsPickup);
+
+        config.NewConfig<PharmacyBranch, PharmacyBranchResponseDTO>()
+            .Map(dest => dest.Latitude, src => src.GeoLocation != null ? src.GeoLocation.Y : 0)
+            .Map(dest => dest.Longitude, src => src.GeoLocation != null ? src.GeoLocation.X : 0);
 
         config.NewConfig<Pharmacy, AdminPharmacySummaryDTO>()
             .Map(dest => dest.PharmacyId, src => src.PharmacyId)
