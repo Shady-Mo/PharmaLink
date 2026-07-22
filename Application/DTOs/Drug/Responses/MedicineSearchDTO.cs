@@ -1,4 +1,4 @@
-﻿namespace Application.DTOs.PrescriptionReview.Responses
+﻿namespace Application.DTOs.Drug.Responses
 {
     public class MedicineSearchDTO
     {

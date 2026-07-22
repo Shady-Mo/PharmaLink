@@ -99,8 +99,11 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
 
     [HttpGet("search")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> SearchMedicines([FromQuery] string term) {
-        var result = await drugService.SearchMedicinesAsync(term.ToLower().Trim());
+    public async Task<IActionResult> SearchMedicines([FromQuery] string? term) {
+        if (string.IsNullOrWhiteSpace(term))
+            return Ok(new List<MedicineSearchDTO>());
+        
+        var result = await drugService.SearchMedicinesAsync(term.Trim());
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
