@@ -203,4 +203,66 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
 
         return Result.Success(paginatedList);
     }
+
+    public async Task<Result<PharmacistOrderDetailsDto>> GetPharmacistOrderDetailsAsync(
+        Guid orderId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken = default)
+    {
+        var branchIds = GetUserBranchIds(user);
+
+        if (!branchIds.Any())
+        {
+            return Result.Failure<PharmacistOrderDetailsDto>(OrderFulfillmentLegErrors.Forbidden);
+        }
+
+        var order = await dbContext.Orders
+            .Include(o => o.Patient)
+            .Include(o => o.PrescriptionReview)
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Drug)
+            .Include(o => o.FulfillmentLegs)
+            .AsNoTracking()
+            .FirstOrDefaultAsync(o => o.OrderId == orderId, cancellationToken);
+
+        if (order is null)
+        {
+            return Result.Failure<PharmacistOrderDetailsDto>(OrderFulfillmentLegErrors.NotFound);
+        }
+
+        var assignedLeg = order.FulfillmentLegs.FirstOrDefault(l => branchIds.Contains(l.BranchId));
+        if (assignedLeg is null)
+        {
+            return Result.Failure<PharmacistOrderDetailsDto>(OrderFulfillmentLegErrors.Forbidden);
+        }
+
+        var dto = new PharmacistOrderDetailsDto
+        {
+            OrderId = order.OrderId,
+            OrderNumber = $"ORD-{order.OrderId.ToString().Substring(0, 8).ToUpper()}",
+            CreatedAt = order.CreatedAt,
+            TotalAmount = order.TotalAmount,
+            OrderStatus = order.OrderStatus,
+            FulfillmentMode = order.FulfillmentMode,
+            Patient = new PharmacistOrderPatientDto
+            {
+                PatientId = order.PatientUserId,
+                FullName = order.Patient.FullName,
+                PhoneNumber = order.Patient.PhoneNumber ?? string.Empty
+            },
+            Items = order.Items.Where(i => i.BranchId == assignedLeg.BranchId).Select(i => new PharmacistOrderItemDto
+            {
+                DrugId = i.DrugId,
+                DrugName = !string.IsNullOrWhiteSpace(i.Drug.BrandName) ? i.Drug.BrandName : i.Drug.GenericName,
+                ImageUrl = i.Drug.ImageUrl,
+                Quantity = i.QuantityNeeded,
+                Strength = i.Drug.Strength,
+                DosageForm = i.Drug.Form
+            }).ToList(),
+            Notes = order.PrescriptionReview?.ReviewNotes,
+            AssignedLeg = ToDto(assignedLeg)
+        };
+
+        return Result.Success(dto);
+    }
 }
