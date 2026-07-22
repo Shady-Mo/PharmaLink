@@ -31,6 +31,11 @@ namespace Application.Services.PharmacyOwner
             Guid id,
             CancellationToken cancellationToken = default);
 
+        Task<Result> ChangePharmacyOwnerStatusAsync(
+            Guid id,
+            UserStatus status,
+            CancellationToken cancellationToken = default);
+
         Task<Result> AssignOwnerAsync(
             Guid userId,
             Guid pharmacyId,

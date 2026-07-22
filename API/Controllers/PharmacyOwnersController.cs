@@ -135,6 +135,31 @@ namespace API.Controllers
         }
 
         /// <summary>
+        /// Updates the status (Active, Inactive, Suspended) of a Pharmacy Owner account.
+        /// </summary>
+        /// <param name="id">The identifier of the owner account to update.</param>
+        /// <param name="status">The new status value.</param>
+        /// <param name="cancellationToken">Cancellation token.</param>
+        /// <returns>No content on success.</returns>
+        /// <response code="204">No Content on success.</response>
+        /// <response code="401">Unauthorized.</response>
+        /// <response code="403">Forbidden.</response>
+        /// <response code="404">If the owner user is not found.</response>
+        [HttpPatch("{id}/status")]
+        [ProducesResponseType(StatusCodes.Status204NoContent)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> ChangePharmacyOwnerStatus(
+            Guid id,
+            [FromBody] UserStatus status,
+            CancellationToken cancellationToken)
+        {
+            var result = await pharmacyOwnerService.ChangePharmacyOwnerStatusAsync(id, status, cancellationToken);
+            return result.IsSuccess ? NoContent() : result.ToProblem();
+        }
+
+        /// <summary>
         /// Assigns this Pharmacy Owner as the super admin/owner of a specific pharmacy.
         /// </summary>
         /// <param name="id">The unique identifier of the Pharmacy Owner user.</param>
