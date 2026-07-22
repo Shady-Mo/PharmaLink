@@ -6,21 +6,36 @@ public class AdminOrdersController(
     IOrderService orderService) : BaseApiController
 {
     [HttpGet("")]
-    [ProducesResponseType(typeof(PaginatedList<GetOrderDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedList<AdminOrderDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetOrders([FromQuery] GetOrdersRequest request)
+    public async Task<IActionResult> GetOrders([FromQuery] GetOrdersRequest request, CancellationToken cancellationToken)
     {
-        var result = await orderService.GetOrdersForAdmin(request);
+        var result = await orderService.GetAdminOrders(request, cancellationToken);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
-    [HttpGet("{orderId}")]
-    [ProducesResponseType(typeof(GetOrderDTO), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetOrder(Guid orderId)
+    [HttpGet("export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ExportOrders([FromQuery] ExportOrdersRequest request, CancellationToken cancellationToken)
     {
-        var result = await orderService.GetOrderForAdmin(orderId);
+        var result = await orderService.ExportOrdersForAdmin(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.ToProblem();
+        }
+
+        var (data, contentType, fileName) = result.Value;
+        return File(data, contentType, fileName);
+    }
+
+    [HttpGet("{orderId}")]
+    [ProducesResponseType(typeof(AdminOrderDetailDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOrder(Guid orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderService.GetAdminOrderDetail(orderId, cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 

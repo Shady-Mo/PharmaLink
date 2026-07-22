@@ -1,6 +1,4 @@
-﻿using Application.DTOs.Pharmacy.Request;
-
-namespace Application.Validators.Pharmacy
+﻿namespace Application.Validators.Pharmacy
 {
     public class AddPharmacyDTOValidator : AbstractValidator<AddPharmacyDTO>
     {

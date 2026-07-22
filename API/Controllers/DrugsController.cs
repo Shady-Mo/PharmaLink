@@ -42,7 +42,8 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(DrugDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    // moshady21 -- dont change - use it in  View Cart page
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin},{AppRoles.Patient}"),]
     public async Task<IActionResult> GetDrugById(Guid id, CancellationToken cancellationToken)
     {
         var result = await drugService.GetByIdAsync(id, cancellationToken);

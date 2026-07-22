@@ -17,7 +17,9 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
         try
         {
             var pharmacyExists = await context.Pharmacies
-                .AnyAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
+                .AnyAsync(p => p.PharmacyId == pharmacyId 
+                                && p.VerificationStatus == VerificationStatus.Verified,
+                                cancellationToken);
 
             if (!pharmacyExists)
                 return Result.Failure<PharmacyDashboardDTO>(DashboardErrors.PharmacyNotFound);
@@ -60,7 +62,9 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
         try
         {
             var pharmacyExists = await context.Pharmacies
-                .AnyAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
+                .AnyAsync(p => p.PharmacyId == pharmacyId
+                                && p.VerificationStatus == VerificationStatus.Verified,
+                                cancellationToken);
 
             if (!pharmacyExists)
                 return Result.Failure<PharmacyDashboardDTO>(DashboardErrors.PharmacyNotFound);

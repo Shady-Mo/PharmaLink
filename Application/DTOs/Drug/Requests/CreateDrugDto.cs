@@ -14,4 +14,5 @@ public class CreateDrugDto
     public string ArabicName { get; set; } = string.Empty;
     public string DrugClass { get; set; } = string.Empty;
     public bool RequiresPrescription { get; set; }
+    public DrugCategory? Category { get; set; }
 }
