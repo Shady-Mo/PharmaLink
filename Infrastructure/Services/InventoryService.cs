@@ -373,9 +373,7 @@ public class InventoryService(
         {
             var term = parameters.Search.Trim();
 
-            query = query.Where(i =>
-                EF.Functions.Like(i.Drug.BrandName, $"%{term}%") ||
-                EF.Functions.Like(i.Drug.GenericName, $"%{term}%"));
+            query = query.Where(i => i.Drug.ArabicName.Contains(parameters.Search));
         }
 
         query = parameters.StatusFilter switch
