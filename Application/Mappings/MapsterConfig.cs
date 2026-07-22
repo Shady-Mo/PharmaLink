@@ -23,7 +23,11 @@ public class MapsterConfig : IRegister
 
         // Pharmacy Inventory Mappings
         config.NewConfig<PharmacyInventory, GetPharmacyInventoryDTO>()
-            .Map(dest => dest.DrugName, src => src.Drug.BrandName);
+            .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
+            .Map(dest => dest.BrandName, src => src.Drug.BrandName)
+            .Map(dest => dest.GenericName, src => src.Drug.GenericName)
+            .Map(dest => dest.Strength, src => src.Drug.Strength)
+            .Map(dest => dest.Form, src => src.Drug.Form);
 
         // Order Mappings
         config.NewConfig<Order, GetOrderDTO>()
