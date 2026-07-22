@@ -15,4 +15,5 @@ public class UpdateDrugDto
     public string DrugClass { get; set; } = string.Empty;
     public bool RequiresPrescription { get; set; }
     public bool IsActive { get; set; }
+    public DrugCategory? Category { get; set; }
 }

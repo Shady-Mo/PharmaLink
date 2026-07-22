@@ -34,11 +34,22 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
 
         if (!string.IsNullOrWhiteSpace(filters.SortColumn))
         {
+            var sortCol = filters.SortColumn.Trim().ToLower() switch
+            {
+                "name" or "brandname" => nameof(Drug.BrandName),
+                "genericname" => nameof(Drug.GenericName),
+                "arabicname" => nameof(Drug.ArabicName),
+                "price" => nameof(Drug.Price),
+                "category" => nameof(Drug.Category),
+                "date" or "createddate" or "drugid" => nameof(Drug.DrugId),
+                _ => filters.SortColumn
+            };
+
             var direction = string.Equals(filters.SortDirection, "desc", StringComparison.OrdinalIgnoreCase)
                 ? "desc"
                 : "asc";
 
-            query = query.OrderBy($"{filters.SortColumn} {direction}");
+            query = query.OrderBy($"{sortCol} {direction}");
         }
         else
         {
@@ -120,7 +131,14 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
 
         drug.IsActive = true;
 
-        drug.Category = DrugCategoryMapper.Map(drug.DrugClass, drug.GenericName);
+        if (dto.Category.HasValue && dto.Category.Value != DrugCategory.Other)
+        {
+            drug.Category = dto.Category.Value;
+        }
+        else
+        {
+            drug.Category = DrugCategoryMapper.Map(drug.DrugClass, drug.GenericName);
+        }
 
         context.Drugs.Add(drug);
 
@@ -138,6 +156,11 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
             return Result.Failure<DrugDto>(DrugErrors.DrugNotFound);
 
         dto.Adapt(drug);
+
+        if (dto.Category.HasValue)
+        {
+            drug.Category = dto.Category.Value;
+        }
 
         await context.SaveChangesAsync(cancellationToken);
 
