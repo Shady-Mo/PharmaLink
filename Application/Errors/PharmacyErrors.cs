@@ -1,4 +1,4 @@
-﻿namespace Application.Errors
+namespace Application.Errors
 {
     public static class PharmacyErrors
     {
@@ -20,6 +20,11 @@
         public static readonly Error InvalidOwnerUserId =
         new("Pharmacy.InvalidOwnerUserId",
             "Invalid OwnerUserId",
+            StatusCodes.Status400BadRequest);
+
+        public static readonly Error PharmacyNotEligible =
+        new("Pharmacy.NotEligible",
+            "The pharmacy is deleted or rejected and cannot have an assigned owner.",
             StatusCodes.Status400BadRequest);
     }
 }
