@@ -178,7 +178,6 @@ public class AuthService(
         //    pha.PharmacyId,
         //    BranchIds = pha.Pharmacy.Branches.Select(b => b.BranchId)
         //})
-        Console.WriteLine(assignedPharmacy.PharmacistId);
         if (assignedPharmacy is not null)
         {
             claims.Add(new Claim(JwtClaimTypes.PharmacyId, assignedPharmacy.PharmacyId.ToString()));

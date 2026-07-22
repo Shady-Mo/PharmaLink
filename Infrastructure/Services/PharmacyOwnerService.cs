@@ -115,10 +115,10 @@ namespace Infrastructure.Services.PharmacyOwner
             {
                 query = query.Where(a => a.Status == request.Status.Value);
             }
-            else
-            {
-                query = query.Where(a => a.Status != UserStatus.Inactive);
-            }
+            //else
+            //{
+            //    query = query.Where(a => a.Status != UserStatus.Inactive);
+            //}
 
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
@@ -174,15 +174,7 @@ namespace Infrastructure.Services.PharmacyOwner
             admin.PhoneNumber = dto.PhoneNumber;
             admin.PharmacyId = dto.PharmacyId;
             admin.Status = dto.Status;
-
-            if (dto.Status != UserStatus.Active)
-            {
-                admin.IsSuperAdmin = false;
-            }
-            else
-            {
-                admin.IsSuperAdmin = true; // Ensure active owners retain super admin status
-            }
+            admin.IsSuperAdmin = true; // Retain super admin / ownership designation regardless of account status
 
             if (!string.IsNullOrWhiteSpace(dto.Password))
             {
@@ -222,7 +214,23 @@ namespace Infrastructure.Services.PharmacyOwner
                 return Result.Failure(PharmacyOwnerErrors.PharmacyOwnerNotFound);
 
             admin.Status = UserStatus.Inactive;
-            admin.IsSuperAdmin = false;
+            admin.IsSuperAdmin = true; // Retain super admin / ownership designation
+            await context.SaveChangesAsync(cancellationToken);
+            return Result.Success();
+        }
+
+        public async Task<Result> ChangePharmacyOwnerStatusAsync(
+            Guid id,
+            UserStatus status,
+            CancellationToken cancellationToken = default)
+        {
+            var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == id, cancellationToken);
+            if (admin is null)
+                return Result.Failure(PharmacyOwnerErrors.PharmacyOwnerNotFound);
+
+            admin.Status = status;
+            admin.IsSuperAdmin = true; // Retain super admin / ownership designation
+
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
