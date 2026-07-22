@@ -166,11 +166,18 @@ namespace Infrastructure.Services.Pharmacy
             Guid id,
             CancellationToken cancellationToken = default)
         {
-            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
+            var pharmacy = await context.Pharmacies
+                .Include(p => p.Admins)
+                .FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
             if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
 
             pharmacy.VerificationStatus = VerificationStatus.Deleted;
+            foreach (var adminUser in pharmacy.Admins)
+            {
+                adminUser.IsSuperAdmin = false;
+            }
+
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
@@ -180,11 +187,21 @@ namespace Infrastructure.Services.Pharmacy
             VerificationStatus status,
             CancellationToken cancellationToken = default)
         {
-            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
+            var pharmacy = await context.Pharmacies
+                .Include(p => p.Admins)
+                .FirstOrDefaultAsync(p => p.PharmacyId == id, cancellationToken);
             if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
 
             pharmacy.VerificationStatus = status;
+            if (status == VerificationStatus.Deleted || status == VerificationStatus.Rejected)
+            {
+                foreach (var adminUser in pharmacy.Admins)
+                {
+                    adminUser.IsSuperAdmin = false;
+                }
+            }
+
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
@@ -194,13 +211,19 @@ namespace Infrastructure.Services.Pharmacy
             Guid ownerId,
             CancellationToken cancellationToken = default)
         {
-            var pharmacyExists = await context.Pharmacies.AnyAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
-            if (!pharmacyExists)
+            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
+            if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
+
+            if (pharmacy.VerificationStatus == VerificationStatus.Deleted || pharmacy.VerificationStatus == VerificationStatus.Rejected)
+                return Result.Failure(PharmacyErrors.PharmacyNotEligible);
 
             var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == ownerId, cancellationToken);
             if (admin is null)
-                return Result.Failure(new Error("PharmacyAdminNotFound", "The specified user is not registered as a Pharmacy Admin.", 404));
+                return Result.Failure(PharmacyOwnerErrors.PharmacyOwnerNotFound);
+
+            if (admin.Status != UserStatus.Active)
+                return Result.Failure(PharmacyOwnerErrors.OwnerNotActive);
 
             // Clear any existing super admins for this pharmacy
             var existingSuperAdmins = await context.PharmacyAdmins

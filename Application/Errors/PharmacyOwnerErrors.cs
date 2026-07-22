@@ -33,5 +33,15 @@ namespace Application.Errors
             new("PharmacyOwner.InvalidUserRole",
                 "The specified user is not registered as a Pharmacy Admin and cannot be assigned as an owner.",
                 StatusCodes.Status400BadRequest);
+
+        public static readonly Error OwnerNotActive =
+            new("PharmacyOwner.OwnerNotActive",
+                "The owner user account is not active and is not eligible to be a pharmacy owner.",
+                StatusCodes.Status400BadRequest);
+
+        public static readonly Error PharmacyNotEligible =
+            new("PharmacyOwner.PharmacyNotEligible",
+                "The target pharmacy is deleted or rejected and cannot have an assigned owner.",
+                StatusCodes.Status400BadRequest);
     }
 }

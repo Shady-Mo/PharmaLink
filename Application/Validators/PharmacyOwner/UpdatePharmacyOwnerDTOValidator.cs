@@ -23,6 +23,14 @@ namespace Application.Validators.PharmacyOwner
                 .WithMessage("Phone number must be a valid international format (10-15 digits).");
 
             RuleFor(a => a.Status).IsInEnum();
+
+            RuleFor(a => a.Password)
+                .MinimumLength(6).WithMessage("Password must be at least 6 characters.")
+                .MaximumLength(100)
+                .Matches("[A-Z]").WithMessage("Passwords must have at least one uppercase ('A'-'Z').")
+                .Matches("[0-9]").WithMessage("Passwords must have at least one digit ('0'-'9').")
+                .Matches("[^a-zA-Z0-9]").WithMessage("Passwords must have at least one non alphanumeric character.")
+                .When(a => !string.IsNullOrEmpty(a.Password));
         }
     }
 }

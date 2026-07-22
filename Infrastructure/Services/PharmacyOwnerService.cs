@@ -29,12 +29,12 @@ namespace Infrastructure.Services.PharmacyOwner
                 return Result.Failure<PharmacyOwnerResponseDTO>(PharmacyOwnerErrors.PhoneAlreadyExists);
             }
 
-            if (dto.PharmacyId.HasValue)
-            {
-                var pharmacyExists = await context.Pharmacies.AnyAsync(p => p.PharmacyId == dto.PharmacyId.Value, cancellationToken);
-                if (!pharmacyExists)
-                    return Result.Failure<PharmacyOwnerResponseDTO>(PharmacyErrors.PharmacyNotFound);
-            }
+            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == dto.PharmacyId, cancellationToken);
+            if (pharmacy is null)
+                return Result.Failure<PharmacyOwnerResponseDTO>(PharmacyErrors.PharmacyNotFound);
+
+            if (pharmacy.VerificationStatus == VerificationStatus.Deleted || pharmacy.VerificationStatus == VerificationStatus.Rejected)
+                return Result.Failure<PharmacyOwnerResponseDTO>(PharmacyOwnerErrors.PharmacyNotEligible);
 
             var admin = new PharmacyAdmin
             {
@@ -68,18 +68,15 @@ namespace Infrastructure.Services.PharmacyOwner
             }
 
             // Clear other super admins/owners for this pharmacy
-            if (dto.PharmacyId.HasValue)
-            {
-                var otherSuperAdmins = await context.PharmacyAdmins
-                    .Where(a => a.PharmacyId == dto.PharmacyId.Value && a.Id != admin.Id && a.IsSuperAdmin == true)
-                    .ToListAsync(cancellationToken);
+            var otherSuperAdmins = await context.PharmacyAdmins
+                .Where(a => a.PharmacyId == dto.PharmacyId && a.Id != admin.Id && a.IsSuperAdmin == true)
+                .ToListAsync(cancellationToken);
 
-                foreach (var other in otherSuperAdmins)
-                {
-                    other.IsSuperAdmin = false;
-                }
-                await context.SaveChangesAsync(cancellationToken);
+            foreach (var other in otherSuperAdmins)
+            {
+                other.IsSuperAdmin = false;
             }
+            await context.SaveChangesAsync(cancellationToken);
 
             // Load complete entity with relation for mapping
             var createdAdmin = await context.PharmacyAdmins
@@ -163,9 +160,12 @@ namespace Infrastructure.Services.PharmacyOwner
 
             if (dto.PharmacyId.HasValue)
             {
-                var pharmacyExists = await context.Pharmacies.AnyAsync(p => p.PharmacyId == dto.PharmacyId.Value, cancellationToken);
-                if (!pharmacyExists)
+                var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == dto.PharmacyId.Value, cancellationToken);
+                if (pharmacy is null)
                     return Result.Failure(PharmacyErrors.PharmacyNotFound);
+
+                if (pharmacy.VerificationStatus == VerificationStatus.Deleted || pharmacy.VerificationStatus == VerificationStatus.Rejected)
+                    return Result.Failure(PharmacyOwnerErrors.PharmacyNotEligible);
             }
 
             admin.FullName = dto.FullName;
@@ -173,8 +173,28 @@ namespace Infrastructure.Services.PharmacyOwner
             admin.UserName = dto.Email.ToLowerInvariant();
             admin.PhoneNumber = dto.PhoneNumber;
             admin.PharmacyId = dto.PharmacyId;
-            admin.IsSuperAdmin = true; // Ensure they remain owner
             admin.Status = dto.Status;
+
+            if (dto.Status != UserStatus.Active)
+            {
+                admin.IsSuperAdmin = false;
+            }
+            else
+            {
+                admin.IsSuperAdmin = true; // Ensure active owners retain super admin status
+            }
+
+            if (!string.IsNullOrWhiteSpace(dto.Password))
+            {
+                var resetToken = await userManager.GeneratePasswordResetTokenAsync(admin);
+                var resetResult = await userManager.ResetPasswordAsync(admin, resetToken, dto.Password);
+                if (!resetResult.Succeeded)
+                {
+                    var errorDesc = string.Join("; ", resetResult.Errors.Select(e => e.Description));
+                    logger.LogError("Identity failed to reset pharmacy owner password. Errors: {Errors}", errorDesc);
+                    return Result.Failure(new Error("PharmacyOwner.PasswordUpdateFailed", errorDesc, StatusCodes.Status400BadRequest));
+                }
+            }
 
             // Clear other super admins/owners for this pharmacy
             if (dto.PharmacyId.HasValue)
@@ -202,6 +222,7 @@ namespace Infrastructure.Services.PharmacyOwner
                 return Result.Failure(PharmacyOwnerErrors.PharmacyOwnerNotFound);
 
             admin.Status = UserStatus.Inactive;
+            admin.IsSuperAdmin = false;
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success();
         }
@@ -211,13 +232,19 @@ namespace Infrastructure.Services.PharmacyOwner
             Guid pharmacyId,
             CancellationToken cancellationToken = default)
         {
-            var pharmacyExists = await context.Pharmacies.AnyAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
-            if (!pharmacyExists)
+            var pharmacy = await context.Pharmacies.FirstOrDefaultAsync(p => p.PharmacyId == pharmacyId, cancellationToken);
+            if (pharmacy is null)
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
+
+            if (pharmacy.VerificationStatus == VerificationStatus.Deleted || pharmacy.VerificationStatus == VerificationStatus.Rejected)
+                return Result.Failure(PharmacyOwnerErrors.PharmacyNotEligible);
 
             var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == userId, cancellationToken);
             if (admin is null)
                 return Result.Failure(PharmacyOwnerErrors.InvalidUserRole);
+
+            if (admin.Status != UserStatus.Active)
+                return Result.Failure(PharmacyOwnerErrors.OwnerNotActive);
 
             // Clear any existing super admins for this pharmacy
             var existingSuperAdmins = await context.PharmacyAdmins

@@ -10,5 +10,6 @@ namespace Application.DTOs.PharmacyOwner.Request
         public string PhoneNumber { get; set; } = string.Empty;
         public Guid? PharmacyId { get; set; }
         public UserStatus Status { get; set; }
+        public string? Password { get; set; }
     }
 }
