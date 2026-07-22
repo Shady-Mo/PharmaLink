@@ -1,19 +1,3 @@
-using System;
-using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
-using Application.Common;
-using Application.DTOs;
-using Application.DTOs.Pharmacy.Request;
-using Application.DTOs.Pharmacy.Responses;
-using Application.Errors;
-using Application.Services.Pharmacy;
-using Domain.Entities;
-using Domain.Enums;
-using Infrastructure.Data;
-using Infrastructure.Extensions;
-using Microsoft.EntityFrameworkCore;
-
 namespace Infrastructure.Services.Pharmacy
 {
     public class AdminPharmacyService(AppDbContext context, IMapper mapper) : IAdminPharmacyService
