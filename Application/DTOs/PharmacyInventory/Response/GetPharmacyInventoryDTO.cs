@@ -1,6 +1,4 @@
-﻿using Domain.Enums;
-
-namespace Application.DTOs.PharmacyInventory.Response;
+﻿namespace Application.DTOs.PharmacyInventory.Response;
 
 public class GetPharmacyInventoryDTO
 {
@@ -9,6 +7,8 @@ public class GetPharmacyInventoryDTO
     public Guid BranchId { get; set; }
 
     public Guid DrugId { get; set; }
+
+    public string DrugName { get; set; } = string.Empty;
 
     public string ArabicName { get; set; } = string.Empty;
 
