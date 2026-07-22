@@ -189,7 +189,16 @@ public class OrderService(
         // 2. Status filter
         if (request.Status.HasValue)
         {
-            query = query.Where(o => o.OrderStatus == request.Status.Value);
+            if ((int)request.Status.Value == 100)
+            {
+                query = query.Where(o => o.OrderStatus == OrderStatus.Pending || 
+                                         o.OrderStatus == OrderStatus.Processing || 
+                                         o.OrderStatus == OrderStatus.Shipped);
+            }
+            else
+            {
+                query = query.Where(o => o.OrderStatus == request.Status.Value);
+            }
         }
 
         // 3. Date range filter
@@ -325,7 +334,16 @@ public class OrderService(
 
         if (request.Status.HasValue)
         {
-            query = query.Where(o => o.OrderStatus == request.Status.Value);
+            if ((int)request.Status.Value == 100)
+            {
+                query = query.Where(o => o.OrderStatus == OrderStatus.Pending || 
+                                         o.OrderStatus == OrderStatus.Processing || 
+                                         o.OrderStatus == OrderStatus.Shipped);
+            }
+            else
+            {
+                query = query.Where(o => o.OrderStatus == request.Status.Value);
+            }
         }
 
         if (request.FromDate.HasValue)
