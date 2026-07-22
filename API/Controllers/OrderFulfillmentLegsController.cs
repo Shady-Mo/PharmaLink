@@ -37,7 +37,9 @@ public class OrderFulfillmentLegsController(IOrderFulfillmentLegService legServi
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-
+    /// <summary>
+    /// Retrieves All assigned orders for a pharmacist.
+    /// </summary>
     [HttpGet("assigned")]
     public async Task<IActionResult> GetAssignedOrders(
         [FromQuery] GetBranchOrdersRequest request,
@@ -50,6 +52,20 @@ public class OrderFulfillmentLegsController(IOrderFulfillmentLegService legServi
             return Ok(result);
         }
 
-        return result.ToProblem(); // أو return BadRequest(result); حسب الـ Base API Controller بتاعك
+        return result.ToProblem();
+    }
+
+    /// <summary>
+    /// Retrieves detailed information about an assigned order for a pharmacist.
+    /// </summary>
+    [HttpGet("/api/v1/PharmacistOrders/{id}")]
+    [ProducesResponseType(typeof(PharmacistOrderDetailsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetPharmacistOrderDetails(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await legService.GetPharmacistOrderDetailsAsync(id, User, cancellationToken);
+        
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 }

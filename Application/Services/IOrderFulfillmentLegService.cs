@@ -22,4 +22,9 @@ public interface IOrderFulfillmentLegService
         ClaimsPrincipal user,
         CancellationToken cancellationToken = default
     );
+
+    Task<Result<PharmacistOrderDetailsDto>> GetPharmacistOrderDetailsAsync(
+        Guid orderId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken = default);
 }
