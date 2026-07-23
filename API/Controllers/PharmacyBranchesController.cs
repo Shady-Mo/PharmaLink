@@ -96,7 +96,7 @@ public class PharmacyBranchesController(IPharmacyBranchService branchService) : 
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> Search(
         [FromQuery] string? term,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(term))
             return Ok(new List<PharmacyBranchSearchDTO>());

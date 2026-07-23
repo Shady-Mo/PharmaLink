@@ -387,7 +387,7 @@ public class InventoryService(
         };
 
         var page = await query
-            .OrderBy(i => i.LastSyncedAt)
+            .OrderByDescending(i => i.LastSyncedAt)
             .ProjectToType<GetPharmacyInventoryDTO>()
             .ToPaginatedListAsync(parameters.PageNumber, parameters.PageSize, cancellationToken);
 

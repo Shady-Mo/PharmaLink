@@ -141,37 +141,48 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
         var nextMonthStart = monthStart.AddMonths(1);
         var prevMonthStart = monthStart.AddMonths(-1);
 
-        var totalMedicines = await context.PharmacyInventories
-            .Where(i => branchIds.Contains(i.BranchId) && i.Drug.IsActive)
-            .Select(i => i.DrugId)
-            .Distinct()
-            .CountAsync(cancellationToken);
+        var inventoryStats = await context.PharmacyInventories
+            .AsNoTracking()
+            .Where(i => branchIds.Contains(i.BranchId))
+            .GroupBy(_ => 1)
+            .Select(g => new
+            {
+                TotalMedicines = g.Where(i => i.Drug.IsActive)
+                                  .Select(i => i.DrugId)
+                                  .Distinct()
+                                  .Count(),
 
-        var lowStockCount = await context.PharmacyInventories
-            .Where(i => branchIds.Contains(i.BranchId) && i.StockQuantity <= lowStockThreshold)
-            .CountAsync(cancellationToken);
+                LowStockCount = g.Count(i => i.StockQuantity <= lowStockThreshold)
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var scopedLegs = context.OrderFulfillmentLegs
-            .Where(l => branchIds.Contains(l.BranchId));
+        var legsStats = await context.OrderFulfillmentLegs
+            .AsNoTracking()
+            .Where(l => branchIds.Contains(l.BranchId))
+            .GroupBy(_ => 1)
+            .Select(g => new {
+                TodaysOrdersCount = g.Count(l => l.Order.CreatedAt >= today && l.Order.CreatedAt < tomorrow),
+                YesterdaysOrdersCount = g.Count(l => l.Order.CreatedAt >= yesterday && l.Order.CreatedAt < today),
+                MonthlyRevenue = g.Where(l => l.LegStatus == LegStatus.Delivered
+                                           && l.CompletedAt >= monthStart
+                                           && l.CompletedAt < nextMonthStart)
+                                  .Sum(l => (decimal?)l.Order.TotalAmount) ?? 0,
+                PrevMonthRevenue = g.Where(l => l.LegStatus == LegStatus.Delivered
+                                          && l.CompletedAt >= prevMonthStart
+                                          && l.CompletedAt < monthStart)
+                                 .Sum(l => (decimal?)l.Order.TotalAmount) ?? 0
+            })
+            .FirstOrDefaultAsync(cancellationToken);
 
-        var todaysOrdersCount = await scopedLegs
-            .CountAsync(l => l.Order.CreatedAt >= today && l.Order.CreatedAt < tomorrow, cancellationToken);
+        var totalMedicines = inventoryStats?.TotalMedicines ?? 0;
+        var lowStockCount = inventoryStats?.LowStockCount ?? 0;
 
-        var yesterdaysOrdersCount = await scopedLegs
-            .CountAsync(l => l.Order.CreatedAt >= yesterday && l.Order.CreatedAt < today, cancellationToken);
+        var todaysOrdersCount = legsStats?.TodaysOrdersCount ?? 0;
+        var yesterdaysOrdersCount = legsStats?.YesterdaysOrdersCount ?? 0;
+        var monthlyRevenue = legsStats?.MonthlyRevenue ?? 0;
+        var prevMonthRevenue = legsStats?.PrevMonthRevenue ?? 0;
 
-        var completedLegs = scopedLegs.Where(l => l.LegStatus == LegStatus.Delivered && l.CompletedAt != null);
-
-        var monthlyRevenue = await completedLegs
-            .Where(l => l.CompletedAt >= monthStart && l.CompletedAt < nextMonthStart)
-            .SumAsync(l => (decimal?)l.Order.TotalAmount, cancellationToken) ?? 0m;
-
-        var prevMonthRevenue = await completedLegs
-            .Where(l => l.CompletedAt >= prevMonthStart && l.CompletedAt < monthStart)
-            .SumAsync(l => (decimal?)l.Order.TotalAmount, cancellationToken) ?? 0m;
-
-        return new PharmacyKpiDTO
-        {
+        return new PharmacyKpiDTO {
             TotalMedicines = totalMedicines,
             LowStockMedicinesCount = lowStockCount,
             TodaysOrdersCount = todaysOrdersCount,
