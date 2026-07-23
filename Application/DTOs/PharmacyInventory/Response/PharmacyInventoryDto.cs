@@ -8,6 +8,8 @@ public class PharmacyInventoryDto
 
     public Guid DrugId { get; set; }
 
+    public string BranchName { get; set; } = string.Empty;
+
     public string DrugName { get; set; } = string.Empty;
 
     public string GenericName { get; set; } = string.Empty;

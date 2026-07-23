@@ -31,6 +31,7 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.LastSyncedAt, src => DateTime.UtcNow);
 
         config.NewConfig<PharmacyInventory, PharmacyInventoryDto>()
+            .Map(dest => dest.BranchName, src => src.Branch.BranchName)
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.GenericName, src => src.Drug.GenericName)
             .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
