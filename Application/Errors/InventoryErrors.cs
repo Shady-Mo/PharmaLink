@@ -35,19 +35,27 @@ public static class InventoryErrors
     public static readonly Error AlreadyExist = new(
         "Inventory.AlreadyExist",
         "This drug already exist",
-        StatusCodes.Status409Conflict
-        );
+        StatusCodes.Status409Conflict);
 
     public static readonly Error DifferentBranch = new(
         "Inventory.DifferentBranch",
         "You do not have permission to manage inventory for this branch",
-        StatusCodes.Status403Forbidden
-        );
+        StatusCodes.Status403Forbidden);
 
     public static readonly Error StockLowerThanReserved = new(
-    "Inventory.StockLowerThanReserved",
-    "Cannot set stock quantity lower than currently reserved quantity.",
-    StatusCodes.Status400BadRequest
-    );
+        "Inventory.StockLowerThanReserved",
+        "Cannot set stock quantity lower than currently reserved quantity.",
+        StatusCodes.Status400BadRequest);
 
+    public static readonly Error DrugNotFound = new(
+        "Inventory.DrugNotFound",
+        "The specified drug does not exist in the catalog.",
+        StatusCodes.Status404NotFound);
+
+    public static readonly Error HasReservedStock = new(
+        "Inventory.HasReservedStock",
+        "This inventory item cannot be deleted because it has reserved stock tied to pending orders.",
+        StatusCodes.Status409Conflict);
 }
+
+

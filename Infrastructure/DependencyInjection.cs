@@ -51,7 +51,9 @@ public static class DependencyInjection
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
 
+            services.AddScoped<IPharmacyBranchService, PharmacyBranchService>();
             services.AddScoped<IPharmacyService, PharmacyService>();
+
             services.AddScoped<IAdminPharmacyService, AdminPharmacyService>();
             services.AddScoped<IPharmacyOwnerService, PharmacyOwnerService>();
 

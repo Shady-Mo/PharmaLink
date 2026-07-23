@@ -1,37 +1,13 @@
 ﻿namespace API.Controllers;
 
-public class InventoryController(IInventoryService inventoryService, IWebHostEnvironment env) : BaseApiController
+public class InventoryController(IInventoryService inventoryService) : BaseApiController
 {
-    [Authorize(Roles = $"{AppRoles.Pharmacist}")]
-    [HttpPost("")]
-    [ProducesResponseType(typeof(PharmacyInventoryDto), StatusCodes.Status201Created)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> CreateDrug(AddPharmacyInventoryDto dto, CancellationToken cancellationToken)
-    {
-        var result = await inventoryService.CreateAsync(dto, cancellationToken);
-
-        return result.IsSuccess
-            ? Created("", result.Value)
-            : result.ToProblem();
-    }
-
-    [Authorize(Roles = $"{AppRoles.Pharmacist}")]
-    [HttpPut("")]
-    [ProducesResponseType(typeof(PharmacyInventoryDto), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> UpdateDrug(UpdatePharmacyInventoryDto dto, CancellationToken cancellationToken)
-    {
-        var result = await inventoryService.UpdateAsync(dto, cancellationToken);
-
-        return result.IsSuccess
-            ? Ok(result.Value)
-            : result.ToProblem();
-    }
-
-    [Authorize(Roles = $"{AppRoles.Admin},{AppRoles.Pharmacist}")]
-    [HttpGet("")]
-    [ProducesResponseType(typeof(PaginatedList<PharmacyInventoryDto>), StatusCodes.Status200OK)]
+    /// <summary>
+    /// Retrieves a paginated inventory list, with optional text search and stock-status filtering.
+    /// </summary>
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
+    [HttpGet]
+    [ProducesResponseType(typeof(PaginatedList<GetPharmacyInventoryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetInventory(
         [FromQuery] GetPharmacyInventoryParamRequest parameters,
@@ -39,8 +15,88 @@ public class InventoryController(IInventoryService inventoryService, IWebHostEnv
     {
         var result = await inventoryService.GetInventoryAsync(parameters, cancellationToken);
 
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Retrieves a paginated inventory list for a specific branch, with optional text search and stock-status filtering
+    /// </summary>
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
+    [HttpGet("branch/{branchId:guid}")]
+
+    [ProducesResponseType(typeof(PaginatedList<GetPharmacyInventoryDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetInventoryByBranch(
+        Guid branchId,
+        [FromQuery] GetPharmacyInventoryParamRequest parameters,
+        CancellationToken cancellationToken)
+    {
+        parameters.BranchId = branchId;
+
+        var result = await inventoryService.GetInventoryAsync(parameters, cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Retrieves a single inventory item by its identifier.
+    /// </summary>
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
+    [HttpGet("{id:guid}")]
+    [ProducesResponseType(typeof(PharmacyInventoryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetInventoryById(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await inventoryService.GetByIdAsync(id, cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Adds a new medicine to the pharmacy branch's inventory.
+    /// </summary>
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
+    [HttpPost]
+    [ProducesResponseType(typeof(PharmacyInventoryDto), StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> CreateInventory([FromBody] AddPharmacyInventoryDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await inventoryService.CreateAsync(dto, cancellationToken);
+
         return result.IsSuccess
-            ? Ok(result.Value)
+            ? CreatedAtAction(nameof(GetInventoryById), new { id = result.Value?.InventoryId }, result.Value)
             : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Updates an inventory item's details or adjusts its stock quantity.
+    /// </summary>
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
+    [HttpPut("{id:guid}")]
+    [ProducesResponseType(typeof(PharmacyInventoryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdateInventory(Guid id, [FromBody] UpdatePharmacyInventoryDto dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await inventoryService.UpdateAsync(id, dto, cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>
+    /// Removes an inventory item, subject to business constraints (e.g. no reserved stock).
+    /// </summary>
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
+    [HttpDelete("{id:guid}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> DeleteInventory(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await inventoryService.DeleteAsync(id, cancellationToken);
+
+        return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 }

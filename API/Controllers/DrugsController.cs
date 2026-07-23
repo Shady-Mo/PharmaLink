@@ -97,6 +97,17 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 
+    [HttpGet("search")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchMedicines([FromQuery] string? term, CancellationToken cancellationToken = default) {
+        if (string.IsNullOrWhiteSpace(term))
+            return Ok(new List<MedicineSearchDTO>());
+        
+        var result = await drugService.SearchMedicinesAsync(term.Trim(), cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
     // run for one time this for add category to all drugs that have null category, this is for backfilling the data
     //[HttpPost("backfill-categories")]
     //[ProducesResponseType(StatusCodes.Status200OK)]

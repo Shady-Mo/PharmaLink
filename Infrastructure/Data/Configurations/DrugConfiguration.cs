@@ -15,7 +15,8 @@ public class DrugConfiguration : IEntityTypeConfiguration<Drug>
             .IsRequired();
 
         builder.Property(d => d.ArabicName)
-            .HasMaxLength(500);
+            .HasMaxLength(500)
+            .UseCollation("Arabic_CI_AI");
 
         builder.Property(d => d.Manufacturer)
             .HasMaxLength(500);
@@ -50,5 +51,9 @@ public class DrugConfiguration : IEntityTypeConfiguration<Drug>
             .WithOne(oi => oi.Drug)
             .HasForeignKey(oi => oi.DrugId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder
+            .Property(d => d.ArabicName)
+            .UseCollation("Arabic_CI_AI");
     }
 }

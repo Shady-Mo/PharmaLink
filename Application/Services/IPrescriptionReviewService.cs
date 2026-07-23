@@ -29,6 +29,4 @@ public interface IPrescriptionReviewService
         Guid prescriptionReviewId,
         Guid pharmacistUserId,
         ApproveRejectDTO dto);
-
-    Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string term);
 }
