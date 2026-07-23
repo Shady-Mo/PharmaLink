@@ -50,5 +50,9 @@ public class DrugConfiguration : IEntityTypeConfiguration<Drug>
             .WithOne(oi => oi.Drug)
             .HasForeignKey(oi => oi.DrugId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        builder
+            .Property(d => d.ArabicName)
+            .UseCollation("Arabic_CI_AI");
     }
 }

@@ -9,17 +9,25 @@ public class PharmacyBranchConfiguration : IEntityTypeConfiguration<PharmacyBran
         builder
             .Property(b => b.BranchName)
             .HasMaxLength(256)
-            .IsRequired();
+            .IsRequired()
+            .UseCollation("Arabic_CI_AI");
 
         builder
             .Property(b => b.City)
             .HasMaxLength(100)
-            .IsRequired();
+            .IsRequired()
+            .UseCollation("Arabic_CI_AI");
 
         builder
             .Property(b => b.Governorate)
             .HasMaxLength(100)
-            .IsRequired();
+            .IsRequired()
+            .UseCollation("Arabic_CI_AI");
+
+        builder
+            .Property(b => b.AddressLine)
+            .HasMaxLength(250)
+            .UseCollation("Arabic_CI_AI");
 
         builder
             .Property(b => b.ServiceRadiusKm)
