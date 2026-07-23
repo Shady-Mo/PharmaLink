@@ -193,7 +193,9 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
         var searchResults = await context.Drugs
             .Where(m => 
                 EF.Functions.FreeText(m.BrandName, term) || 
-                EF.Functions.FreeText(m.ArabicName, term))
+                EF.Functions.FreeText(m.ArabicName, term) ||
+                m.BrandName.Contains(term) ||
+                m.ArabicName.Contains(term))
             .Select(m => new MedicineSearchDTO
             {
                 Id = m.DrugId,
