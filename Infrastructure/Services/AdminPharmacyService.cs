@@ -12,10 +12,7 @@ namespace Infrastructure.Services.Pharmacy
             {
                 query = query.Where(p => p.VerificationStatus == request.Status.Value);
             }
-            else
-            {
-                query = query.Where(p => p.VerificationStatus != VerificationStatus.Deleted);
-            }
+
 
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
