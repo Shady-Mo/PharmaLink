@@ -181,14 +181,21 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
         return Result.Success();
     }
 
-    public async Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(string? term) {
-        if (string.IsNullOrWhiteSpace(term) || term.Length < 2) {
+    public async Task<Result<List<MedicineSearchDTO>>> SearchMedicinesAsync(
+        string? term,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(term) || term.Length < 2)
+        {
             return Result.Success(new List<MedicineSearchDTO>());
         }
 
         var searchResults = await context.Drugs
-            .Where(m => m.BrandName.Contains(term) || m.ArabicName.Contains(term))
-            .Select(m => new MedicineSearchDTO {
+            .Where(m => 
+                EF.Functions.FreeText(m.BrandName, term) || 
+                EF.Functions.FreeText(m.ArabicName, term))
+            .Select(m => new MedicineSearchDTO
+            {
                 Id = m.DrugId,
                 Name = m.BrandName,
                 GenericName = m.GenericName,
@@ -201,7 +208,7 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
                 Price = m.Price
             })
             .Take(10)
-            .ToListAsync();
+            .ToListAsync(cancellationToken);
 
         return Result.Success(searchResults);
     }

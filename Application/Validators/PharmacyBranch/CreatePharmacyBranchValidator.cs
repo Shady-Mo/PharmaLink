@@ -15,7 +15,6 @@ public class CreatePharmacyBranchValidator : AbstractValidator<CreatePharmacyBra
 
         RuleFor(b => b.ServiceRadiusKm).GreaterThanOrEqualTo(0);
 
-        // Coordinates are optional, but if either is supplied both are required and must be in range.
         When(b => b.Latitude.HasValue || b.Longitude.HasValue, () =>
         {
             RuleFor(b => b.Latitude)
