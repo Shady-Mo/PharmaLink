@@ -373,9 +373,11 @@ public class InventoryService(
         {
             var term = parameters.Search.Trim();
 
-            query = query.Where(i => 
-                i.Drug.ArabicName.Contains(parameters.Search)
-                || i.Drug.BrandName.Contains(parameters.Search));
+            query = query.Where(i =>
+                EF.Functions.FreeText(i.Drug.BrandName, term) ||
+                EF.Functions.FreeText(i.Drug.ArabicName, term) ||
+                i.Drug.ArabicName.Contains(parameters.Search) ||
+                i.Drug.BrandName.Contains(parameters.Search));
         }
 
         query = parameters.StatusFilter switch

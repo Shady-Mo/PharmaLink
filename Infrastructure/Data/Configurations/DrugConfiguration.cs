@@ -15,7 +15,8 @@ public class DrugConfiguration : IEntityTypeConfiguration<Drug>
             .IsRequired();
 
         builder.Property(d => d.ArabicName)
-            .HasMaxLength(500);
+            .HasMaxLength(500)
+            .UseCollation("Arabic_CI_AI");
 
         builder.Property(d => d.Manufacturer)
             .HasMaxLength(500);
