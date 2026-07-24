@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.DTOs.Pharmacy.Request
+﻿namespace Application.DTOs.Pharmacist.Requests
 {
     public class UpdatePharmacistProfileRequestDTO
     {

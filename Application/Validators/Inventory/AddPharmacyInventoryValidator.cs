@@ -8,10 +8,10 @@ public class AddPharmacyInventoryValidator : AbstractValidator<AddPharmacyInvent
     {
         RuleFor(i => i.BranchId).NotEmpty();
         RuleFor(i => i.DrugId).NotEmpty();
-        RuleFor(i => i.StockQuantity).GreaterThanOrEqualTo(0);
+        RuleFor(i => i.StockQuantity).GreaterThan(0);
         RuleFor(i => i.UnitPrice).GreaterThan(0);
         RuleFor(i => i.ExpiryDate)
-            .Must(d => d is null || d.Value > DateOnly.FromDateTime(DateTime.UtcNow))
+            .Must(d => d > DateOnly.FromDateTime(DateTime.UtcNow))
             .WithMessage("Expiry date must be in the future.");
     }
 }
