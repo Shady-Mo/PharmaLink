@@ -10,5 +10,5 @@ public class AddPharmacyInventoryDto
 
     public decimal UnitPrice { get; set; }
 
-    public DateOnly? ExpiryDate { get; set; }
+    public DateOnly ExpiryDate { get; set; }
 }
