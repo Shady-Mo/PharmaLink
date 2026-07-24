@@ -191,6 +191,16 @@ public class OrderService(
             }
         }
 
+        if (request.FulfillmentMode.HasValue)
+        {
+            baseQuery = baseQuery.Where(o => o.FulfillmentMode == request.FulfillmentMode.Value);
+        }
+
+        if (request.LegStatus.HasValue)
+        {
+            baseQuery = baseQuery.Where(o => o.FulfillmentLegs.Any(l => l.LegStatus == request.LegStatus.Value));
+        }
+
         // 3. Date range filter
         if (request.FromDate.HasValue)
         {
@@ -345,6 +355,16 @@ public class OrderService(
                 query = query.Where(o => o.OrderStatus == request.Status.Value);
             }
         }
+
+        //if (request.FulfillmentMode.HasValue)
+        //{
+        //    query = query.Where(o => o.FulfillmentMode == request.FulfillmentMode.Value);
+        //}
+
+        //if (request.LegStatus.HasValue)
+        //{
+        //    query = query.Where(o => o.FulfillmentLegs.Any(l => l.LegStatus == request.LegStatus.Value));
+        //}
 
         if (request.FromDate.HasValue)
         {

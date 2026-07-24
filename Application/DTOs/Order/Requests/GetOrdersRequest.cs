@@ -11,6 +11,12 @@ public class GetOrdersRequest : PaginatedRequest
     /// <summary>Filter by order status. Null returns all statuses.</summary>
     public OrderStatus? Status { get; set; }
 
+    /// <summary>Filter by fulfillment mode (Delivery / Pickup).</summary>
+    public FulfillmentMode? FulfillmentMode { get; set; }
+
+    /// <summary>Filter by fulfillment leg status.</summary>
+    public LegStatus? LegStatus { get; set; }
+
     /// <summary>Include only orders created on or after this UTC date.</summary>
     public DateTime? FromDate { get; set; }
 
