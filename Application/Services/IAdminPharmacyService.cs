@@ -1,11 +1,4 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Application.Common;
-using Application.DTOs;
-using Application.DTOs.Pharmacy.Request;
 using Application.DTOs.Pharmacy.Responses;
-using Domain.Enums;
 
 namespace Application.Services.Pharmacy
 {
