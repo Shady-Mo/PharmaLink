@@ -39,4 +39,7 @@ public class AdminOrderDTO
 
     /// <summary>Total number of distinct medicine items in the order.</summary>
     public int ItemCount { get; set; }
+
+    /// <summary>Status of the primary fulfillment leg (if assigned).</summary>
+    public LegStatus? LegStatus { get; set; }
 }

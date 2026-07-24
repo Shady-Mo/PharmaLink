@@ -1,8 +1,5 @@
 using Application.DTOs.Order.Requests;
 using Application.DTOs.Order.Responses;
-using Application.Services.Order;
-using System.Text;
-using System.IO;
 
 namespace Infrastructure.Services;
 
@@ -168,20 +165,13 @@ public class OrderService(
 
     public async Task<Result<PaginatedList<AdminOrderDTO>>> GetAdminOrders(GetOrdersRequest request, CancellationToken ct = default)
     {
-        var query = context.Orders
-            .Include(o => o.Patient)
-            .Include(o => o.Items)
-                .ThenInclude(i => i.Drug)
-            .Include(o => o.FulfillmentLegs)
-                .ThenInclude(l => l.Branch)
-                    .ThenInclude(b => b.Pharmacy)
-            .AsNoTracking();
+        var baseQuery = context.Orders.AsNoTracking();
 
         // 1. Search (Patient FullName or OrderNumber/OrderId)
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim().ToLower();
-            query = query.Where(o => 
+            baseQuery = baseQuery.Where(o =>
                 o.Patient.FullName.ToLower().Contains(search) ||
                 o.OrderId.ToString().ToLower().Contains(search));
         }
@@ -191,45 +181,54 @@ public class OrderService(
         {
             if ((int)request.Status.Value == 100)
             {
-                query = query.Where(o => o.OrderStatus == OrderStatus.Pending || 
-                                         o.OrderStatus == OrderStatus.Processing || 
-                                         o.OrderStatus == OrderStatus.Shipped);
+                baseQuery = baseQuery.Where(o => o.OrderStatus == OrderStatus.Pending ||
+                                                 o.OrderStatus == OrderStatus.Processing ||
+                                                 o.OrderStatus == OrderStatus.Shipped);
             }
             else
             {
-                query = query.Where(o => o.OrderStatus == request.Status.Value);
+                baseQuery = baseQuery.Where(o => o.OrderStatus == request.Status.Value);
             }
         }
 
         // 3. Date range filter
         if (request.FromDate.HasValue)
         {
-            query = query.Where(o => o.CreatedAt >= request.FromDate.Value);
+            baseQuery = baseQuery.Where(o => o.CreatedAt >= request.FromDate.Value);
         }
         if (request.ToDate.HasValue)
         {
-            query = query.Where(o => o.CreatedAt <= request.ToDate.Value);
+            baseQuery = baseQuery.Where(o => o.CreatedAt <= request.ToDate.Value);
         }
 
-        // 4. Sorting
-        query = request.SortBy.ToLower() switch
+        // 4. Fast Count (executed directly on base table without joins)
+        var count = await baseQuery.CountAsync(ct);
+
+        // 5. Sorting
+        baseQuery = request.SortBy.ToLower() switch
         {
-            "amount" => request.SortDir.ToLower() == "asc" 
-                ? query.OrderBy(o => o.TotalAmount) 
-                : query.OrderByDescending(o => o.TotalAmount),
-            "status" => request.SortDir.ToLower() == "asc" 
-                ? query.OrderBy(o => o.OrderStatus) 
-                : query.OrderByDescending(o => o.OrderStatus),
-            _ => request.SortDir.ToLower() == "asc" 
-                ? query.OrderBy(o => o.CreatedAt) 
-                : query.OrderByDescending(o => o.CreatedAt)
+            "amount" => request.SortDir.ToLower() == "asc"
+                ? baseQuery.OrderBy(o => o.TotalAmount)
+                : baseQuery.OrderByDescending(o => o.TotalAmount),
+            "status" => request.SortDir.ToLower() == "asc"
+                ? baseQuery.OrderBy(o => o.OrderStatus)
+                : baseQuery.OrderByDescending(o => o.OrderStatus),
+            _ => request.SortDir.ToLower() == "asc"
+                ? baseQuery.OrderBy(o => o.CreatedAt)
+                : baseQuery.OrderByDescending(o => o.CreatedAt)
         };
 
-        // 5. Pagination
-        var count = await query.CountAsync(ct);
-        var orders = await query
+        // 6. Paginate first, then split query includes for ONLY the 10 paginated orders
+        var orders = await baseQuery
             .Skip((request.PageNumber - 1) * request.PageSize)
             .Take(request.PageSize)
+            .Include(o => o.Patient)
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Drug)
+            .Include(o => o.FulfillmentLegs)
+                .ThenInclude(l => l.Branch)
+                    .ThenInclude(b => b.Pharmacy)
+            .AsSplitQuery()
             .ToListAsync(ct);
 
         var list = orders.Select(o => new AdminOrderDTO
@@ -243,7 +242,8 @@ public class OrderService(
             OrderStatus = o.OrderStatus,
             FulfillmentMode = o.FulfillmentMode,
             CreatedAt = o.CreatedAt,
-            ItemCount = o.Items.Count
+            ItemCount = o.Items.Count,
+            LegStatus = o.FulfillmentLegs.FirstOrDefault()?.LegStatus
         }).ToList();
 
         return Result.Success(new PaginatedList<AdminOrderDTO>(list, request.PageNumber, count, request.PageSize));
@@ -278,7 +278,7 @@ public class OrderService(
             FulfillmentMode = order.FulfillmentMode,
             CreatedAt = order.CreatedAt,
             DeliveredAt = order.DeliveredAt,
-            DeliveryAddress = order.DeliveryAddress != null 
+            DeliveryAddress = order.DeliveryAddress != null
                 ? $"{order.DeliveryAddress.Governorate}، {order.DeliveryAddress.City}، {order.DeliveryAddress.AddressLine}"
                 : "No Address",
             Items = order.Items.Select(i => new AdminOrderItemDTO
@@ -327,7 +327,7 @@ public class OrderService(
         if (!string.IsNullOrWhiteSpace(request.Search))
         {
             var search = request.Search.Trim().ToLower();
-            query = query.Where(o => 
+            query = query.Where(o =>
                 o.Patient.FullName.ToLower().Contains(search) ||
                 o.OrderId.ToString().ToLower().Contains(search));
         }
@@ -336,8 +336,8 @@ public class OrderService(
         {
             if ((int)request.Status.Value == 100)
             {
-                query = query.Where(o => o.OrderStatus == OrderStatus.Pending || 
-                                         o.OrderStatus == OrderStatus.Processing || 
+                query = query.Where(o => o.OrderStatus == OrderStatus.Pending ||
+                                         o.OrderStatus == OrderStatus.Processing ||
                                          o.OrderStatus == OrderStatus.Shipped);
             }
             else
