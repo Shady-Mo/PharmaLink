@@ -1,4 +1,4 @@
-﻿using FluentValidation.AspNetCore;
+using FluentValidation.AspNetCore;
 
 namespace API;
 
@@ -31,7 +31,7 @@ public static class DependencyInjection
             options.AddDefaultPolicy(policy =>
             {
                 policy
-                    .WithOrigins("http://localhost:4200")
+                    .WithOrigins("http://localhost:4200", "https://pharma-link-front-end.vercel.app")
                     .AllowAnyHeader()
                     .AllowAnyMethod()
                     .AllowCredentials();
