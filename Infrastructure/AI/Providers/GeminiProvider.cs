@@ -2,20 +2,14 @@ using System.Collections.Concurrent;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
-using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 
 namespace Infrastructure.AI.Providers;
 
-public class GeminiProvider : IKernelProvider
+public class GeminiProvider(IOptions<AiOptions> options) : IKernelProvider
 {
-    private readonly GeminiOptions _options;
     private readonly ConcurrentDictionary<string, Kernel> _kernels = new();
-
-    public GeminiProvider(IOptions<AiOptions> options)
-    {
-        _options = options.Value.Providers.Gemini;
-    }
+    private readonly GeminiOptions _options = options.Value.Providers.Gemini;
 
     public AIProvider Provider => AIProvider.Gemini;
 
@@ -31,7 +25,8 @@ public class GeminiProvider : IKernelProvider
 
         if (!configuredModels.Contains(selectedModelId))
         {
-            throw new InvalidOperationException($"Model {selectedModelId} is not configured for role {roleName} in {Provider}.");
+            throw new InvalidOperationException(
+                $"Model {selectedModelId} is not configured for role {roleName} in {Provider}.");
         }
 
         return _kernels.GetOrAdd(selectedModelId, CreateKernel);

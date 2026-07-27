@@ -15,11 +15,8 @@ public class KernelFactory : IKernelFactory
 
     public Kernel GetKernel(AIProvider provider, ModelRole role, string? modelId = null)
     {
-        if (!_providers.TryGetValue(provider, out var kernelProvider))
-        {
-            throw new InvalidOperationException($"Provider {provider} is not registered.");
-        }
-
-        return kernelProvider.GetKernel(role, modelId);
+        return !_providers.TryGetValue(provider, out var kernelProvider)
+            ? throw new InvalidOperationException($"Provider {provider} is not registered.")
+            : kernelProvider.GetKernel(role, modelId);
     }
 }

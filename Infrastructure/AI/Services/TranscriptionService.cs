@@ -1,8 +1,6 @@
 using System.Net.Http.Headers;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
-using Microsoft.Extensions.Options;
-using System.Text.Json;
 
 namespace Infrastructure.AI.Services;
 
@@ -21,10 +19,11 @@ public class TranscriptionService
 
     public async Task<string> TranscribeAudioAsync(Stream audioStream, string fileName)
     {
-        if (!_options.Models.TryGetValue(ModelRole.Transcription.ToString(), out var models) || models.Length == 0)
+        if (!_options.Models.TryGetValue(nameof(ModelRole.Transcription), out var models) || models.Length == 0)
         {
             throw new InvalidOperationException("Transcription model not configured.");
         }
+
         var modelId = models[0];
 
         using var content = new MultipartFormDataContent();
@@ -37,8 +36,8 @@ public class TranscriptionService
         response.EnsureSuccessStatusCode();
 
         var result = await response.Content.ReadAsStringAsync();
-        
-        try 
+
+        try
         {
             var jsonDoc = JsonDocument.Parse(result);
             if (jsonDoc.RootElement.TryGetProperty("text", out var textElement))
@@ -46,7 +45,7 @@ public class TranscriptionService
                 return textElement.GetString() ?? result;
             }
         }
-        catch 
+        catch
         {
             // fallback to returning raw string
         }
