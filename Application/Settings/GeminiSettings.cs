@@ -2,7 +2,7 @@ namespace Application.Settings;
 
 public class GeminiSettings
 {
-    public const string SectionName = "Gemini";
+    public const string SectionName = "AI:Providers:Gemini";
 
     public string ApiKey { get; set; } = string.Empty;
 
