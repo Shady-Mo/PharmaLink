@@ -22,6 +22,7 @@ global using Application.DTOs.Auth.Responses;
 global using Application.DTOs.Dashboard.Responses;
 global using Application.Errors;
 global using Infrastructure.Extensions;
+global using Infrastructure.AI.Extensions;
 global using System.Linq.Dynamic.Core;
 global using System.Linq.Expressions;
 global using Application.DTOs.PharmacyBranch.Request;
