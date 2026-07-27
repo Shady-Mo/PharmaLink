@@ -115,6 +115,8 @@ public static class DependencyInjection
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
 
+            services.AddAiInfrastructure(configuration);
+
             return services;
         }
 
