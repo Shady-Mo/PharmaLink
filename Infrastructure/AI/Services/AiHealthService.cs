@@ -2,24 +2,15 @@ using Infrastructure.AI.Models;
 
 namespace Infrastructure.AI.Services;
 
-public class AiHealthService
+public class AiHealthService(PromptExecutionService promptExecutionService, EmbeddingService embeddingService)
 {
-    private readonly PromptExecutionService _promptExecutionService;
-    private readonly EmbeddingService _embeddingService;
-
-    public AiHealthService(PromptExecutionService promptExecutionService, EmbeddingService embeddingService)
-    {
-        _promptExecutionService = promptExecutionService;
-        _embeddingService = embeddingService;
-    }
-
     public async Task<Dictionary<string, string>> CheckHealthAsync()
     {
         var results = new Dictionary<string, string>();
 
         try
         {
-            await _promptExecutionService.ExecutePromptAsync("Say OK", AIProvider.Groq, ModelRole.Chat);
+            await promptExecutionService.ExecutePromptAsync("Say OK", AIProvider.Groq, ModelRole.Chat);
             results.Add("Groq_Chat", "Healthy");
         }
         catch (Exception ex)
@@ -29,7 +20,7 @@ public class AiHealthService
 
         try
         {
-            await _promptExecutionService.ExecutePromptAsync("Say OK", AIProvider.Gemini, ModelRole.Chat);
+            await promptExecutionService.ExecutePromptAsync("Say OK", AIProvider.Gemini, ModelRole.Chat);
             results.Add("Gemini_Chat", "Healthy");
         }
         catch (Exception ex)
@@ -39,7 +30,7 @@ public class AiHealthService
 
         try
         {
-            await _promptExecutionService.ExecutePromptAsync("Say OK", AIProvider.GitHubModels, ModelRole.Chat);
+            await promptExecutionService.ExecutePromptAsync("Say OK", AIProvider.GitHubModels, ModelRole.Chat);
             results.Add("GitHubModels_Chat", "Healthy");
         }
         catch (Exception ex)
@@ -49,7 +40,7 @@ public class AiHealthService
 
         try
         {
-            await _embeddingService.GenerateEmbeddingAsync("Test", AIProvider.GitHubModels);
+            await embeddingService.GenerateEmbeddingAsync("Test", AIProvider.GitHubModels);
             results.Add("GitHubModels_Embedding", "Healthy");
         }
         catch (Exception ex)

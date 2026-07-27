@@ -2,20 +2,14 @@ using System.Collections.Concurrent;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
-using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 
 namespace Infrastructure.AI.Providers;
 
-public class AwsBedrockProvider : IKernelProvider
+public class AwsBedrockProvider(IOptions<AiOptions> options) : IKernelProvider
 {
-    private readonly AwsBedrockOptions _options;
     private readonly ConcurrentDictionary<string, Kernel> _kernels = new();
-
-    public AwsBedrockProvider(IOptions<AiOptions> options)
-    {
-        _options = options.Value.Providers.AwsBedrock;
-    }
+    private readonly AwsBedrockOptions _options = options.Value.Providers.AwsBedrock;
 
     public AIProvider Provider => AIProvider.AwsBedrock;
 
@@ -31,7 +25,8 @@ public class AwsBedrockProvider : IKernelProvider
 
         if (!configuredModels.Contains(selectedModelId))
         {
-            throw new InvalidOperationException($"Model {selectedModelId} is not configured for role {roleName} in {Provider}.");
+            throw new InvalidOperationException(
+                $"Model {selectedModelId} is not configured for role {roleName} in {Provider}.");
         }
 
         return _kernels.GetOrAdd($"{roleName}_{selectedModelId}", _ => CreateKernel(selectedModelId, role));

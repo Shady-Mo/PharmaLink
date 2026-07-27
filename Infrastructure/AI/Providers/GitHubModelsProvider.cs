@@ -2,20 +2,14 @@ using System.Collections.Concurrent;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
-using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 
 namespace Infrastructure.AI.Providers;
 
-public class GitHubModelsProvider : IKernelProvider
+public class GitHubModelsProvider(IOptions<AiOptions> options) : IKernelProvider
 {
-    private readonly GitHubModelsOptions _options;
     private readonly ConcurrentDictionary<string, Kernel> _kernels = new();
-
-    public GitHubModelsProvider(IOptions<AiOptions> options)
-    {
-        _options = options.Value.Providers.GitHubModels;
-    }
+    private readonly GitHubModelsOptions _options = options.Value.Providers.GitHubModels;
 
     public AIProvider Provider => AIProvider.GitHubModels;
 
@@ -29,12 +23,10 @@ public class GitHubModelsProvider : IKernelProvider
 
         var selectedModelId = modelId ?? configuredModels[0];
 
-        if (!configuredModels.Contains(selectedModelId))
-        {
-            throw new InvalidOperationException($"Model {selectedModelId} is not configured for role {roleName} in {Provider}.");
-        }
-
-        return _kernels.GetOrAdd($"{roleName}_{selectedModelId}", _ => CreateKernel(selectedModelId, role));
+        return !configuredModels.Contains(selectedModelId)
+            ? throw new InvalidOperationException(
+                $"Model {selectedModelId} is not configured for role {roleName} in {Provider}.")
+            : _kernels.GetOrAdd($"{roleName}_{selectedModelId}", _ => CreateKernel(selectedModelId, role));
     }
 
     private Kernel CreateKernel(string modelId, ModelRole role)
@@ -59,7 +51,7 @@ public class GitHubModelsProvider : IKernelProvider
                 endpoint: new Uri(_options.BaseUrl)
             );
         }
-        
+
         return builder.Build();
     }
 }
