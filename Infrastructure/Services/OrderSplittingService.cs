@@ -1,5 +1,5 @@
-using System.Diagnostics;
 using Application.Services.OrderSplitting.Models;
+using System.Diagnostics;
 
 namespace Infrastructure.Services;
 
@@ -8,7 +8,8 @@ public class OrderSplittingService(
     IGeoLookupService geoLookupService,
     IInventoryService inventoryService,
     ILegGenerationService legGenerationService,
-    IOrderSplittingAlgorithm splittingAlgorithm,
+    IOrderSplittingAlgorithm
+    splittingAlgorithm,
     ILogger<OrderSplittingService> logger) : IOrderSplittingService
 {
     public async Task<Result> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -57,13 +58,13 @@ public class OrderSplittingService(
             }
 
             order.OrderStatus = OrderStatus.Pending;
-            
+
             // Execute the split immediately after cleanup
             var splitResult = await ExecuteSplitInternalAsync(order, transaction, ct);
-            
+
             sw.Stop();
             logger.LogInformation("Admin {AdminId} completed re-split for Order {OrderId} in {ElapsedMs}ms. Success: {IsSuccess}", adminUserId, orderId, sw.ElapsedMilliseconds, splitResult.IsSuccess);
-            
+
             return splitResult;
         }, cancellationToken);
     }
@@ -72,7 +73,7 @@ public class OrderSplittingService(
     {
         const int maxRetries = 3;
         var totalSw = Stopwatch.StartNew();
-        
+
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
             await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
@@ -96,7 +97,7 @@ public class OrderSplittingService(
                 }
 
                 var result = await action(order, transaction, cancellationToken);
-                
+
                 if (result.IsSuccess)
                 {
                     await transaction.CommitAsync(cancellationToken);
@@ -114,13 +115,13 @@ public class OrderSplittingService(
             {
                 await transaction.RollbackAsync(cancellationToken);
                 logger.LogWarning(ex, "[OrderId={OrderId}] Concurrency conflict detected on attempt {Attempt}/{MaxRetries}.", orderId, attempt, maxRetries);
-                
+
                 if (attempt == maxRetries)
                 {
                     logger.LogError("[OrderId={OrderId}] Max retries reached. Failing split.", orderId);
                     return Result.Failure(OrderSplittingErrors.TransactionFailed);
                 }
-                
+
                 // Clear the change tracker so the next attempt loads fresh data and re-evaluates all business rules.
                 context.ChangeTracker.Clear();
                 // Brief delay before retry to allow concurrent operations to settle
@@ -133,7 +134,7 @@ public class OrderSplittingService(
                 return Result.Failure(OrderSplittingErrors.TransactionFailed);
             }
         }
-        
+
         return Result.Failure(OrderSplittingErrors.TransactionFailed);
     }
 
@@ -159,7 +160,7 @@ public class OrderSplittingService(
         }
 
         var branchIds = nearbyBranches.Select(b => b.BranchID).ToHashSet();
-        
+
         var invSw = Stopwatch.StartNew();
         var inventorySnapshot = await LoadInventorySnapshotAsync(branchIds, drugIds, cancellationToken);
         invSw.Stop();
@@ -181,7 +182,7 @@ public class OrderSplittingService(
         var reservationFailures = ReserveStockBatchedAsync(splitResult.Assignments, inventorySnapshot);
         resSw.Stop();
         logger.LogInformation("[OrderId={OrderId}] Reservation logic completed in {ElapsedMs}ms.", order.OrderId, resSw.ElapsedMilliseconds);
-        
+
         if (reservationFailures.Any())
         {
             logger.LogWarning("[OrderId={OrderId}] Stock reservation failed for {Count} items. Marking as Unavailable.", order.OrderId, reservationFailures.Count);
@@ -245,7 +246,7 @@ public class OrderSplittingService(
     private List<CandidateBranch> BuildCandidateBranches(List<NearbyBranchResult> nearbyBranches, List<PharmacyInventory> inventorySnapshot)
     {
         var inventoryLookup = inventorySnapshot.ToLookup(i => i.BranchId);
-        
+
         return nearbyBranches.Select(b => new CandidateBranch(
             b.BranchID,
             b.BranchName,
@@ -266,7 +267,7 @@ public class OrderSplittingService(
             {
                 item.BranchId = assignment.BranchId;
                 item.ItemStatus = ItemStatus.Awarded;
-                
+
                 logger.LogInformation(
                     "[OrderId={OrderId}] DrugId={DrugId} Assigned to Branch={BranchId}. Reason: [Strategy={Strategy}, Coverage={Coverage}, Distance={Distance}km, RemainingStock={Stock}]",
                     item.OrderId, item.DrugId, assignment.BranchId, assignment.Decision.Strategy, assignment.Decision.Coverage, assignment.Decision.DistanceKm, assignment.Decision.RemainingStock);
@@ -282,7 +283,7 @@ public class OrderSplittingService(
     private List<Guid> ReserveStockBatchedAsync(IReadOnlyList<ItemAssignment> assignments, List<PharmacyInventory> inventorySnapshot)
     {
         var failedItemIds = new List<Guid>();
-        
+
         var reservations = assignments
             .GroupBy(a => new { a.BranchId, a.DrugId })
             .Select(g => (g.Key.BranchId, g.Key.DrugId, Quantity: g.Sum(x => x.QuantityNeeded)))

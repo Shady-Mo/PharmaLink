@@ -101,7 +101,7 @@ public class PharmacyBranchService(
         var nameConflict = await context.PharmacyBranches
             .AnyAsync(b => b.PharmacyId == pharmacyId &&
                            b.BranchId != branchId &&
-                           b.BranchName.ToLowerInvariant() == dto.BranchName.ToLowerInvariant(),
+                           b.BranchName == dto.BranchName.ToLowerInvariant(),
                 cancellationToken);
 
         if (nameConflict)

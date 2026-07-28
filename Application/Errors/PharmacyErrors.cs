@@ -8,14 +8,14 @@ namespace Application.Errors
             StatusCodes.Status404NotFound);
 
         public static readonly Error Forbidden = new(
-        "Pharmacy.Forbidden",
-        "You are not allowed to access this Pharmacy.",
-        StatusCodes.Status403Forbidden);
+            "Pharmacy.Forbidden",
+            "You are not allowed to access this Pharmacy.",
+            StatusCodes.Status403Forbidden);
 
         public static readonly Error LicenseNumberNotUnique = new(
-        "Pharmacy.LicenseNumberNotUnique",
-        "A pharmacy with this license number already exists.",
-        StatusCodes.Status400BadRequest);
+            "Pharmacy.LicenseNumberNotUnique",
+            "A pharmacy with this license number already exists.",
+            StatusCodes.Status400BadRequest);
 
         public static readonly Error InvalidOwnerUserId =
         new("Pharmacy.InvalidOwnerUserId",
@@ -25,6 +25,16 @@ namespace Application.Errors
         public static readonly Error PharmacyNotEligible =
         new("Pharmacy.NotEligible",
             "The pharmacy is deleted or rejected and cannot have an assigned owner.",
+            StatusCodes.Status400BadRequest);
+
+        public static readonly Error InvalidLogoType = new(
+            "Pharmacy.InvalidLogoType",
+            "Logo must be an image file (.jpg, .jpeg, .png, .webp).",
+            StatusCodes.Status400BadRequest);
+
+        public static readonly Error LogoFileTooLarge = new(
+            "Pharmacy.LogoFileTooLarge",
+            "Logo file size must not exceed 2 MB.",
             StatusCodes.Status400BadRequest);
     }
 }

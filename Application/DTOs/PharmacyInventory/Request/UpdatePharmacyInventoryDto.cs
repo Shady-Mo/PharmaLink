@@ -6,7 +6,7 @@ public class UpdatePharmacyInventoryDto
 
     public decimal UnitPrice { get; set; }
 
-    public DateOnly? ExpiryDate { get; set; }
+    public DateOnly ExpiryDate { get; set; }
 
     public byte[]? RowVersion { get; set; }
 }
