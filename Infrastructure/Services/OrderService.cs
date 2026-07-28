@@ -1,9 +1,5 @@
 using Application.DTOs.Order.Requests;
 using Application.DTOs.Order.Responses;
-using Application.Services.Order;
-using System.Text;
-using System.IO;
-
 namespace Infrastructure.Services;
 
 public class OrderService(
