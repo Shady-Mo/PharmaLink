@@ -73,3 +73,5 @@ global using Application.Services.Dashboard;
 global using Application.DTOs.Dashboard.Responses;
 global using Application.Services.Dashboard;
 global using Microsoft.AspNetCore.Hosting;
+global using Application.DTOs.Order.Requests;
+global using Application.DTOs.Order.Responses;

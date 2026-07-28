@@ -97,4 +97,13 @@ public enum InventoryStatusFilter : byte
     OutOfStock = 3
 }
 
+public enum PharmacyOrderSort : byte
+{
+    NewestFirst = 0,
 
+    OldestFirst = 1,
+
+    HighestAmount = 2,
+
+    LowestAmount = 3
+}
