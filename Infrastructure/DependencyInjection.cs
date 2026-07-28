@@ -39,6 +39,8 @@ public static class DependencyInjection
             services.AddScoped<IAddressService, AddressService>();
 
             services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IPharmacyOrderService, PharmacyOrderService>();
+
             services.AddScoped<IGeoLookupService, GeoLookupService>();
             services.AddScoped<ILegGenerationService, LegGenerationService>();
             services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();

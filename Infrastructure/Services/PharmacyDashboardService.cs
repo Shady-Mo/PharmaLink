@@ -1,5 +1,3 @@
-using Twilio.Annotations;
-
 namespace Infrastructure.Services;
 
 public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDashboardService> logger)
@@ -297,9 +295,9 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
         var remaining = formattedNames.Count - previewCount;
 
         if (isArabicName)
-            return remaining > 0 ? $"{maxFormattedNames} +{remaining} إضافي" : maxFormattedNames;
+            return remaining > 0 ? $"{maxFormattedNames}, +{remaining} إضافي" : maxFormattedNames;
 
-        return remaining > 0 ? $"{maxFormattedNames} +{remaining} more" : maxFormattedNames;
+        return remaining > 0 ? $"{maxFormattedNames}, +{remaining} more" : maxFormattedNames;
     }
 
     private static string MapLegStatusLabel(LegStatus status) => status switch
