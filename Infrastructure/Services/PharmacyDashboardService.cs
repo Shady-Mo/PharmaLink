@@ -1,3 +1,5 @@
+using Twilio.Annotations;
+
 namespace Infrastructure.Services;
 
 public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDashboardService> logger)
@@ -245,7 +247,12 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
                 OrderTotal = l.Order.TotalAmount,
                 PatientName = l.Order.Patient.FullName,
                 Medicines = l.Order.Items
-                    .Select(i => i.Drug.BrandName)
+                    .Select(i => new 
+                    {
+                        i.Drug.ArabicName,
+                        i.Drug.BrandName,
+                        Quantity = i.QuantityNeeded
+                    })
                     .ToList()
             })
             .ToListAsync(cancellationToken);
@@ -257,7 +264,8 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
             OrderNumber = BuildOrderNumber(l.OrderId),
             PatientName = string.IsNullOrWhiteSpace(l.PatientName) ? "Unknown" : l.PatientName,
             OrderedMedicinesCount = l.Medicines.Count,
-            Summary = BuildMedicinesSummary(l.Medicines),
+            ArabicSummary = BuildMedicinesSummary(l.Medicines.Select(m => (m.ArabicName, m.Quantity)).ToList(), true),
+            BrandSummary = BuildMedicinesSummary(l.Medicines.Select(m => (m.BrandName, m.Quantity)).ToList(), false),
             TotalAmount = l.OrderTotal,
             OrderDate = l.OrderCreatedAt,
             LegStatus = l.LegStatus,
@@ -274,19 +282,24 @@ public class PharmacyDashboardService(AppDbContext context, ILogger<PharmacyDash
     private static string BuildOrderNumber(Guid orderId) =>
         $"ORD-{orderId.ToString("N")[..8].ToUpperInvariant()}";
 
-    private static string BuildMedicinesSummary(IReadOnlyList<string> medicines)
+    private static string BuildMedicinesSummary(IReadOnlyList<(string Name, int Quantity)> medicines, bool isArabicName)
     {
-        var names = medicines
-            .Where(n => !string.IsNullOrWhiteSpace(n))
-            .ToList();
+        if (medicines.Count == 0) return "No medicines";
 
-        if (names.Count == 0) return "No medicines";
+        var formattedNames = medicines.Select(m => 
+        {
+            var name = m.Name;
+            return $"{name} × {m.Quantity}";
+        }).ToList();
 
         const int previewCount = 2;
-        var preview = string.Join(", ", names.Take(previewCount));
-        var remaining = names.Count - previewCount;
+        var maxFormattedNames = string.Join(", ", formattedNames.Take(previewCount));
+        var remaining = formattedNames.Count - previewCount;
 
-        return remaining > 0 ? $"{preview} +{remaining} more" : preview;
+        if (isArabicName)
+            return remaining > 0 ? $"{maxFormattedNames} +{remaining} إضافي" : maxFormattedNames;
+
+        return remaining > 0 ? $"{maxFormattedNames} +{remaining} more" : maxFormattedNames;
     }
 
     private static string MapLegStatusLabel(LegStatus status) => status switch
