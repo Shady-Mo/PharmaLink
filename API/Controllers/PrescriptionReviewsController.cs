@@ -8,6 +8,27 @@ namespace API.Controllers;
 public class PrescriptionReviewsController(
     IPrescriptionReviewService service) : BaseApiController
 {
+
+
+
+    [HttpGet("GetAllPrescriptionsforPatient")]
+    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [ProducesResponseType(typeof(PaginatedList<PrescriptionReviewSummaryDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetPrescriptionReviewsForPatien(
+        [FromQuery] GetPrescriptionReviewsRequest request)
+    {
+        // استخراج هوية ودور المستخدم الحالي
+        var userId = User.GetUserId();
+        var role = User.GetRoleName() ?? string.Empty;
+
+        // تمريرها للـ Service لتطبيق التصفية بناءً على الدور
+        var result = await service.GetAllAsync(request,userId,role);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
     /// <summary>
     /// Uploads a prescription image and performs AI extraction on the medicines.
     /// </summary>
@@ -37,7 +58,7 @@ public class PrescriptionReviewsController(
     /// <summary>
     /// Retrieves a paginated list of prescription reviews. Only accessible by Pharmacists and Admins.
     /// </summary>
-    [HttpGet("")]
+    [HttpGet(" ")]
     [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(PaginatedList<PrescriptionReviewSummaryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -45,7 +66,7 @@ public class PrescriptionReviewsController(
     public async Task<IActionResult> GetPrescriptionReviews(
         [FromQuery] GetPrescriptionReviewsRequest request)
     {
-        var result = await service.GetAllAsync(request);
+        var result = await service.GetAllAsync(request, User.GetUserId(), User.GetRoleName() ?? string.Empty);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

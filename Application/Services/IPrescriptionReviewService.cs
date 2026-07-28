@@ -8,7 +8,9 @@ public interface IPrescriptionReviewService
         CancellationToken cancellationToken = default);
 
     Task<Result<PaginatedList<PrescriptionReviewSummaryDTO>>> GetAllAsync(
-        GetPrescriptionReviewsRequest request);
+    GetPrescriptionReviewsRequest request,
+    Guid userId,
+    string role);
 
     Task<Result<PrescriptionReviewDetailDTO>> GetByIdAsync(
         Guid prescriptionReviewId,

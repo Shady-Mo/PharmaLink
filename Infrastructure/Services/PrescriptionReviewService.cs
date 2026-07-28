@@ -1,5 +1,6 @@
+using DocumentFormat.OpenXml.InkML;
 using FluentValidation;
-
+using System.Security.Claims;
 namespace Infrastructure.Services;
 
 public class PrescriptionReviewService(
@@ -121,9 +122,17 @@ public class PrescriptionReviewService(
     }
 
     public async Task<Result<PaginatedList<PrescriptionReviewSummaryDTO>>> GetAllAsync(
-    GetPrescriptionReviewsRequest request)
+        GetPrescriptionReviewsRequest request,
+        Guid userId, // (إذا كانت User.GetUserId() ترجع string، اجعلها string واستخدم Guid.TryParse لو PatientId نوعه Guid)
+        string role)
     {
         var query = context.PrescriptionReviews.AsNoTracking();
+
+        // 🎯 التصفية تلقائياً إذا كان المستخدم مريضاً
+        if (role == AppRoles.Patient)
+        {
+            query = query.Where(r => r.PatientUserId == userId);
+        }
 
         if (request.Status.HasValue)
         {
@@ -146,9 +155,9 @@ public class PrescriptionReviewService(
             }
         }
 
-       if (!string.IsNullOrWhiteSpace(request.SortBy))
+        if (!string.IsNullOrWhiteSpace(request.SortBy))
         {
-            switch(request.SortBy.ToLower())
+            switch (request.SortBy.ToLower())
             {
                 case "patientname":
                     query = request.IsDescending
@@ -176,11 +185,14 @@ public class PrescriptionReviewService(
                         : query.OrderBy(r => r.ReviewedAt);
                     break;
                 default:
-                    query.OrderBy(r => r.PrescriptionReviewId);
+                    query = query.OrderBy(r => r.PrescriptionReviewId);
                     break;
             }
         }
-
+        else
+        {
+            query = query.OrderByDescending(r => r.CreatedAt);
+        }
 
         var totalCount = await query.CountAsync();
 
