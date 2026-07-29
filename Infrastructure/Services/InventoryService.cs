@@ -5,7 +5,7 @@ public class InventoryService(
     ILogger<InventoryService> logger,
     IHttpContextAccessor httpContextAccessor) : IInventoryService
 {
-    private const int LowStockThreshold = 10;
+    private const int LowStockThreshold = 5;
 
     public async Task<Result> ReserveStockAsync(Guid branchId, Guid drugId, int quantity,
         CancellationToken cancellationToken = default)
@@ -413,6 +413,7 @@ public class InventoryService(
             .Where(id => id != Guid.Empty)
             .ToList() ?? [];
 
+
     private Result EnsureBranchAccess(ClaimsPrincipal? user, Guid branchId)
     {
         if (user?.IsInRole(AppRoles.Admin) ?? false)
@@ -430,6 +431,33 @@ public class InventoryService(
         }
 
         return Result.Success();
+    }
+
+    public async Task<Result> AdjustStock(Guid id, AdjustStockDTO adjustStockDTO, CancellationToken cancellationToken = default)
+    {
+
+
+        var inventory = context.PharmacyInventories.Find(id);
+
+        if (adjustStockDTO.Quantity < 0)
+            return Result.Failure(InventoryErrors.InvalidQuantityV2);
+
+        if (adjustStockDTO.Type == AdjustmentType.Increase)
+        {
+            inventory.StockQuantity += adjustStockDTO.Quantity;
+        }
+        else
+        {
+            if(inventory.StockQuantity - inventory.ReservedQuantity < adjustStockDTO.Quantity)
+                return Result.Failure(InventoryErrors.InvalidQuantityV3);
+
+            inventory.StockQuantity -= adjustStockDTO.Quantity;
+        }
+
+
+        await context.SaveChangesAsync();
+
+        return Result.SuccessWithValue("Stock adjusted successfully");
     }
 }
 

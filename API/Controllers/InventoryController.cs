@@ -1,4 +1,6 @@
-﻿namespace API.Controllers;
+﻿using Twilio.TwiML.Messaging;
+
+namespace API.Controllers;
 
 public class InventoryController(IInventoryService inventoryService) : BaseApiController
 {
@@ -98,5 +100,19 @@ public class InventoryController(IInventoryService inventoryService) : BaseApiCo
         var result = await inventoryService.DeleteAsync(id, cancellationToken);
 
         return result.IsSuccess ? NoContent() : result.ToProblem();
+    }
+
+
+    [Authorize(Roles = $"{AppRoles.Pharmacist}")]
+    [HttpPatch("{id:guid}/adjust-stock")]
+    [ProducesResponseType(typeof(PharmacyInventoryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> AdjustStock(Guid id, [FromBody] AdjustStockDTO dto,
+        CancellationToken cancellationToken)
+    {
+
+        var result = await inventoryService.AdjustStock(id, dto, cancellationToken);
+
+        return result.IsSuccess ? Ok(new {Message = result.Value }) : result.ToProblem();
     }
 }
