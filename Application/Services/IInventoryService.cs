@@ -38,6 +38,8 @@ public interface IInventoryService
     Task<Result<PaginatedList<GetPharmacyInventoryDTO>>> GetInventoryAsync(
         GetPharmacyInventoryParamRequest parameters, 
         CancellationToken cancellationToken = default);
+
+    Task<Result> AdjustStock(Guid id, AdjustStockDTO adjustStockDTO, CancellationToken cancellationToken = default);
 }
 
 
