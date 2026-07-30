@@ -109,7 +109,7 @@ jobs:
               "${{ secrets.FTP_PASSWORD }}"
           )
           $wc.UploadFile($ftpUri, "STOR", (Resolve-Path "app_offline.htm").Path)
-          Write-Host "app_offline.htm uploaded — waiting for IIS to release locks..."
+          Write-Host "app_offline.htm uploaded - waiting for IIS to release locks..."
           Start-Sleep -Seconds 10
 
       - name: Deploy via FTP
@@ -139,9 +139,9 @@ jobs:
           try {
               $resp = $req.GetResponse()
               $resp.Close()
-              Write-Host "app_offline.htm deleted — site is back online."
+              Write-Host "app_offline.htm deleted - site is back online."
           } catch {
-              Write-Host "Warning: could not delete app_offline.htm — $_"
+              Write-Host "Warning: could not delete app_offline.htm - $_"
           }
       - name: Health Check
         shell: powershell
