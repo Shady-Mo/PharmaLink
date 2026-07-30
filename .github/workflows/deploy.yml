@@ -87,6 +87,31 @@ jobs:
           name: published-app
           path: publish\
 
+      - name: Take App Offline (release DLL lock)
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          # Create a maintenance page
+          $html = @"
+          <!DOCTYPE html>
+          <html><head><title>Maintenance</title></head>
+          <body><h1>Site is being updated, please check back shortly.</h1></body>
+          </html>
+          "@
+          Set-Content -Path "app_offline.htm" -Value $html -Encoding UTF8
+
+          # Upload app_offline.htm to signal IIS to stop the app and release file locks
+          $ftpUri   = "ftp://${{ secrets.FTP_SERVER }}/wwwroot/app_offline.htm"
+          $wc = New-Object System.Net.WebClient
+          $wc.Credentials = New-Object System.Net.NetworkCredential(
+              "${{ secrets.FTP_USERNAME }}",
+              "${{ secrets.FTP_PASSWORD }}"
+          )
+          $wc.UploadFile($ftpUri, "STOR", (Resolve-Path "app_offline.htm").Path)
+          Write-Host "app_offline.htm uploaded — waiting for IIS to release locks..."
+          Start-Sleep -Seconds 10
+
       - name: Deploy via FTP
         uses: SamKirkland/FTP-Deploy-Action@v4.3.4
         with:
@@ -96,6 +121,28 @@ jobs:
           local-dir: publish/
           server-dir: /wwwroot/
           dangerous-clean-slate: false
+
+      - name: Bring App Back Online
+        if: always()
+        shell: powershell
+        run: |
+          $ErrorActionPreference = "Stop"
+
+          # Delete app_offline.htm so IIS resumes normal operation
+          $ftpUri = "ftp://${{ secrets.FTP_SERVER }}/wwwroot/app_offline.htm"
+          $req = [System.Net.FtpWebRequest]::Create($ftpUri)
+          $req.Method      = [System.Net.WebRequestMethods+Ftp]::DeleteFile
+          $req.Credentials = New-Object System.Net.NetworkCredential(
+              "${{ secrets.FTP_USERNAME }}",
+              "${{ secrets.FTP_PASSWORD }}"
+          )
+          try {
+              $resp = $req.GetResponse()
+              $resp.Close()
+              Write-Host "app_offline.htm deleted — site is back online."
+          } catch {
+              Write-Host "Warning: could not delete app_offline.htm — $_"
+          }
       - name: Health Check
         shell: powershell
         run: |
