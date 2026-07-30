@@ -27,3 +27,6 @@ global using Application.DTOs.Pharmacist.Requests;
 global using Application.DTOs.Pharmacist.Responses;
 global using Application.Services.Pharmacist;
 global using Application.DTOs.Pharmacy.Request;
+global using System.ComponentModel.DataAnnotations;
+global using Application.DTOs.Admin;
+
