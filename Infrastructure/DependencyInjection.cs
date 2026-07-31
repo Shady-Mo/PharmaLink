@@ -48,7 +48,20 @@ public static class DependencyInjection
             services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
 
             services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
-            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+            services.AddSingleton<IAgentProfileProvider, StaticAgentProfileProvider>();
+            services.AddScoped<IPromptRegistry, FileSystemPromptRegistry>();
+            services.AddScoped<IAIProviderSelector, ConfigurationAIProviderSelector>();
+            services.AddScoped<IPromptExecutionService, SemanticKernelPromptExecutionService>();
+            services.AddScoped<IPrescriptionExtractionService, PrescriptionExtractionService>();
+            services.AddScoped<IMedicineImageExtractionService, MedicineImageExtractionService>();
+            services.AddScoped<IAIResponseValidator<AIExtractionResult>, PrescriptionExtractionBusinessValidator>();
+            services.AddScoped<IAIResponseValidator<MedicineImageExtractionResponseDTO>, MedicineImageExtractionBusinessValidator>();
+            services.AddScoped<IDrugCatalogPlugin, DrugCatalogPlugin>();
+            services.AddScoped<IAlternativeSearchPlugin, AlternativeSearchPlugin>();
+            services.AddScoped<ICartBuilderPlugin, CartBuilderPlugin>();
+            services.AddScoped<IPrescriptionAuditAgent, PrescriptionAuditAgent>();
+            services.AddSingleton<IPrescriptionAuditJobQueue, PrescriptionAuditJobQueue>();
+            services.AddHostedService<PrescriptionAuditBackgroundService>();
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();

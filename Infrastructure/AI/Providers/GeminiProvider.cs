@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
+using Microsoft.SemanticKernel.Connectors.Google;
 using Microsoft.SemanticKernel;
 
 namespace Infrastructure.AI.Providers;
@@ -35,11 +36,29 @@ public class GeminiProvider(IOptions<AiOptions> options) : IKernelProvider
     private Kernel CreateKernel(string modelId)
     {
 #pragma warning disable SKEXP0070
+        var apiKey = ResolveApiKey();
+
         var builder = Kernel.CreateBuilder();
         builder.AddGoogleAIGeminiChatCompletion(
             modelId: modelId,
-            apiKey: _options.ApiKey
+            apiKey: apiKey,
+            apiVersion: GoogleAIVersion.V1_Beta
         );
         return builder.Build();
+    }
+
+    private string ResolveApiKey()
+    {
+        var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey)
+            ? Environment.GetEnvironmentVariable(_options.ApiKeyEnvironmentVariable)
+            : _options.ApiKey;
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                $"Missing Gemini API key. Set environment variable '{_options.ApiKeyEnvironmentVariable}'.");
+        }
+
+        return apiKey;
     }
 }

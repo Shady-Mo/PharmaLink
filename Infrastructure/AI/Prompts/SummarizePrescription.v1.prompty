@@ -1,0 +1,7 @@
+Summarize the supplied prescription extraction result for pharmacist review.
+
+Return only valid JSON:
+{
+  "summary": "short summary",
+  "riskNotes": []
+}

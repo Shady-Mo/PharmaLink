@@ -40,10 +40,20 @@ public class GroqProvider : IKernelProvider
     private Kernel CreateKernel(string modelId)
     {
 #pragma warning disable SKEXP0070
+        var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey)
+            ? Environment.GetEnvironmentVariable(_options.ApiKeyEnvironmentVariable)
+            : _options.ApiKey;
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                $"Missing Groq API key. Set environment variable '{_options.ApiKeyEnvironmentVariable}'.");
+        }
+
         var builder = Kernel.CreateBuilder();
         builder.AddOpenAIChatCompletion(
             modelId: modelId,
-            apiKey: _options.ApiKey,
+            apiKey: apiKey,
             endpoint: new Uri(_options.BaseUrl)
         );
         return builder.Build();

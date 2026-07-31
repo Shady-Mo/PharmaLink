@@ -14,7 +14,18 @@ public class TranscriptionService
         _httpClient = httpClient;
         _options = options.Value.Providers.Groq;
         _httpClient.BaseAddress = new Uri(_options.BaseUrl);
-        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", _options.ApiKey);
+
+        var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey)
+            ? Environment.GetEnvironmentVariable(_options.ApiKeyEnvironmentVariable)
+            : _options.ApiKey;
+
+        if (string.IsNullOrWhiteSpace(apiKey))
+        {
+            throw new InvalidOperationException(
+                $"Missing Groq API key. Set environment variable '{_options.ApiKeyEnvironmentVariable}'.");
+        }
+
+        _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
     }
 
     public async Task<string> TranscribeAudioAsync(Stream audioStream, string fileName)
