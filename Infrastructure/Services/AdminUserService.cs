@@ -5,6 +5,7 @@ using Application.Common;
 using Application.Services;
 using Domain.Entities;
 using Domain.Enums;
+using Domain.Constants;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -15,6 +16,14 @@ public class AdminUserService : IAdminUserService
 {
     private readonly UserManager<AppUser> _userManager;
     private readonly RoleManager<IdentityRole<Guid>> _roleManager;
+    private static readonly HashSet<string> SupportedRoles =
+    [
+        AppRoles.Patient,
+        AppRoles.Pharmacist,
+        AppRoles.PrescriptionReviewTeam,
+        AppRoles.PharmacyAdmin,
+        AppRoles.Admin
+    ];
 
     public AdminUserService(UserManager<AppUser> userManager, RoleManager<IdentityRole<Guid>> roleManager)
     {
@@ -113,4 +122,61 @@ public class AdminUserService : IAdminUserService
 
         return Result.Success();
     }
+
+    public async Task<Result<AdminUserDto>> UpdateUserRoleAsync(
+        Guid userId,
+        UpdateUserRoleDto dto,
+        Guid currentAdminId,
+        CancellationToken cancellationToken = default)
+    {
+        if (userId == currentAdminId)
+        {
+            return Result.Failure<AdminUserDto>(AdminUserErrors.CannotChangeOwnRole);
+        }
+
+        var selectedRole = SupportedRoles.FirstOrDefault(
+            role => role.Equals(dto.Role?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+        if (selectedRole is null)
+        {
+            return Result.Failure<AdminUserDto>(AdminUserErrors.InvalidRole);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString());
+        if (user == null)
+        {
+            return Result.Failure<AdminUserDto>(AdminUserErrors.NotFound);
+        }
+
+        if (!await _roleManager.RoleExistsAsync(selectedRole))
+        {
+            return Result.Failure<AdminUserDto>(AdminUserErrors.InvalidRole);
+        }
+
+        var currentRoles = await _userManager.GetRolesAsync(user);
+        var removeResult = await _userManager.RemoveFromRolesAsync(user, currentRoles);
+        if (!removeResult.Succeeded)
+        {
+            return Result.Failure<AdminUserDto>(AdminUserErrors.RoleUpdateFailed);
+        }
+
+        var addResult = await _userManager.AddToRoleAsync(user, selectedRole);
+        if (!addResult.Succeeded)
+        {
+            return Result.Failure<AdminUserDto>(AdminUserErrors.RoleUpdateFailed);
+        }
+
+        return Result.Success(ToDto(user, selectedRole));
+    }
+
+    private static AdminUserDto ToDto(AppUser user, string role) => new()
+    {
+        Id = user.Id,
+        FullName = user.FullName,
+        Email = user.Email ?? string.Empty,
+        PhoneNumber = user.PhoneNumber ?? string.Empty,
+        Role = role,
+        RegistrationDate = user.CreatedAt,
+        Status = (int)user.Status == 0 ? UserStatus.Active : user.Status
+    };
 }

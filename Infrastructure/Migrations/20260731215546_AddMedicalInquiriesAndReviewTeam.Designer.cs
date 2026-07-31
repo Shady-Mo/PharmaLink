@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260731215546_AddMedicalInquiriesAndReviewTeam")]
+    partial class AddMedicalInquiriesAndReviewTeam
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -58,7 +61,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses", (string)null);
+                    b.ToTable("Addresses");
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -167,7 +170,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("PatientUserId")
                         .IsUnique();
 
-                    b.ToTable("Carts", (string)null);
+                    b.ToTable("Carts");
                 });
 
             modelBuilder.Entity("Domain.Entities.CartItem", b =>
@@ -196,7 +199,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CartId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("CartItems", null, t =>
+                    b.ToTable("CartItems", t =>
                         {
                             t.HasCheckConstraint("CK_CartItem_Quantity", "\"Quantity\" > 0");
                         });
@@ -277,7 +280,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs", (string)null);
+                    b.ToTable("Drugs");
                 });
 
             modelBuilder.Entity("Domain.Entities.MedicalInquiry", b =>
@@ -320,7 +323,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("Status", "CreatedAt");
 
-                    b.ToTable("MedicalInquiries", (string)null);
+                    b.ToTable("MedicalInquiries");
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -356,7 +359,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders", (string)null);
+                    b.ToTable("Orders");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -388,7 +391,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs", (string)null);
+                    b.ToTable("OrderFulfillmentLegs");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLegStatusAudit", b =>
@@ -423,7 +426,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("LegId");
 
-                    b.ToTable("OrderFulfillmentLegStatusAudits", (string)null);
+                    b.ToTable("OrderFulfillmentLegStatusAudits");
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -455,7 +458,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems", (string)null);
+                    b.ToTable("OrderItems");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacistAssignment", b =>
@@ -536,7 +539,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("PharmacyId");
 
-                    b.ToTable("Pharmacies", (string)null);
+                    b.ToTable("Pharmacies");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -592,7 +595,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches", (string)null);
+                    b.ToTable("PharmacyBranches");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranchSchedule", b =>
@@ -621,7 +624,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "Day")
                         .IsUnique();
 
-                    b.ToTable("PharmacyBranchSchedules", (string)null);
+                    b.ToTable("PharmacyBranchSchedules");
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -664,7 +667,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories", (string)null);
+                    b.ToTable("PharmacyInventories");
                 });
 
             modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
@@ -773,7 +776,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacistUserId");
 
-                    b.ToTable("PrescriptionReviews", (string)null);
+                    b.ToTable("PrescriptionReviews");
                 });
 
             modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
@@ -871,7 +874,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("SuggestedAlternativeDrugId");
 
-                    b.ToTable("PrescriptionReviewMedicines", (string)null);
+                    b.ToTable("PrescriptionReviewMedicines");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>

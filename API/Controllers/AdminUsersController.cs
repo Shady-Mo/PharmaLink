@@ -63,5 +63,21 @@ namespace API.Controllers
             var result = await adminUserService.UpdateUserStatusAsync(id, dto, currentAdminId, cancellationToken);
             return result.IsSuccess ? NoContent() : result.ToProblem();
         }
+
+        [HttpPut("{id}/role")]
+        [ProducesResponseType(typeof(AdminUserDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+        [ProducesResponseType(StatusCodes.Status403Forbidden)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        public async Task<IActionResult> UpdateUserRole(
+            Guid id,
+            [FromBody] UpdateUserRoleDto dto,
+            CancellationToken cancellationToken)
+        {
+            var currentAdminId = User.GetUserId();
+            var result = await adminUserService.UpdateUserRoleAsync(id, dto, currentAdminId, cancellationToken);
+            return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+        }
     }
 }
