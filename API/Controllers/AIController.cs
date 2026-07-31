@@ -58,27 +58,9 @@ public class AIController(
         {
             result = await prescriptionExtractionService.ExtractAsync(file, cancellationToken);
         }
-        catch (HttpOperationException ex)
+        catch (Exception ex) when (IsAIProviderException(ex))
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
-                configuredProvider = configuration["AI:TaskRouting:Vision:ExtractPrescription:Provider"]
-                    ?? configuration["AI:Defaults:VisionProvider"],
-                configuredModel = configuration["AI:TaskRouting:Vision:ExtractPrescription:ModelId"],
-                providerError = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Gemini Interactions API failed", StringComparison.Ordinal))
-        {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
-                configuredProvider = configuration["AI:TaskRouting:Vision:ExtractPrescription:Provider"]
-                    ?? configuration["AI:Defaults:VisionProvider"],
-                configuredModel = configuration["AI:TaskRouting:Vision:ExtractPrescription:ModelId"],
-                providerError = ex.Message
-            });
+            return AIProviderUnavailable(ex, "Vision:ExtractPrescription");
         }
 
         return Ok(new ExtractPrescriptionResponseDTO
@@ -124,27 +106,9 @@ public class AIController(
         {
             result = await medicineImageExtractionService.ExtractAsync(file, cancellationToken);
         }
-        catch (HttpOperationException ex)
+        catch (Exception ex) when (IsAIProviderException(ex))
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
-                configuredProvider = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:Provider"]
-                    ?? configuration["AI:Defaults:VisionProvider"],
-                configuredModel = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:ModelId"],
-                providerError = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Gemini Interactions API failed", StringComparison.Ordinal))
-        {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
-                configuredProvider = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:Provider"]
-                    ?? configuration["AI:Defaults:VisionProvider"],
-                configuredModel = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:ModelId"],
-                providerError = ex.Message
-            });
+            return AIProviderUnavailable(ex, "Vision:ExtractMedicineImage");
         }
 
         return Ok(result);
@@ -171,27 +135,9 @@ public class AIController(
         {
             extraction = await medicineImageExtractionService.ExtractAsync(file, cancellationToken);
         }
-        catch (HttpOperationException ex)
+        catch (Exception ex) when (IsAIProviderException(ex))
         {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
-                configuredProvider = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:Provider"]
-                    ?? configuration["AI:Defaults:VisionProvider"],
-                configuredModel = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:ModelId"],
-                providerError = ex.Message
-            });
-        }
-        catch (InvalidOperationException ex) when (ex.Message.StartsWith("Gemini Interactions API failed", StringComparison.Ordinal))
-        {
-            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
-            {
-                message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
-                configuredProvider = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:Provider"]
-                    ?? configuration["AI:Defaults:VisionProvider"],
-                configuredModel = configuration["AI:TaskRouting:Vision:ExtractMedicineImage:ModelId"],
-                providerError = ex.Message
-            });
+            return AIProviderUnavailable(ex, "Vision:ExtractMedicineImage");
         }
 
         var match = await drugCatalogPlugin.FindBestMatchAsync(
@@ -253,5 +199,30 @@ public class AIController(
             ".pdf" => "application/pdf",
             _ => "image/jpeg"
         };
+    }
+
+    private ObjectResult AIProviderUnavailable(Exception ex, string routeKey)
+    {
+        return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+        {
+            message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",
+            configuredProvider = configuration[$"AI:TaskRouting:{routeKey}:Provider"]
+                ?? configuration["AI:Defaults:VisionProvider"],
+            configuredModel = configuration[$"AI:TaskRouting:{routeKey}:ModelId"],
+            providerError = ex.Message
+        });
+    }
+
+    private static bool IsAIProviderException(Exception ex)
+    {
+        return ex is HttpOperationException
+            || ex is HttpRequestException
+            || ex is TaskCanceledException
+            || ex is InvalidOperationException
+            && (ex.Message.Contains("AI", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.Contains("provider", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.Contains("Gemini", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.Contains("Groq", StringComparison.OrdinalIgnoreCase)
+                || ex.Message.Contains("ITI", StringComparison.OrdinalIgnoreCase));
     }
 }
