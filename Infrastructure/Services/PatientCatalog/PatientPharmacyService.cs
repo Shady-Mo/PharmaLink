@@ -170,7 +170,7 @@ public class PatientPharmacyService(
     private static bool ComputeIsOpen(string workingHours, DateTime now)
     {
         if (string.IsNullOrWhiteSpace(workingHours))
-            return false;
+            return true; // Default to open
 
         // Support separator " - ", " – ", " to " (case-insensitive)
         var separators = new[] { " - ", " – ", " to ", "-", "–" };
@@ -185,10 +185,10 @@ public class PatientPharmacyService(
             break;
         }
 
-        if (openPart is null || closePart is null) return false;
+        if (openPart is null || closePart is null) return true; // Default to open
 
-        if (!TryParseTime(openPart,  out var openTime))  return false;
-        if (!TryParseTime(closePart, out var closeTime)) return false;
+        if (!TryParseTime(openPart,  out var openTime))  return true; // Default to open
+        if (!TryParseTime(closePart, out var closeTime)) return true; // Default to open
 
         var currentMinutes = now.Hour * 60 + now.Minute;
 
