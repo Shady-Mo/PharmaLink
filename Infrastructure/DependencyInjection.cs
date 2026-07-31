@@ -66,6 +66,7 @@ public static class DependencyInjection
 
             services.AddScoped<IPatientService, PatientService>();
             services.AddScoped<IPatientPharmacyService, PatientPharmacyService>();
+            services.AddScoped<IPharmacyBranchScheduleService, PharmacyBranchScheduleService>();
 
             services.AddScoped<IDashboardService, DashboardService>();
 

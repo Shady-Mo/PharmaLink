@@ -31,3 +31,4 @@ global using System.ComponentModel.DataAnnotations;
 global using Application.DTOs.Admin;
 global using Application.DTOs.Pharmacy.Responses;
 global using Application.Services.PatientCatalog;
+global using Application.DTOs.PharmacyBranch.Response;

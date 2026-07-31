@@ -6,7 +6,9 @@ namespace API.Controllers;
 [Authorize(Roles = AppRoles.PharmacyAdmin)]
 [Route("api/v1/pharmacies/branches")]
 [ApiController]
-public class PharmacyBranchesController(IPharmacyBranchService branchService) : ControllerBase
+public class PharmacyBranchesController(
+    IPharmacyBranchService branchService,
+    IPharmacyBranchScheduleService scheduleService) : ControllerBase
 {
     [HttpGet]
     [ProducesResponseType(typeof(List<PharmacyBranchResponseDTO>), StatusCodes.Status200OK)]
@@ -106,6 +108,42 @@ public class PharmacyBranchesController(IPharmacyBranchService branchService) : 
             return Result.Failure(PharmacyBranchErrors.PharmacyContextMissing).ToProblem();
 
         var result = await branchService.SearchAsync(pharmacyId.Value, term.Trim(), cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    // ── Schedule ──────────────────────────────────────────────────────────
+
+    /// <summary>Returns the full weekly schedule for a branch.</summary>
+    [HttpGet("{id:guid}/schedule")]
+    [ProducesResponseType(typeof(BranchScheduleResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSchedule(Guid id, CancellationToken cancellationToken)
+    {
+        var pharmacyId = User.GetPharmacyId();
+        if (pharmacyId is null)
+            return Result.Failure(PharmacyBranchErrors.PharmacyContextMissing).ToProblem();
+
+        var result = await scheduleService.GetScheduleAsync(pharmacyId.Value, id, cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    /// <summary>Creates or replaces the full weekly schedule for a branch (7 days required).</summary>
+    [HttpPut("{id:guid}/schedule")]
+    [ProducesResponseType(typeof(BranchScheduleResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpsertSchedule(
+        Guid id,
+        [FromBody] UpdateBranchScheduleRequest request,
+        CancellationToken cancellationToken)
+    {
+        var pharmacyId = User.GetPharmacyId();
+        if (pharmacyId is null)
+            return Result.Failure(PharmacyBranchErrors.PharmacyContextMissing).ToProblem();
+
+        var result = await scheduleService.UpsertScheduleAsync(
+            pharmacyId.Value, id, request, cancellationToken);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

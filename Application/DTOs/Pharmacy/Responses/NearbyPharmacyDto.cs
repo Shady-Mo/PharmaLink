@@ -52,4 +52,9 @@ public class NearbyPharmacyDto
 
     /// <summary>Coverage radius of the branch in kilometres.</summary>
     public decimal ServiceRadiusKm { get; set; }
+
+    /// <summary>
+    /// Structured weekly schedule. Empty list when the branch has not configured a schedule yet.
+    /// </summary>
+    public List<BranchScheduleDayDto> WeeklySchedule { get; set; } = new();
 }
