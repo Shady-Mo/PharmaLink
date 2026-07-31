@@ -16,11 +16,18 @@ public interface IMedicalInquiryService
         CancellationToken cancellationToken);
 
     Task<Result<IReadOnlyList<MedicalInquiryResponse>>> GetForReviewTeamAsync(
+        string? status,
         CancellationToken cancellationToken);
+
+    Task<Result<MedicalInquiryMetricsResponse>> GetMetricsAsync(CancellationToken cancellationToken);
 
     Task<Result<MedicalInquiryResponse>> AnswerAsync(
         Guid medicalInquiryId,
         Guid answeredByUserId,
         AnswerMedicalInquiryRequest request,
+        CancellationToken cancellationToken);
+
+    Task<Result<MedicalInquiryResponse>> CloseAsync(
+        Guid medicalInquiryId,
         CancellationToken cancellationToken);
 }

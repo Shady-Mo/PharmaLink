@@ -52,9 +52,17 @@ public class MedicalInquiryService(AppDbContext context) : IMedicalInquiryServic
     }
 
     public async Task<Result<IReadOnlyList<MedicalInquiryResponse>>> GetForReviewTeamAsync(
+        string? status,
         CancellationToken cancellationToken)
     {
-        var inquiries = await BaseQuery()
+        var query = BaseQuery();
+
+        if (Enum.TryParse<MedicalInquiryStatus>(status, ignoreCase: true, out var parsedStatus))
+        {
+            query = query.Where(i => i.Status == parsedStatus);
+        }
+
+        var inquiries = await query
             .OrderBy(i => i.Status == MedicalInquiryStatus.Pending ? 0 : 1)
             .ThenByDescending(i => i.CreatedAt)
             .ToListAsync(cancellationToken);
@@ -62,6 +70,24 @@ public class MedicalInquiryService(AppDbContext context) : IMedicalInquiryServic
         var items = inquiries.Select(ToResponse).ToList();
 
         return Result.Success<IReadOnlyList<MedicalInquiryResponse>>(items);
+    }
+
+    public async Task<Result<MedicalInquiryMetricsResponse>> GetMetricsAsync(CancellationToken cancellationToken)
+    {
+        var today = DateTime.UtcNow.Date;
+
+        var metrics = new MedicalInquiryMetricsResponse
+        {
+            TotalInquiries = await context.MedicalInquiries.CountAsync(cancellationToken),
+            PendingInquiries = await context.MedicalInquiries.CountAsync(i => i.Status == MedicalInquiryStatus.Pending, cancellationToken),
+            AnsweredInquiries = await context.MedicalInquiries.CountAsync(i => i.Status == MedicalInquiryStatus.Answered, cancellationToken),
+            ClosedInquiries = await context.MedicalInquiries.CountAsync(i => i.Status == MedicalInquiryStatus.Closed, cancellationToken),
+            AnsweredToday = await context.MedicalInquiries.CountAsync(
+                i => i.AnsweredAt.HasValue && i.AnsweredAt.Value.Date == today,
+                cancellationToken)
+        };
+
+        return Result.Success(metrics);
     }
 
     public async Task<Result<MedicalInquiryResponse>> AnswerAsync(
@@ -93,6 +119,29 @@ public class MedicalInquiryService(AppDbContext context) : IMedicalInquiryServic
         inquiry.AnsweredAt = DateTime.UtcNow;
         inquiry.Status = MedicalInquiryStatus.Answered;
 
+        await context.SaveChangesAsync(cancellationToken);
+
+        return Result.Success(await MapByIdAsync(inquiry.MedicalInquiryId, cancellationToken));
+    }
+
+    public async Task<Result<MedicalInquiryResponse>> CloseAsync(
+        Guid medicalInquiryId,
+        CancellationToken cancellationToken)
+    {
+        var inquiry = await context.MedicalInquiries
+            .FirstOrDefaultAsync(i => i.MedicalInquiryId == medicalInquiryId, cancellationToken);
+
+        if (inquiry is null)
+        {
+            return Result.Failure<MedicalInquiryResponse>(MedicalInquiryErrors.NotFound);
+        }
+
+        if (inquiry.Status == MedicalInquiryStatus.Pending)
+        {
+            return Result.Failure<MedicalInquiryResponse>(MedicalInquiryErrors.CannotClose);
+        }
+
+        inquiry.Status = MedicalInquiryStatus.Closed;
         await context.SaveChangesAsync(cancellationToken);
 
         return Result.Success(await MapByIdAsync(inquiry.MedicalInquiryId, cancellationToken));

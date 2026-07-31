@@ -35,9 +35,21 @@ public class MedicalInquiriesController(
     [Authorize(Roles = $"{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(IReadOnlyList<MedicalInquiryResponse>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> GetForReviewTeam(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetForReviewTeam(
+        [FromQuery] string? status,
+        CancellationToken cancellationToken)
     {
-        var result = await service.GetForReviewTeamAsync(cancellationToken);
+        var result = await service.GetForReviewTeamAsync(status, cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpGet("review-team/metrics")]
+    [Authorize(Roles = $"{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
+    [ProducesResponseType(typeof(MedicalInquiryMetricsResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetMetrics(CancellationToken cancellationToken)
+    {
+        var result = await service.GetMetricsAsync(cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -53,6 +65,17 @@ public class MedicalInquiriesController(
         CancellationToken cancellationToken)
     {
         var result = await service.AnswerAsync(id, User.GetUserId(), request, cancellationToken);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
+    [HttpPut("{id:guid}/close")]
+    [Authorize(Roles = $"{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
+    [ProducesResponseType(typeof(MedicalInquiryResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> Close(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await service.CloseAsync(id, cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 }

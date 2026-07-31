@@ -15,4 +15,7 @@ public static class MedicalInquiryErrors
 
     public static readonly Error EmptyAnswer =
         new("MedicalInquiry.EmptyAnswer", "Answer is required.", StatusCodes.Status400BadRequest);
+
+    public static readonly Error CannotClose =
+        new("MedicalInquiry.CannotClose", "Only answered inquiries can be closed.", StatusCodes.Status409Conflict);
 }
