@@ -12,7 +12,6 @@ namespace API.Controllers
     /// <summary>
     /// Controller for System Administrators to manage all users in the system.
     /// </summary>
-    [Route("api/adminusers")]
     [Authorize(Roles = AppRoles.Admin)]
     public class AdminUsersController(IAdminUserService adminUserService) : BaseApiController
     {
