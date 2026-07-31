@@ -57,6 +57,7 @@ global using Application.DTOs.Cart.Responses;
 global using Application.Services.Cart;
 global using Microsoft.Extensions.Caching.Distributed;
 global using Application.Services.PrescriptionReview;
+global using Application.Services.MedicalInquiry;
 global using Application.Services.PrescriptionAudit;
 global using Application.Services.AI;
 global using Application.Services.AI.Agents;

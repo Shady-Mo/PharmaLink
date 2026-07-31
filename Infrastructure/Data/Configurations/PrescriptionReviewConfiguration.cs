@@ -29,6 +29,7 @@ public class PrescriptionReviewConfiguration : IEntityTypeConfiguration<Prescrip
         builder.Property(r => r.ProcessingStatus)
             .HasConversion<string>()
             .HasMaxLength(50)
+            .HasSentinel(PrescriptionProcessingStatus.Unknown)
             .HasDefaultValue(PrescriptionProcessingStatus.PendingPharmacistReview)
             .IsRequired();
 

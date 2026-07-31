@@ -12,7 +12,7 @@ public class PrescriptionReviewsController(
 
 
     [HttpGet("GetAllPrescriptionsforPatient")]
-    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(PaginatedList<PrescriptionReviewSummaryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -60,7 +60,7 @@ public class PrescriptionReviewsController(
     /// Retrieves a paginated list of prescription reviews. Only accessible by Pharmacists and Admins.
     /// </summary>
     [HttpGet(" ")]
-    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(PaginatedList<PrescriptionReviewSummaryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -76,7 +76,7 @@ public class PrescriptionReviewsController(
     /// Retrieves a specific prescription review by ID. Accessible by both the Patient (owner only) and Pharmacist.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(PrescriptionReviewDetailDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -89,10 +89,10 @@ public class PrescriptionReviewsController(
     }
 
     /// <summary>
-    /// Updates the extracted medicines list for a pending review. Only accessible by Pharmacists.
+    /// Updates the extracted medicines list for a pending review. Only accessible by Pharmacists and the prescription review team.
     /// </summary>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = AppRoles.Pharmacist)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam}")]
     [ProducesResponseType(typeof(PrescriptionReviewDetailDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -106,10 +106,10 @@ public class PrescriptionReviewsController(
     }
 
     /// <summary>
-    /// Approves a prescription review. Only accessible by Pharmacists.
+    /// Approves a prescription review. Only accessible by Pharmacists and the prescription review team.
     /// </summary>
     [HttpPut("{id:guid}/approve")]
-    [Authorize(Roles = AppRoles.Pharmacist)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -122,10 +122,10 @@ public class PrescriptionReviewsController(
     }
 
     /// <summary>
-    /// Rejects a prescription review. Only accessible by Pharmacists.
+    /// Rejects a prescription review. Only accessible by Pharmacists and the prescription review team.
     /// </summary>
     [HttpPut("{id:guid}/reject")]
-    [Authorize(Roles = AppRoles.Pharmacist)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

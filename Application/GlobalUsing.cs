@@ -18,6 +18,7 @@ global using Application.Services.AI;
 global using Application.Services.AI.Agents;
 global using Application.Services.AI.Models;
 global using Application.Services.PrescriptionReview;
+global using Application.Services.MedicalInquiry;
 global using Application.Services.PrescriptionAudit;
 global using Mapster;
 global using FluentValidation;

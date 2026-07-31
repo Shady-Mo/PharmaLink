@@ -110,12 +110,13 @@ public enum PharmacyOrderSort : byte
 
 public enum PrescriptionProcessingStatus : byte
 {
-    Rejected = 0,
-    Completed = 1,
-    NeedsPatientApproval = 2,
-    PendingPharmacistReview = 3,
-    Processing = 4,
-    Failed = 5
+    Unknown = 0,
+    Rejected = 1,
+    Completed = 2,
+    NeedsPatientApproval = 3,
+    PendingPharmacistReview = 4,
+    Processing = 5,
+    Failed = 6
 }
 
 public enum PrescriptionMedicineMatchStatus : byte
