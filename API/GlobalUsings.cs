@@ -45,3 +45,5 @@ global using Microsoft.AspNetCore.Identity;
 global using NetTopologySuite.Geometries;
 global using Application.DTOs.Dashboard.Responses;
 global using Application.Services.Dashboard;
+global using Application.Services.PatientCatalog;
+global using Application.DTOs.Pharmacy.Responses;
