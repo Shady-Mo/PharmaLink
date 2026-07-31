@@ -75,3 +75,6 @@ global using Application.Services.Dashboard;
 global using Microsoft.AspNetCore.Hosting;
 global using Application.DTOs.Order.Requests;
 global using Application.DTOs.Order.Responses;
+global using Application.Services.PatientCatalog;
+global using Application.DTOs.Pharmacy.Responses;
+global using Infrastructure.Services.PatientCatalog;

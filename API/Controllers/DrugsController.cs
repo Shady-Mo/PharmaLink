@@ -27,7 +27,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("")]
     [ProducesResponseType(typeof(PaginatedList<DrugDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetDrugs([FromQuery] DrugSearchRequest filters,
         CancellationToken cancellationToken)
     {
@@ -42,8 +42,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(DrugDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    // moshady21 -- dont change - use it in  View Cart page
-    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin},{AppRoles.Patient}"),]
+    [AllowAnonymous]
     public async Task<IActionResult> GetDrugById(Guid id, CancellationToken cancellationToken)
     {
         var result = await drugService.GetByIdAsync(id, cancellationToken);
@@ -99,25 +98,14 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
 
     [HttpGet("search")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> SearchMedicines([FromQuery] string? term, CancellationToken cancellationToken = default) {
+    public async Task<IActionResult> SearchMedicines([FromQuery] string? term,
+        CancellationToken cancellationToken = default)
+    {
         if (string.IsNullOrWhiteSpace(term))
             return Ok(new List<MedicineSearchDTO>());
-        
+
         var result = await drugService.SearchMedicinesAsync(term.Trim(), cancellationToken);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
-
-    // run for one time this for add category to all drugs that have null category, this is for backfilling the data
-    //[HttpPost("backfill-categories")]
-    //[ProducesResponseType(StatusCodes.Status200OK)]
-    //[Authorize(Roles = AppRoles.Patient)]
-    //public async Task<IActionResult> BackfillCategories(CancellationToken cancellationToken)
-    //{
-    //    var result = await drugService.BackfillCategoriesAsync(cancellationToken);
-
-    //    return result.IsSuccess
-    //        ? Ok(new { message = $"Backfilled Category for {result.Value} drug(s)." })
-    //        : result.ToProblem();
-    //}
 }
