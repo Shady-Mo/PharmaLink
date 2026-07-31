@@ -8,4 +8,6 @@ public class AdminUserFilterDto : PaginatedRequest
     public string? Search { get; set; }
     public string? Role { get; set; }
     public UserStatus? Status { get; set; }
+    public string? SortBy { get; set; }
+    public string? SortDirection { get; set; }
 }

@@ -29,7 +29,7 @@ public class AdminUserService : IAdminUserService
         if (!string.IsNullOrWhiteSpace(filter.Search))
         {
             var search = filter.Search.Trim().ToLower();
-            query = query.Where(u => u.FullName.ToLower().Contains(search) || u.Email!.ToLower().Contains(search));
+            query = query.Where(u => u.FullName.ToLower().Contains(search) || (u.Email != null && u.Email.ToLower().Contains(search)));
         }
 
         if (filter.Status.HasValue)
@@ -44,10 +44,25 @@ public class AdminUserService : IAdminUserService
             query = query.Where(u => userIds.Contains(u.Id));
         }
 
+        if (!string.IsNullOrWhiteSpace(filter.SortBy))
+        {
+            var isDescending = filter.SortDirection?.ToLower() == "desc";
+            query = filter.SortBy.ToLower() switch
+            {
+                "name" => isDescending ? query.OrderByDescending(u => u.FullName) : query.OrderBy(u => u.FullName),
+                "email" => isDescending ? query.OrderByDescending(u => u.Email) : query.OrderBy(u => u.Email),
+                "date" => isDescending ? query.OrderByDescending(u => u.CreatedAt) : query.OrderBy(u => u.CreatedAt),
+                _ => query.OrderByDescending(u => u.CreatedAt)
+            };
+        }
+        else
+        {
+            query = query.OrderByDescending(u => u.CreatedAt);
+        }
+
         var totalCount = await query.CountAsync(cancellationToken);
 
         var users = await query
-            .OrderByDescending(u => u.CreatedAt)
             .Skip((filter.PageNumber - 1) * filter.PageSize)
             .Take(filter.PageSize)
             .ToListAsync(cancellationToken);
@@ -67,11 +82,11 @@ public class AdminUserService : IAdminUserService
                 PhoneNumber = user.PhoneNumber ?? string.Empty,
                 Role = role,
                 RegistrationDate = user.CreatedAt,
-                Status = user.Status
+                Status = (int)user.Status == 0 ? UserStatus.Active : user.Status
             });
         }
 
-        var paginatedList = new PaginatedList<AdminUserDto>(dtoList, totalCount, filter.PageNumber, filter.PageSize);
+        var paginatedList = new PaginatedList<AdminUserDto>(dtoList, filter.PageNumber, totalCount, filter.PageSize);
         return Result.Success(paginatedList);
     }
 
