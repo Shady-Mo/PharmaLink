@@ -1,11 +1,11 @@
-using DocumentFormat.OpenXml.InkML;
 using FluentValidation;
 using System.Security.Claims;
 namespace Infrastructure.Services;
 
 public class PrescriptionReviewService(
     AppDbContext context,
-    IAIExtractionService aiExtractionService,
+    IPrescriptionAuditJobQueue prescriptionAuditJobQueue,
+    ICartService cartService,
     IHttpContextAccessor httpContextAccessor,
     IValidator<UploadPrescriptionDTO> uploadValidator,
     IValidator<UpdatePrescriptionReviewDTO> updateValidator,
@@ -44,79 +44,38 @@ public class PrescriptionReviewService(
 
         var relativePath = $"uploads/prescriptions/{uniqueFileName}";
 
-        // 3. Call AI Extraction Service
-        var aiResult = await aiExtractionService.ExtractMedicinesFromImageAsync(absolutePath, cancellationToken);
-
-        if (aiResult == null || aiResult.IsEmpty)
-        {
-            // Clean up file if AI extraction failed to find medicines
-            if (File.Exists(absolutePath))
-            {
-                File.Delete(absolutePath);
-            }
-
-            return Result.Failure<PrescriptionReviewUploadResponseDTO>(PrescriptionReviewErrors.AIReturnedNoMedicines);
-        }
-
-        // 4. Save review and extracted medicines
         var review = new PrescriptionReview
         {
             PrescriptionReviewId = Guid.NewGuid(),
             PatientUserId = patientUserId,
             PrescriptionImagePath = relativePath,
             OriginalFileName = dto.Image.FileName,
-            AIModel = aiResult.ModelUsed,
+            AIModel = "Pending",
             ReviewStatus = PrescriptionReviewStatus.PendingReview,
+            ProcessingStatus = PrescriptionProcessingStatus.Processing,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
 
         context.PrescriptionReviews.Add(review);
-
-        var medicines = aiResult.Medicines.Select(m => new PrescriptionReviewMedicine
-        {
-            PrescriptionReviewMedicineId = Guid.NewGuid(),
-            PrescriptionReviewId = review.PrescriptionReviewId,
-            MedicineName = m.MedicineName,
-            OriginalMedicineName = null, // Set only when edited
-            GenericName = m.GenericName,
-            Strength = m.Strength,
-            DosageForm = m.DosageForm,
-            Dose = m.Dose,
-            Frequency = m.Frequency,
-            Duration = m.Duration,
-            Quantity = m.Quantity,
-            Route = m.Route,
-            Confidence = m.Confidence,
-            IsEdited = false
-        }).ToList();
-
-        context.PrescriptionReviewMedicines.AddRange(medicines);
         await context.SaveChangesAsync(cancellationToken);
 
-        // 5. Construct response
+        await prescriptionAuditJobQueue.EnqueueAsync(
+            new PrescriptionAuditJob(
+                review.PrescriptionReviewId,
+                patientUserId,
+                absolutePath,
+                relativePath,
+                dto.Image.FileName),
+            cancellationToken);
+
+        // 4. Construct response
         var request = httpContextAccessor.HttpContext?.Request;
         var imageUrl = request != null
             ? $"{request.Scheme}://{request.Host}/{relativePath}"
             : $"/{relativePath}";
 
-        var responseDto = new PrescriptionReviewUploadResponseDTO
-        {
-            ReviewId = review.PrescriptionReviewId,
-            Status = review.ReviewStatus.ToString(),
-            ImageUrl = imageUrl,
-            Medicines = medicines.Select(m => new ExtractedMedicineSummaryDTO
-            {
-                Id = m.PrescriptionReviewMedicineId,
-                Name = m.MedicineName,
-                Strength = m.Strength,
-                DosageForm = m.DosageForm,
-                Frequency = m.Frequency,
-                Duration = m.Duration,
-                Quantity = m.Quantity,
-                Confidence = m.Confidence
-            }).ToList()
-        };
+        var responseDto = ToUploadResponse(review, cartId: null, imageUrl, []);
 
         return Result.Success(responseDto);
     }
@@ -268,6 +227,7 @@ public class PrescriptionReviewService(
             PatientName = review.Patient?.FullName ?? "Unknown",
             ImageUrl = $"{baseUrl}{review.PrescriptionImagePath}",
             Status = review.ReviewStatus.ToString(),
+            ProcessingStatus = review.ProcessingStatus.ToString(),
             AIModel = review.AIModel,
             ReviewNotes = review.ReviewNotes,
             CreatedAt = review.CreatedAt,
@@ -287,6 +247,13 @@ public class PrescriptionReviewService(
                 Quantity = m.Quantity,
                 Route = m.Route,
                 Confidence = m.Confidence,
+                MatchedDrugId = m.MatchedDrugId,
+                SuggestedAlternativeDrugId = m.SuggestedAlternativeDrugId,
+                MatchStatus = m.MatchStatus.ToString(),
+                MatchReason = m.MatchReason,
+                MatchScore = m.MatchScore,
+                RequiresPatientApproval = m.RequiresPatientApproval,
+                PatientApprovedAt = m.PatientApprovedAt,
                 IsEdited = m.IsEdited
             }).ToList()
         };
@@ -426,6 +393,7 @@ public class PrescriptionReviewService(
             PatientName = review.Patient?.FullName ?? "Unknown",
             ImageUrl = $"{baseUrl}{review.PrescriptionImagePath}",
             Status = review.ReviewStatus.ToString(),
+            ProcessingStatus = review.ProcessingStatus.ToString(),
             AIModel = review.AIModel,
             ReviewNotes = review.ReviewNotes,
             CreatedAt = review.CreatedAt,
@@ -445,6 +413,13 @@ public class PrescriptionReviewService(
                 Quantity = m.Quantity,
                 Route = m.Route,
                 Confidence = m.Confidence,
+                MatchedDrugId = m.MatchedDrugId,
+                SuggestedAlternativeDrugId = m.SuggestedAlternativeDrugId,
+                MatchStatus = m.MatchStatus.ToString(),
+                MatchReason = m.MatchReason,
+                MatchScore = m.MatchScore,
+                RequiresPatientApproval = m.RequiresPatientApproval,
+                PatientApprovedAt = m.PatientApprovedAt,
                 IsEdited = m.IsEdited
             }).ToList()
         };
@@ -498,5 +473,125 @@ public class PrescriptionReviewService(
 
         await context.SaveChangesAsync();
         return Result.Success();
+    }
+
+    public async Task<Result<CartResponseDTO>> AddMedicinesToCartAsync(
+        Guid prescriptionReviewId,
+        Guid patientUserId,
+        AddPrescriptionReviewMedicinesToCartDTO dto,
+        CancellationToken cancellationToken = default)
+    {
+        var review = await context.PrescriptionReviews
+            .Include(r => r.Medicines)
+            .FirstOrDefaultAsync(r => r.PrescriptionReviewId == prescriptionReviewId, cancellationToken);
+
+        if (review is null)
+        {
+            return Result.Failure<CartResponseDTO>(PrescriptionReviewErrors.NotFound);
+        }
+
+        if (review.PatientUserId != patientUserId)
+        {
+            return Result.Failure<CartResponseDTO>(PrescriptionReviewErrors.Forbidden);
+        }
+
+        if (review.ReviewStatus != PrescriptionReviewStatus.Approved)
+        {
+            return Result.Failure<CartResponseDTO>(PrescriptionReviewErrors.NotApproved);
+        }
+
+        if (dto.PrescriptionReviewMedicineIds.Count == 0)
+        {
+            return Result.Failure<CartResponseDTO>(PrescriptionReviewErrors.MedicineNotFound);
+        }
+
+        var requestedIds = dto.PrescriptionReviewMedicineIds.ToHashSet();
+        var selectedMedicines = review.Medicines
+            .Where(m => requestedIds.Contains(m.PrescriptionReviewMedicineId))
+            .ToList();
+
+        if (selectedMedicines.Count != requestedIds.Count)
+        {
+            return Result.Failure<CartResponseDTO>(PrescriptionReviewErrors.MedicineNotFound);
+        }
+
+        CartResponseDTO? updatedCart = null;
+
+        foreach (var medicine in selectedMedicines)
+        {
+            var drugId = ResolvePatientSelectedDrugId(medicine);
+            if (!drugId.HasValue)
+            {
+                return Result.Failure<CartResponseDTO>(PrescriptionReviewErrors.MedicineCannotBeAddedToCart);
+            }
+
+            var addResult = await cartService.AddItemAsync(
+                patientUserId,
+                new AddCartItemRequestDTO
+                {
+                    DrugId = drugId.Value,
+                    Quantity = Math.Max(medicine.Quantity, 1)
+                },
+                cancellationToken);
+
+            if (!addResult.IsSuccess)
+            {
+                return addResult;
+            }
+
+            updatedCart = addResult.Value;
+        }
+
+        return Result.Success(updatedCart!);
+    }
+
+    private static Guid? ResolvePatientSelectedDrugId(PrescriptionReviewMedicine medicine)
+    {
+        if (medicine.MatchStatus is PrescriptionMedicineMatchStatus.ExactMatch
+            or PrescriptionMedicineMatchStatus.FuzzyMatch)
+        {
+            return medicine.MatchedDrugId;
+        }
+
+        if (medicine.MatchStatus == PrescriptionMedicineMatchStatus.AlternativeSuggested)
+        {
+            return medicine.SuggestedAlternativeDrugId;
+        }
+
+        return null;
+    }
+
+    private static PrescriptionReviewUploadResponseDTO ToUploadResponse(
+        PrescriptionReview review,
+        Guid? cartId,
+        string imageUrl,
+        IReadOnlyList<PrescriptionReviewMedicine> medicines)
+    {
+        return new PrescriptionReviewUploadResponseDTO
+        {
+            ReviewId = review.PrescriptionReviewId,
+            CartId = cartId,
+            Status = review.ReviewStatus.ToString(),
+            ProcessingStatus = review.ProcessingStatus.ToString(),
+            ImageUrl = imageUrl,
+            Medicines = medicines.Select(m => new ExtractedMedicineSummaryDTO
+            {
+                Id = m.PrescriptionReviewMedicineId,
+                Name = m.MedicineName,
+                Strength = m.Strength,
+                DosageForm = m.DosageForm,
+                Frequency = m.Frequency,
+                Duration = m.Duration,
+                Quantity = m.Quantity,
+                Confidence = m.Confidence,
+                MatchedDrugId = m.MatchStatus == PrescriptionMedicineMatchStatus.AlternativeSuggested
+                    ? m.SuggestedAlternativeDrugId
+                    : m.MatchedDrugId,
+                SuggestedAlternativeDrugId = m.SuggestedAlternativeDrugId,
+                Status = m.MatchStatus.ToString(),
+                AiNote = m.MatchReason,
+                RequiresPatientApproval = m.RequiresPatientApproval
+            }).ToList()
+        };
     }
 }

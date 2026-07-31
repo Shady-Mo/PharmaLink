@@ -34,11 +34,12 @@ public class PrescriptionReviewsController(
     /// </summary>
     /// <param name="dto">The multipart form data request containing the image file.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>201 Created response containing the initial AI extraction details.</returns>
+    /// <returns>202 Accepted response containing the review id while AI processing continues in the background.</returns>
     [HttpPost("")]
+    [HttpPost("/api/v1/prescriptions/upload-and-audit")]
     [Authorize(Roles = AppRoles.Patient)]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(PrescriptionReviewUploadResponseDTO), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(PrescriptionReviewUploadResponseDTO), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UploadAndExtract(
@@ -48,7 +49,7 @@ public class PrescriptionReviewsController(
         var result = await service.UploadAndExtractAsync(User.GetUserId(), dto, cancellationToken);
 
         return result.IsSuccess
-            ? CreatedAtAction(
+            ? AcceptedAtAction(
                 actionName: nameof(GetPrescriptionReview),
                 routeValues: new { id = result.Value?.ReviewId },
                 value: result.Value)
@@ -134,5 +135,26 @@ public class PrescriptionReviewsController(
     {
         var result = await service.RejectAsync(id, User.GetUserId(), dto);
         return result.IsSuccess ? NoContent() : result.ToProblem();
+    }
+
+    [HttpPost("{id:guid}/add-selected-medicines-to-cart")]
+    [Authorize(Roles = AppRoles.Patient)]
+    [ProducesResponseType(typeof(CartResponseDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> AddSelectedMedicinesToCart(
+        Guid id,
+        [FromBody] AddPrescriptionReviewMedicinesToCartDTO dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await service.AddMedicinesToCartAsync(
+            id,
+            User.GetUserId(),
+            dto,
+            cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 }

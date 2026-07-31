@@ -26,13 +26,26 @@ public class GeminiExtractionService(
                 ".png" => "image/png",
                 ".webp" => "image/webp",
                 ".heic" => "image/heic",
+                ".pdf" => "application/pdf",
                 _ => "image/jpeg"
             };
 
             const string promptText =
-                "Extract all medicines from this prescription image. " +
-                "Return ONLY a valid JSON object with a single property named 'medicines'. " +
+                "You are a prescription audit extraction engine for a pharmacy system. " +
+                "First decide whether the uploaded image or PDF is a valid medical prescription. " +
+                "Support handwritten, printed, and PDF prescriptions. " +
+                "Reject invoices, product photos, insurance cards, lab reports, empty pages, and unrelated documents. " +
+                "If it is not a prescription, return isValidPrescription=false, a validationMessage, and an empty medicines array. " +
+                "If it is a prescription, extract all medicines. " +
+                "Return ONLY a valid JSON object that follows the schema below. " +
                 "Do not include markdown, explanations, or code fences. " +
+                "The root object must contain:\n" +
+                "- isValidPrescription (boolean, required)\n" +
+                "- validationMessage (string or null)\n" +
+                "- extractedText (string or null)\n" +
+                "- aiSummary (string or null)\n" +
+                "- extractionConfidence (number between 0.0 and 1.0)\n" +
+                "- medicines (array, never null)\n\n" +
                 "Each medicine object must contain the following fields:\n" +
                 "- medicineName (string, required)\n" +
                 "- genericName (string or null)\n" +
@@ -45,14 +58,20 @@ public class GeminiExtractionService(
                 "- route (string or null)\n" +
                 "- confidence (number between 0.0 and 1.0, never null)\n\n" +
                 "Rules:\n" +
-                "1. medicineName is mandatory.\n" +
+                "1. medicineName is mandatory for medicine rows only.\n" +
                 "2. If any string field cannot be determined, return null.\n" +
                 "3. If quantity cannot be determined, return 1.\n" +
                 "4. confidence must always be a number between 0.0 and 1.0. If uncertain, use a lower value such as 0.5.\n" +
                 "5. Do not omit any field.\n" +
+                "6. If the document is not a prescription, medicines must be an empty array.\n" +
                 "6. Return only valid JSON.\n\n" +
                 "The JSON must have this structure:\n" +
                 "{\n" +
+                "  \"isValidPrescription\": true,\n" +
+                "  \"validationMessage\": null,\n" +
+                "  \"extractedText\": \"string\",\n" +
+                "  \"aiSummary\": \"string\",\n" +
+                "  \"extractionConfidence\": 0.95,\n" +
                 "  \"medicines\": [\n" +
                 "    {\n" +
                 "      \"medicineName\": \"string\",\n" +
@@ -160,11 +179,27 @@ public class GeminiExtractionService(
                 return new AIExtractionResult();
             }
 
+            if (!extractedResult.IsValidPrescription)
+            {
+                return new AIExtractionResult
+                {
+                    ModelUsed = _settings.ModelName,
+                    IsValidPrescription = false,
+                    ValidationMessage = extractedResult.ValidationMessage,
+                    ExtractedText = extractedResult.ExtractedText,
+                    AISummary = extractedResult.AISummary,
+                    ExtractionConfidence = extractedResult.ExtractionConfidence,
+                    Medicines = []
+                };
+            }
+
             var medicinesList = new List<ExtractedMedicineItem>();
             foreach (var item in extractedResult.Medicines)
             {
                 if (string.IsNullOrWhiteSpace(item.MedicineName))
                     continue;
+
+                var quantity = item.Quantity.GetValueOrDefault(1);
 
                 medicinesList.Add(new ExtractedMedicineItem
                 {
@@ -175,9 +210,7 @@ public class GeminiExtractionService(
                     Dose = item.Dose,
                     Frequency = item.Frequency,
                     Duration = item.Duration,
-                    Quantity = item.Quantity.GetValueOrDefault(1) > 0
-                        ? item.Quantity.Value
-                        : 1,
+                    Quantity = quantity > 0 ? quantity : 1,
                     Route = item.Route,
                     Confidence = item.Confidence
                 });
@@ -186,6 +219,11 @@ public class GeminiExtractionService(
             return new AIExtractionResult
             {
                 ModelUsed = _settings.ModelName,
+                IsValidPrescription = true,
+                ValidationMessage = extractedResult.ValidationMessage,
+                ExtractedText = extractedResult.ExtractedText,
+                AISummary = extractedResult.AISummary,
+                ExtractionConfidence = extractedResult.ExtractionConfidence,
                 Medicines = medicinesList
             };
         }
@@ -260,6 +298,11 @@ public class GeminiExtractionService(
 
     private class GeminiExtractedJson
     {
+        [JsonPropertyName("isValidPrescription")] public bool IsValidPrescription { get; set; }
+        [JsonPropertyName("validationMessage")] public string? ValidationMessage { get; set; }
+        [JsonPropertyName("extractedText")] public string? ExtractedText { get; set; }
+        [JsonPropertyName("aiSummary")] public string? AISummary { get; set; }
+        [JsonPropertyName("extractionConfidence")] public double? ExtractionConfidence { get; set; }
         [JsonPropertyName("medicines")] public List<GeminiExtractedMedicineItem>? Medicines { get; set; }
     }
 

@@ -31,4 +31,10 @@ public interface IPrescriptionReviewService
         Guid prescriptionReviewId,
         Guid pharmacistUserId,
         ApproveRejectDTO dto);
+
+    Task<Result<CartResponseDTO>> AddMedicinesToCartAsync(
+        Guid prescriptionReviewId,
+        Guid patientUserId,
+        AddPrescriptionReviewMedicinesToCartDTO dto,
+        CancellationToken cancellationToken = default);
 }
