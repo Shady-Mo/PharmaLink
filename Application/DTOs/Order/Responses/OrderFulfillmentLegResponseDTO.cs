@@ -20,7 +20,7 @@ public class OrderFulfillmentLegResponseDTO
     public string Governorate { get; set; } = string.Empty;
 
     public string PhoneNumber { get; set; } = string.Empty;
-    public string WorkingHours { get; set; } = string.Empty;
+
     public bool IsOpenNow { get; set; }
     
     public double Latitude { get; set; }
