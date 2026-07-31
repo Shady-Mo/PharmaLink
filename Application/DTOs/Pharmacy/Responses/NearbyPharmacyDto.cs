@@ -33,7 +33,7 @@ public class NearbyPharmacyDto
     public double DistanceKm { get; set; }
 
     /// <summary>Raw working-hours string as stored (e.g. "9:00 AM – 10:00 PM").</summary>
-    public string WorkingHours { get; set; } = string.Empty;
+
 
     /// <summary>Whether the branch is currently open based on WorkingHours.</summary>
     public bool IsOpen { get; set; }

@@ -22,9 +22,6 @@ public class UpdatePharmacyBranchValidator : AbstractValidator<UpdatePharmacyBra
             .NotEmpty().WithMessage("Phone number is required.")
             .Matches(@"^(?:\+20|0020|0)?1[0125][0-9]{8}$").WithMessage("Invalid Egyptian phone number");
 
-        RuleFor(b => b.WorkingHours)
-            .NotEmpty().MaximumLength(150);
-
         RuleFor(b => b.ServiceRadiusKm).GreaterThanOrEqualTo(0);
 
         When(b => b.Latitude.HasValue || b.Longitude.HasValue, () =>

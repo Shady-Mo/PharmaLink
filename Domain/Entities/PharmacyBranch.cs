@@ -9,7 +9,6 @@ public class PharmacyBranch
     public string Governorate { get; set; } = string.Empty;
     public string AddressLine { get; set; } = string.Empty;
     public string PhoneNumber { get; set; } = string.Empty;
-    public string WorkingHours { get; set; } = string.Empty;
     
     public Point? GeoLocation { get; set; }
     public decimal ServiceRadiusKm { get; set; }

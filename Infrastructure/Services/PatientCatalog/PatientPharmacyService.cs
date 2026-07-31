@@ -56,7 +56,6 @@ public class PatientPharmacyService(
                 Governorate     = b.Governorate,
                 PhoneNumber     = b.PhoneNumber,
                 DistanceKm      = Math.Round(b.GeoLocation!.Distance(patientLocation) / 1000.0, 2),
-                WorkingHours    = b.WorkingHours,
                 SupportsDelivery = b.SupportsDelivery,
                 SupportsPickup  = b.SupportsPickup,
                 Latitude        = b.GeoLocation != null ? b.GeoLocation.Y : (double?)null,
@@ -120,8 +119,8 @@ public class PatientPharmacyService(
             }
             else
             {
-                // Fallback: parse WorkingHours string
-                branch.IsOpen = ComputeIsOpen(branch.WorkingHours, now);
+                // Fallback: no schedule means open 24/7
+                branch.IsOpen = true;
             }
         }
 
@@ -161,72 +160,4 @@ public class PatientPharmacyService(
         return currentMinutes >= openMin && currentMinutes < closeMin;
     }
 
-
-    /// <summary>
-    /// Parses a simple "H:MM AM/PM - H:MM AM/PM" or "HH:MM - HH:MM" (24h) string
-    /// and returns true if <paramref name="now"/> falls within the range.
-    /// Returns false for any unparseable format.
-    /// </summary>
-    private static bool ComputeIsOpen(string workingHours, DateTime now)
-    {
-        if (string.IsNullOrWhiteSpace(workingHours))
-            return true; // Default to open
-
-        // Support separator " - ", " – ", " to " (case-insensitive)
-        var separators = new[] { " - ", " – ", " to ", "-", "–" };
-        string? openPart = null, closePart = null;
-
-        foreach (var sep in separators)
-        {
-            var idx = workingHours.IndexOf(sep, StringComparison.OrdinalIgnoreCase);
-            if (idx < 0) continue;
-            openPart  = workingHours[..idx].Trim();
-            closePart = workingHours[(idx + sep.Length)..].Trim();
-            break;
-        }
-
-        if (openPart is null || closePart is null) return true; // Default to open
-
-        if (!TryParseTime(openPart,  out var openTime))  return true; // Default to open
-        if (!TryParseTime(closePart, out var closeTime)) return true; // Default to open
-
-        var currentMinutes = now.Hour * 60 + now.Minute;
-
-        // Overnight range (e.g. 10 PM – 2 AM)
-        if (closeTime < openTime)
-            return currentMinutes >= openTime || currentMinutes < closeTime;
-
-        return currentMinutes >= openTime && currentMinutes < closeTime;
-    }
-
-    /// <summary>Parses "9:00 AM", "21:30", "9 AM" → total minutes since midnight.</summary>
-    private static bool TryParseTime(string raw, out int totalMinutes)
-    {
-        totalMinutes = 0;
-        raw = raw.Trim();
-
-        // Try 12-hour with AM/PM
-        if (DateTime.TryParseExact(raw,
-                new[] { "h:mm tt", "hh:mm tt", "h tt", "hh tt" },
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var dt12))
-        {
-            totalMinutes = dt12.Hour * 60 + dt12.Minute;
-            return true;
-        }
-
-        // Try 24-hour
-        if (DateTime.TryParseExact(raw,
-                new[] { "H:mm", "HH:mm" },
-                System.Globalization.CultureInfo.InvariantCulture,
-                System.Globalization.DateTimeStyles.None,
-                out var dt24))
-        {
-            totalMinutes = dt24.Hour * 60 + dt24.Minute;
-            return true;
-        }
-
-        return false;
-    }
 }
