@@ -78,3 +78,5 @@ global using Application.DTOs.Order.Responses;
 global using Application.Services.PatientCatalog;
 global using Application.DTOs.Pharmacy.Responses;
 global using Infrastructure.Services.PatientCatalog;
+global using Application.DTOs.PharmacyBranch.Response;
+global using Application.Services.Pharmacy;

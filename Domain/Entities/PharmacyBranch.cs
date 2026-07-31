@@ -23,4 +23,5 @@ public class PharmacyBranch
     public ICollection<OrderItem> SuppliedOrderItems { get; set; } = new HashSet<OrderItem>();
     public ICollection<PharmacistAssignment> PharmacistAssignments { get; set; } = new HashSet<PharmacistAssignment>();
     public ICollection<OrderFulfillmentLeg> FulfillmentLegs { get; set; } = new HashSet<OrderFulfillmentLeg>();
+    public ICollection<PharmacyBranchSchedule> WorkingSchedule { get; set; } = new HashSet<PharmacyBranchSchedule>();
 }
