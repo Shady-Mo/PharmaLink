@@ -25,9 +25,9 @@ public static class AuthErrors
         "The email is incorrect.",
         StatusCodes.Status404NotFound);
 
-    public static readonly Error AccountSuspended =
-    new("Auth.AccountSuspended",
-        "This account has been suspended.",
+    public static readonly Error AccountDeactivated =
+    new("Auth.AccountDeactivated",
+        "This account has been deactivated. Please contact support.",
         StatusCodes.Status403Forbidden);
 
     public static readonly Error PhoneNotVerified =
