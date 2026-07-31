@@ -48,6 +48,7 @@ public static class DependencyInjection
             services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
 
             services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
+            services.AddScoped<IMedicalInquiryService, MedicalInquiryService>();
             services.AddSingleton<IAgentProfileProvider, StaticAgentProfileProvider>();
             services.AddScoped<IPromptRegistry, FileSystemPromptRegistry>();
             services.AddScoped<IAIProviderSelector, ConfigurationAIProviderSelector>();
