@@ -48,7 +48,21 @@ public static class DependencyInjection
             services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
 
             services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
-            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+            services.AddScoped<IMedicalInquiryService, MedicalInquiryService>();
+            services.AddSingleton<IAgentProfileProvider, StaticAgentProfileProvider>();
+            services.AddScoped<IPromptRegistry, FileSystemPromptRegistry>();
+            services.AddScoped<IAIProviderSelector, ConfigurationAIProviderSelector>();
+            services.AddScoped<IPromptExecutionService, SemanticKernelPromptExecutionService>();
+            services.AddScoped<IPrescriptionExtractionService, PrescriptionExtractionService>();
+            services.AddScoped<IMedicineImageExtractionService, MedicineImageExtractionService>();
+            services.AddScoped<IAIResponseValidator<AIExtractionResult>, PrescriptionExtractionBusinessValidator>();
+            services.AddScoped<IAIResponseValidator<MedicineImageExtractionResponseDTO>, MedicineImageExtractionBusinessValidator>();
+            services.AddScoped<IDrugCatalogPlugin, DrugCatalogPlugin>();
+            services.AddScoped<IAlternativeSearchPlugin, AlternativeSearchPlugin>();
+            services.AddScoped<ICartBuilderPlugin, CartBuilderPlugin>();
+            services.AddScoped<IPrescriptionAuditAgent, PrescriptionAuditAgent>();
+            services.AddSingleton<IPrescriptionAuditJobQueue, PrescriptionAuditJobQueue>();
+            services.AddHostedService<PrescriptionAuditBackgroundService>();
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
@@ -60,9 +74,14 @@ public static class DependencyInjection
             services.AddScoped<IAdminPharmacyService, AdminPharmacyService>();
             services.AddScoped<IPharmacyOwnerService, PharmacyOwnerService>();
 
+            services.AddScoped<IAdminService, AdminService>();
+            services.AddScoped<IAdminUserService, AdminUserService>();
+
             services.AddScoped<IPharmacistManagementService, PharmacistManagementService>();
 
             services.AddScoped<IPatientService, PatientService>();
+            services.AddScoped<IPatientPharmacyService, PatientPharmacyService>();
+            services.AddScoped<IPharmacyBranchScheduleService, PharmacyBranchScheduleService>();
 
             services.AddScoped<IDashboardService, DashboardService>();
 
@@ -73,6 +92,7 @@ public static class DependencyInjection
             services.AddScoped<IPharmacistDashboardService, PharmacistDashboardService>();
 
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
+            services.AddScoped<IPharmacyAdminService, PharmacyAdminService>();
 
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));

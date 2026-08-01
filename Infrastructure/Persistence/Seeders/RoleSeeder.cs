@@ -8,6 +8,7 @@ public class RoleSeeder(
     [
         AppRoles.Patient,
         AppRoles.Pharmacist,
+        AppRoles.PrescriptionReviewTeam,
         AppRoles.Admin,
         AppRoles.PharmacyAdmin
     ];

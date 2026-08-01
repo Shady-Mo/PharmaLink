@@ -40,14 +40,10 @@ This document provides a comprehensive reference of **all 17 database tables** p
 | **Mona Ali** | `patient4@ph-link.com` | `P@ss1234` | `+201011111104` | Patient | Active (1) |
 | **Omar Tarek** | `patient5@ph-link.com` | `P@ss1234` | `+201011111105` | Patient | Active (1) |
 
-### 👨‍⚕️ Pharmacists (5 Users)
+### 👨‍⚕️ Pharmacists (1 Users)
 | Full Name | Email / Username | Password | Phone Number | UserType | Status |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Dr. Khaled Mansour** | `pharmacist1@ph-link.com` | `P@ss1234` | `+201022222201` | Pharmacist | Active (1) |
-| **Dr. Hoda Youssef** | `pharmacist2@ph-link.com` | `P@ss1234` | `+201022222202` | Pharmacist | Active (1) |
-| **Dr. Amr Nabil** | `pharmacist3@ph-link.com` | `P@ss1234` | `+201022222203` | Pharmacist | Active (1) |
-| **Dr. Rania Gamal** | `pharmacist4@ph-link.com` | `P@ss1234` | `+201022222204` | Pharmacist | Active (1) |
-| **Dr. Yasser Fathy** | `pharmacist5@ph-link.com` | `P@ss1234` | `+201022222205` | Pharmacist | Active (1) |
+| **Dr. Omar Hany** | `pharmacist4@ph-link.com` | `P@ss1234` | `+201022222204` | Pharmacist | Active (1) |
 
 ### 🏥 Pharmacy Admins (5 Users)
 | Full Name | Email / Username | Password | Phone Number | UserType | Managed Pharmacy | SuperAdmin |

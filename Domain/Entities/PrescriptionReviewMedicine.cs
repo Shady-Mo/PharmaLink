@@ -28,8 +28,25 @@ public class PrescriptionReviewMedicine
 
     public double? Confidence { get; set; }
 
+    public Guid? MatchedDrugId { get; set; }
+
+    public Guid? SuggestedAlternativeDrugId { get; set; }
+
+    public PrescriptionMedicineMatchStatus MatchStatus { get; set; } =
+        PrescriptionMedicineMatchStatus.NotFound;
+
+    public string? MatchReason { get; set; }
+
+    public double? MatchScore { get; set; }
+
+    public bool RequiresPatientApproval { get; set; }
+
+    public DateTime? PatientApprovedAt { get; set; }
+
     public bool IsEdited { get; set; } = false;
 
     // Navigation property
     public PrescriptionReview PrescriptionReview { get; set; } = null!;
+    public Drug? MatchedDrug { get; set; }
+    public Drug? SuggestedAlternativeDrug { get; set; }
 }

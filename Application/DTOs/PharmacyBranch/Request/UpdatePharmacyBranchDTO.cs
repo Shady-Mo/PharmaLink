@@ -7,7 +7,7 @@ namespace Application.DTOs.PharmacyBranch.Request
         public string Governorate { get; set; } = string.Empty;
         public string AddressLine { get; set; } = string.Empty;
         public string PhoneNumber { get; set; } = string.Empty;
-        public string WorkingHours { get; set; } = string.Empty;
+
         public double? Latitude { get; set; }
         public double? Longitude { get; set; }
         public decimal ServiceRadiusKm { get; set; }

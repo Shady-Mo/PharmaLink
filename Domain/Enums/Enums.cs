@@ -107,3 +107,23 @@ public enum PharmacyOrderSort : byte
 
     LowestAmount = 3
 }
+
+public enum PrescriptionProcessingStatus : byte
+{
+    Unknown = 0,
+    Rejected = 1,
+    Completed = 2,
+    NeedsPatientApproval = 3,
+    PendingPharmacistReview = 4,
+    Processing = 5,
+    Failed = 6
+}
+
+public enum PrescriptionMedicineMatchStatus : byte
+{
+    NotFound = 0,
+    ExactMatch = 1,
+    FuzzyMatch = 2,
+    AlternativeSuggested = 3,
+    Unavailable = 4
+}

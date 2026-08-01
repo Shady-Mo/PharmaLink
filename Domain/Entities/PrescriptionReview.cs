@@ -12,6 +12,15 @@ public class PrescriptionReview
 
     public string AIModel { get; set; } = string.Empty;
 
+    public string? ExtractedText { get; set; }
+
+    public string? AISummary { get; set; }
+
+    public double? ExtractionConfidence { get; set; }
+
+    public PrescriptionProcessingStatus ProcessingStatus { get; set; } =
+        PrescriptionProcessingStatus.PendingPharmacistReview;
+
     public PrescriptionReviewStatus ReviewStatus { get; set; } = PrescriptionReviewStatus.PendingReview;
 
     public Guid? PharmacistUserId { get; set; }

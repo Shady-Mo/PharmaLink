@@ -18,7 +18,6 @@ public static class AiDependencyInjection
         services.AddSingleton<IKernelProvider, GroqProvider>();
         services.AddSingleton<IKernelProvider, GeminiProvider>();
         services.AddSingleton<IKernelProvider, GitHubModelsProvider>();
-        services.AddSingleton<IKernelProvider, AwsBedrockProvider>();
 
         // Register Factory as Singleton
         services.AddSingleton<IKernelFactory, KernelFactory>();

@@ -5,5 +5,9 @@ public enum AIProvider
     Groq,
     Gemini,
     GitHubModels,
-    AwsBedrock
+    ITI,
+    OpenAI,
+    AzureOpenAI,
+    Claude,
+    Ollama
 }

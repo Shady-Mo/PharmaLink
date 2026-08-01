@@ -34,10 +34,20 @@ public static class PrescriptionReviewErrors
             "The AI could not detect any medicines in the uploaded image. Please upload a clearer image of the prescription.",
             StatusCodes.Status422UnprocessableEntity);
 
+    public static Error InvalidPrescription(string message) =>
+        new("PrescriptionReview.InvalidPrescription",
+            message,
+            StatusCodes.Status422UnprocessableEntity);
+
     public static readonly Error MedicineNotFound =
         new("PrescriptionReview.MedicineNotFound",
             "One or more medicines in your request were not found in this review.",
             StatusCodes.Status404NotFound);
+
+    public static readonly Error MedicineCannotBeAddedToCart =
+        new("PrescriptionReview.MedicineCannotBeAddedToCart",
+            "One or more selected medicines cannot be added to the cart because they are unavailable, not found, or not approved alternatives.",
+            StatusCodes.Status422UnprocessableEntity);
 
     public static readonly Error Forbidden =
         new("PrescriptionReview.Forbidden",

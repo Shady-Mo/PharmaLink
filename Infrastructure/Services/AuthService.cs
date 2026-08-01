@@ -82,10 +82,10 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
         }
 
-        if (user.Status == UserStatus.Suspended)
+        if (user.Status != UserStatus.Active)
         {
-            logger.LogWarning("Login attempt on suspended account {UserId}", user.Id);
-            return Result.Failure<LoginResponseDTO>(AuthErrors.AccountSuspended);
+            logger.LogWarning("Login attempt on deactivated account {UserId}", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.AccountDeactivated);
         }
 
         var roles = await userManager.GetRolesAsync(user);

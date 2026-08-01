@@ -58,7 +58,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("UserId");
 
-                    b.ToTable("Addresses");
+                    b.ToTable("Addresses", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.AppUser", b =>
@@ -167,7 +167,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("PatientUserId")
                         .IsUnique();
 
-                    b.ToTable("Carts");
+                    b.ToTable("Carts", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.CartItem", b =>
@@ -196,7 +196,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("CartId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("CartItems", t =>
+                    b.ToTable("CartItems", null, t =>
                         {
                             t.HasCheckConstraint("CK_CartItem_Quantity", "\"Quantity\" > 0");
                         });
@@ -277,7 +277,50 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("DrugId");
 
-                    b.ToTable("Drugs");
+                    b.ToTable("Drugs", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.MedicalInquiry", b =>
+                {
+                    b.Property<Guid>("MedicalInquiryId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Answer")
+                        .HasMaxLength(4000)
+                        .HasColumnType("nvarchar(4000)");
+
+                    b.Property<DateTime?>("AnsweredAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid?>("AnsweredByUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<Guid>("PatientUserId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("Question")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(32)
+                        .HasColumnType("nvarchar(32)");
+
+                    b.HasKey("MedicalInquiryId");
+
+                    b.HasIndex("AnsweredByUserId");
+
+                    b.HasIndex("PatientUserId");
+
+                    b.HasIndex("Status", "CreatedAt");
+
+                    b.ToTable("MedicalInquiries", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -313,7 +356,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PatientUserId");
 
-                    b.ToTable("Orders");
+                    b.ToTable("Orders", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLeg", b =>
@@ -345,7 +388,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderFulfillmentLegs");
+                    b.ToTable("OrderFulfillmentLegs", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderFulfillmentLegStatusAudit", b =>
@@ -380,7 +423,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("LegId");
 
-                    b.ToTable("OrderFulfillmentLegStatusAudits");
+                    b.ToTable("OrderFulfillmentLegStatusAudits", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.OrderItem", b =>
@@ -412,7 +455,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("OrderId");
 
-                    b.ToTable("OrderItems");
+                    b.ToTable("OrderItems", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacistAssignment", b =>
@@ -493,7 +536,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("PharmacyId");
 
-                    b.ToTable("Pharmacies");
+                    b.ToTable("Pharmacies", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyBranch", b =>
@@ -545,15 +588,40 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("SupportsPickup")
                         .HasColumnType("bit");
 
-                    b.Property<string>("WorkingHours")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("BranchId");
 
                     b.HasIndex("PharmacyId");
 
-                    b.ToTable("PharmacyBranches");
+                    b.ToTable("PharmacyBranches", (string)null);
+                });
+
+            modelBuilder.Entity("Domain.Entities.PharmacyBranchSchedule", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<Guid>("BranchId")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<TimeOnly?>("CloseTime")
+                        .HasColumnType("time");
+
+                    b.Property<int>("Day")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("bit");
+
+                    b.Property<TimeOnly?>("OpenTime")
+                        .HasColumnType("time");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("BranchId", "Day")
+                        .IsUnique();
+
+                    b.ToTable("PharmacyBranchSchedules", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
@@ -596,7 +664,7 @@ namespace Infrastructure.Migrations
                     b.HasIndex("BranchId", "DrugId")
                         .IsUnique();
 
-                    b.ToTable("PharmacyInventories");
+                    b.ToTable("PharmacyInventories", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
@@ -643,11 +711,21 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<string>("AISummary")
+                        .HasMaxLength(2000)
+                        .HasColumnType("nvarchar(2000)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedOrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ExtractedText")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<double?>("ExtractionConfidence")
+                        .HasColumnType("float");
 
                     b.Property<string>("OriginalFileName")
                         .IsRequired()
@@ -664,6 +742,13 @@ namespace Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ProcessingStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("PendingPharmacistReview");
 
                     b.Property<string>("ReviewNotes")
                         .HasMaxLength(2000)
@@ -688,7 +773,7 @@ namespace Infrastructure.Migrations
 
                     b.HasIndex("PharmacistUserId");
 
-                    b.ToTable("PrescriptionReviews");
+                    b.ToTable("PrescriptionReviews", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
@@ -725,6 +810,23 @@ namespace Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(false);
 
+                    b.Property<string>("MatchReason")
+                        .HasMaxLength(1000)
+                        .HasColumnType("nvarchar(1000)");
+
+                    b.Property<double?>("MatchScore")
+                        .HasColumnType("float");
+
+                    b.Property<string>("MatchStatus")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("NotFound");
+
+                    b.Property<Guid?>("MatchedDrugId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.Property<string>("MedicineName")
                         .IsRequired()
                         .HasMaxLength(500)
@@ -734,6 +836,9 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<DateTime?>("PatientApprovedAt")
+                        .HasColumnType("datetime2");
+
                     b.Property<Guid>("PrescriptionReviewId")
                         .HasColumnType("uniqueidentifier");
 
@@ -741,6 +846,11 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("int")
                         .HasDefaultValue(1);
+
+                    b.Property<bool>("RequiresPatientApproval")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("bit")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Route")
                         .HasMaxLength(100)
@@ -750,11 +860,18 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<Guid?>("SuggestedAlternativeDrugId")
+                        .HasColumnType("uniqueidentifier");
+
                     b.HasKey("PrescriptionReviewMedicineId");
+
+                    b.HasIndex("MatchedDrugId");
 
                     b.HasIndex("PrescriptionReviewId");
 
-                    b.ToTable("PrescriptionReviewMedicines");
+                    b.HasIndex("SuggestedAlternativeDrugId");
+
+                    b.ToTable("PrescriptionReviewMedicines", (string)null);
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -1004,6 +1121,24 @@ namespace Infrastructure.Migrations
                     b.Navigation("Drug");
                 });
 
+            modelBuilder.Entity("Domain.Entities.MedicalInquiry", b =>
+                {
+                    b.HasOne("Domain.Entities.AppUser", "AnsweredBy")
+                        .WithMany()
+                        .HasForeignKey("AnsweredByUserId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("Domain.Entities.Patient", "Patient")
+                        .WithMany()
+                        .HasForeignKey("PatientUserId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("AnsweredBy");
+
+                    b.Navigation("Patient");
+                });
+
             modelBuilder.Entity("Domain.Entities.Order", b =>
                 {
                     b.HasOne("Domain.Entities.Address", "DeliveryAddress")
@@ -1133,6 +1268,17 @@ namespace Infrastructure.Migrations
                     b.Navigation("Pharmacy");
                 });
 
+            modelBuilder.Entity("Domain.Entities.PharmacyBranchSchedule", b =>
+                {
+                    b.HasOne("Domain.Entities.PharmacyBranch", "Branch")
+                        .WithMany("WorkingSchedule")
+                        .HasForeignKey("BranchId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Branch");
+                });
+
             modelBuilder.Entity("Domain.Entities.PharmacyInventory", b =>
                 {
                     b.HasOne("Domain.Entities.PharmacyBranch", "Branch")
@@ -1190,13 +1336,27 @@ namespace Infrastructure.Migrations
 
             modelBuilder.Entity("Domain.Entities.PrescriptionReviewMedicine", b =>
                 {
+                    b.HasOne("Domain.Entities.Drug", "MatchedDrug")
+                        .WithMany()
+                        .HasForeignKey("MatchedDrugId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("Domain.Entities.PrescriptionReview", "PrescriptionReview")
                         .WithMany("Medicines")
                         .HasForeignKey("PrescriptionReviewId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("Domain.Entities.Drug", "SuggestedAlternativeDrug")
+                        .WithMany()
+                        .HasForeignKey("SuggestedAlternativeDrugId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("MatchedDrug");
+
                     b.Navigation("PrescriptionReview");
+
+                    b.Navigation("SuggestedAlternativeDrug");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -1311,6 +1471,8 @@ namespace Infrastructure.Migrations
                     b.Navigation("PharmacistAssignments");
 
                     b.Navigation("SuppliedOrderItems");
+
+                    b.Navigation("WorkingSchedule");
                 });
 
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>

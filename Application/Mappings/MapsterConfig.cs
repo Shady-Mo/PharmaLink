@@ -68,7 +68,6 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.Governorate, src => src.Branch.Governorate)
             .Map(dest => dest.BranchAddressLine, src => src.Branch.AddressLine)
             .Map(dest => dest.PhoneNumber, src => src.Branch.PhoneNumber)
-            .Map(dest => dest.WorkingHours, src => src.Branch.WorkingHours)
             .Map(dest => dest.IsOpenNow, src => true) // Default mock for now
             .Map(dest => dest.Latitude, src => src.Branch.GeoLocation != null ? src.Branch.GeoLocation.Y : 0)
             .Map(dest => dest.Longitude, src => src.Branch.GeoLocation != null ? src.Branch.GeoLocation.X : 0)
@@ -153,7 +152,6 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.City, src => src.City)
             .Map(dest => dest.Governorate, src => src.Governorate)
             .Map(dest => dest.PhoneNumber, src => src.PhoneNumber)
-            .Map(dest => dest.WorkingHours, src => src.WorkingHours)
             .Map(dest => dest.Latitude, src => src.GeoLocation != null ? src.GeoLocation.Y : 0)
             .Map(dest => dest.Longitude, src => src.GeoLocation != null ? src.GeoLocation.X : 0)
             .Map(dest => dest.ServiceRadiusKm, src => src.ServiceRadiusKm)

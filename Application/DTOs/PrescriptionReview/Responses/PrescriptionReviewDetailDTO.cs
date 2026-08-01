@@ -10,6 +10,7 @@ public class PrescriptionReviewDetailDTO
     public string PatientName { get; set; } = string.Empty;
     public string ImageUrl { get; set; } = string.Empty;
     public string Status { get; set; } = string.Empty;
+    public string ProcessingStatus { get; set; } = string.Empty;
     public string AIModel { get; set; } = string.Empty;
     public string? ReviewNotes { get; set; }
     public DateTime CreatedAt { get; set; }
