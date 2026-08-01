@@ -34,7 +34,7 @@ public class PharmacistsController(IPharmacistManagementService pharmacistServic
     [ProducesResponseType(typeof(PaginatedList<PharmacistSummaryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetAllPharmacists(
-        [FromQuery] PaginatedRequest request,
+        [FromQuery] GetAllPharmacistsRequestDTO request,
         CancellationToken cancellationToken)
     {
         var result = await pharmacistService.GetAllPharmacistsAsync(User.GetUserId(), request, cancellationToken);
@@ -79,6 +79,26 @@ public class PharmacistsController(IPharmacistManagementService pharmacistServic
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
+    /// <summary>Updates pharmacist status (Active, Inactive, Suspended).</summary>
+    /// <response code="200">Success. Returns the updated pharmacist profile.</response>
+    /// <response code="400">Validation error in request body.</response>
+    /// <response code="403">Caller is not a Pharmacy Admin.</response>
+    /// <response code="404">Pharmacist with the given ID was not found.</response>
+    [HttpPatch("{id:guid}/status")]
+    [ProducesResponseType(typeof(PharmacistResponseDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UpdatePharmacistStatus(
+        Guid id,
+        [FromBody] UpdatePharmacistStatusRequestDTO dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await pharmacistService.UpdatePharmacistStatusAsync(User.GetUserId(), id, dto.Status, cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
     /// <summary>
     /// Deletes a pharmacist account. Assignment history rows are preserved for auditing.
     /// </summary>
@@ -104,7 +124,7 @@ public class PharmacistsController(IPharmacistManagementService pharmacistServic
     /// <response code="200">Success. Returns a list of assignment history items.</response>
     /// <response code="403">Caller is not a Pharmacy Admin or Admin not assigned to pharmacy.</response>
     /// <response code="404">Pharmacist not found or not employed at this pharmacy.</response>
-    [HttpGet("/api/v1/pharmacist-history/{id:guid}")]
+    [HttpGet("{id:guid}/history")]
     [ProducesResponseType(typeof(IReadOnlyList<AssignmentHistoryItemDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
