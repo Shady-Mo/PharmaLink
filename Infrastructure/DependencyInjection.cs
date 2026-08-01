@@ -132,6 +132,7 @@ public static class DependencyInjection
 
             services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
             services.AddScoped<IOtpService, OtpService>();
+            services.AddScoped<IInventoryForecastingService, InventoryForecastingService>();
 
 
             services.AddScoped<DrugSeeder>();

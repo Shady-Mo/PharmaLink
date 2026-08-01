@@ -1,8 +1,9 @@
-﻿using Twilio.TwiML.Messaging;
+﻿using Application.Services.AI;
+using Twilio.TwiML.Messaging;
 
 namespace API.Controllers;
 
-public class InventoryController(IInventoryService inventoryService) : BaseApiController
+public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService) : BaseApiController
 {
     /// <summary>
     /// Retrieves a paginated inventory list, with optional text search and stock-status filtering.
@@ -114,5 +115,25 @@ public class InventoryController(IInventoryService inventoryService) : BaseApiCo
         var result = await inventoryService.AdjustStock(id, dto, cancellationToken);
 
         return result.IsSuccess ? Ok(new {Message = result.Value }) : result.ToProblem();
+    }
+
+
+
+    [HttpPost("trigger-forecast")]
+    [Authorize(Roles = "Admin")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TriggerForecast([FromQuery] Guid? branchId, [FromQuery] int analysisDays = 30)
+    {
+       var result =  await _forecastingService.RunForecastingCycleAsync(branchId, analysisDays);
+
+       return result.IsSuccess ? Ok(new {
+           Success = true,
+           Message = branchId.HasValue
+                ? $"Forecasting cycle successfully executed for branch: {branchId}"
+                : "Forecasting cycle successfully executed for all branches.",
+           Timestamp = DateTime.UtcNow
+       }) : result.ToProblem();
+       
     }
 }
