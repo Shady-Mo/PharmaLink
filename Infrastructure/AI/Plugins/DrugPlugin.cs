@@ -32,12 +32,33 @@ namespace Infrastructure.AI.Plugins;
 /// </summary>
 public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPlugin> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false,
-        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
-    };
+    public sealed record DrugInfoResult(
+        bool Found,
+        string? Message = null,
+        Guid? Id = null,
+        string? Name = null,
+        string? GenericName = null,
+        string? Category = null,
+        string? Form = null,
+        string? Strength = null,
+        bool? RequiresPrescription = null,
+        string? Manufacturer = null
+    );
+
+    public sealed record DrugSearchResult(
+        bool Found,
+        string? Message = null,
+        IReadOnlyList<DrugSummary>? Drugs = null
+    );
+
+    public sealed record DrugSummary(
+        Guid Id,
+        string Name,
+        string GenericName,
+        string Category,
+        string Form,
+        string? Strength = null
+    );
 
     // -------------------------------------------------------------------------
     //  Plugin functions — each method is decorated with [KernelFunction] so SK
@@ -49,7 +70,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         "Retrieves detailed information about a specific drug from the pharmacy database, " +
         "including its generic name, category, dosage forms, and whether it requires a prescription. " +
         "Use this when the user asks about a specific medication by name.")]
-    public async Task<string> GetDrugInfoAsync(
+    public async Task<DrugInfoResult> GetDrugInfoAsync(
         [Description(
             "The drug name — brand name (e.g. 'Augmentin') or generic name (e.g. 'Amoxicillin'). Partial names are accepted.")]
         string drugName,
@@ -81,14 +102,21 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         {
             logger.LogWarning("[DEBUG-PLUGIN] Drug '{DrugName}' not found in database", drugName);
             var notFoundMsg = $"The drug '{drugName}' was not found in the PharmaLink database. Provide general information based on medical knowledge, but note it may not be available in the system.";
-            logger.LogWarning("[DEBUG-PLUGIN] Returning not found message: {Msg}", notFoundMsg);
-            return notFoundMsg;
+            return new DrugInfoResult(Found: false, Message: notFoundMsg);
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Drug '{DrugName}' found: {DrugId}", drugName, drug.Id);
-        var jsonResult = JsonSerializer.Serialize(drug, JsonOptions);
-        logger.LogWarning("[DEBUG-PLUGIN] Serialized JSON string to return to Gemini: {Json}", jsonResult);
-        return jsonResult;
+        return new DrugInfoResult(
+            Found: true,
+            Id: drug.Id,
+            Name: drug.Name,
+            GenericName: drug.GenericName,
+            Category: drug.Category,
+            Form: drug.Form,
+            Strength: drug.Strength,
+            RequiresPrescription: drug.RequiresPrescription,
+            Manufacturer: drug.Manufacturer
+        );
     }
 
     [KernelFunction("search_drugs")]
@@ -96,7 +124,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         "Searches for drugs whose names start with or contain the given prefix. " +
         "Returns up to 8 matching drugs. " +
         "Use this when the user is looking for a type of medication or asks 'do you have X?'")]
-    public async Task<string> SearchDrugsAsync(
+    public async Task<DrugSearchResult> SearchDrugsAsync(
         [Description("Drug name prefix or partial name to search for (e.g. 'amox', 'para', 'ibu').")]
         string searchTerm,
         CancellationToken cancellationToken = default)
@@ -119,20 +147,19 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         if (!drugs.Any())
         {
             logger.LogWarning("[DEBUG-PLUGIN] Search term '{SearchTerm}' yielded no results", searchTerm);
-            return $"No drugs matching '{searchTerm}' were found in the PharmaLink database.";
+            return new DrugSearchResult(Found: false, Message: $"No drugs matching '{searchTerm}' were found in the PharmaLink database.");
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Search returned {Count} drugs", drugs.Count);
-        var jsonResult = JsonSerializer.Serialize(drugs, JsonOptions);
-        logger.LogWarning("[DEBUG-PLUGIN] Serialized JSON string to return to Gemini: {Json}", jsonResult);
-        return jsonResult;
+        var summaries = drugs.Select(d => new DrugSummary(d.Id, d.Name, d.GenericName, d.Category, d.Form)).ToList();
+        return new DrugSearchResult(Found: true, Drugs: summaries);
     }
 
     [KernelFunction("get_drugs_by_category")]
     [Description(
         "Retrieves a list of drugs belonging to a specific therapeutic category. " +
         "Use this when the user asks about a class of drugs (e.g. 'antibiotics', 'painkillers', 'antidiabetics').")]
-    public async Task<string> GetDrugsByCategoryAsync(
+    public async Task<DrugSearchResult> GetDrugsByCategoryAsync(
         [Description("Therapeutic category name (e.g. 'Antibiotics', 'NSAIDs', 'Antihypertensives').")]
         string category,
         CancellationToken cancellationToken = default)
@@ -152,12 +179,11 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         if (!drugs.Any())
         {
             logger.LogWarning("[DEBUG-PLUGIN] Category '{Category}' yielded no results", category);
-            return $"No drugs in category '{category}' were found in the PharmaLink database.";
+            return new DrugSearchResult(Found: false, Message: $"No drugs in category '{category}' were found in the PharmaLink database.");
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Category returned {Count} drugs", drugs.Count);
-        var jsonResult = JsonSerializer.Serialize(drugs, JsonOptions);
-        logger.LogWarning("[DEBUG-PLUGIN] Serialized JSON string to return to Gemini: {Json}", jsonResult);
-        return jsonResult;
+        var summaries = drugs.Select(d => new DrugSummary(Guid.Empty, d.Name, d.GenericName, "", d.Form, d.Strength)).ToList();
+        return new DrugSearchResult(Found: true, Drugs: summaries);
     }
 }
