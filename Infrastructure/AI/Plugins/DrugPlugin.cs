@@ -35,7 +35,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
+        WriteIndented = false,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping
     };
 
     // -------------------------------------------------------------------------
