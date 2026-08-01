@@ -172,12 +172,19 @@ public sealed class AssistantController(
 
         logger.LogInformation("AssistantController.GetDrugInfo for: {DrugName}", drugName);
 
-        var result = await drugInfoService.GetDrugInfoAsync(drugName, ct);
+        try
+        {
+            var result = await drugInfoService.GetDrugInfoAsync(drugName, ct);
 
-        if (result is null)
-            return NotFound(new { error = $"Could not retrieve information for '{drugName}'." });
+            if (result is null)
+                return NotFound(new { error = $"Could not retrieve information for '{drugName}'." });
 
-        return Ok(result);
+            return Ok(result);
+        }
+        catch (Exception ex) when (ex.ToString().Contains("429"))
+        {
+            return StatusCode(429, new { error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى." });
+        }
     }
 
     /// <summary>
@@ -211,8 +218,15 @@ public sealed class AssistantController(
             "AssistantController.CheckInteractions for {Count} drugs",
             request.DrugNames.Count);
 
-        var result = await drugInfoService.CheckInteractionsAsync(request.DrugNames, ct);
-        return Ok(result);
+        try
+        {
+            var result = await drugInfoService.CheckInteractionsAsync(request.DrugNames, ct);
+            return Ok(result);
+        }
+        catch (Exception ex) when (ex.ToString().Contains("429"))
+        {
+            return StatusCode(429, new { error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى." });
+        }
     }
 
     // -------------------------------------------------------------------------
