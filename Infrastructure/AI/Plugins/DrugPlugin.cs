@@ -78,13 +78,16 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
 
         if (drug is null)
         {
-            logger.LogDebug("Drug '{DrugName}' not found in database", drugName);
-            return
-                $"The drug '{drugName}' was not found in the PharmaLink database. Provide general information based on medical knowledge, but note it may not be available in the system.";
+            logger.LogWarning("[DEBUG-PLUGIN] Drug '{DrugName}' not found in database", drugName);
+            var notFoundMsg = $"The drug '{drugName}' was not found in the PharmaLink database. Provide general information based on medical knowledge, but note it may not be available in the system.";
+            logger.LogWarning("[DEBUG-PLUGIN] Returning not found message: {Msg}", notFoundMsg);
+            return notFoundMsg;
         }
 
-        logger.LogDebug("Drug '{DrugName}' found: {DrugId}", drugName, drug.Id);
-        return JsonSerializer.Serialize(drug, JsonOptions);
+        logger.LogWarning("[DEBUG-PLUGIN] Drug '{DrugName}' found: {DrugId}", drugName, drug.Id);
+        var jsonResult = JsonSerializer.Serialize(drug, JsonOptions);
+        logger.LogWarning("[DEBUG-PLUGIN] Serialized JSON string to return to Gemini: {Json}", jsonResult);
+        return jsonResult;
     }
 
     [KernelFunction("search_drugs")]
@@ -113,9 +116,15 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
             .ToListAsync(cancellationToken);
 
         if (!drugs.Any())
+        {
+            logger.LogWarning("[DEBUG-PLUGIN] Search term '{SearchTerm}' yielded no results", searchTerm);
             return $"No drugs matching '{searchTerm}' were found in the PharmaLink database.";
+        }
 
-        return JsonSerializer.Serialize(drugs, JsonOptions);
+        logger.LogWarning("[DEBUG-PLUGIN] Search returned {Count} drugs", drugs.Count);
+        var jsonResult = JsonSerializer.Serialize(drugs, JsonOptions);
+        logger.LogWarning("[DEBUG-PLUGIN] Serialized JSON string to return to Gemini: {Json}", jsonResult);
+        return jsonResult;
     }
 
     [KernelFunction("get_drugs_by_category")]
@@ -139,8 +148,15 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
             .Take(10)
             .ToListAsync(cancellationToken);
 
-        return !drugs.Any()
-            ? $"No drugs in category '{category}' were found in the PharmaLink database."
-            : JsonSerializer.Serialize(drugs, JsonOptions);
+        if (!drugs.Any())
+        {
+            logger.LogWarning("[DEBUG-PLUGIN] Category '{Category}' yielded no results", category);
+            return $"No drugs in category '{category}' were found in the PharmaLink database.";
+        }
+
+        logger.LogWarning("[DEBUG-PLUGIN] Category returned {Count} drugs", drugs.Count);
+        var jsonResult = JsonSerializer.Serialize(drugs, JsonOptions);
+        logger.LogWarning("[DEBUG-PLUGIN] Serialized JSON string to return to Gemini: {Json}", jsonResult);
+        return jsonResult;
     }
 }

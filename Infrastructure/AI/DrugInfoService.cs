@@ -77,10 +77,12 @@ public sealed class DrugInfoService(
         {
             try
             {
+                logger.LogWarning("[DEBUG-SERVICE] Invoking Kernel for {DrugName} (Attempt {Attempt})", drugName, i + 1);
                 // InvokePromptAsync fills the template, sends to the model,
                 // and returns the text response (which should be JSON).
                 var result = await kernel.InvokePromptAsync(_drugInfoPrompt, arguments, cancellationToken: ct);
                 var json = result.GetValue<string>() ?? string.Empty;
+                logger.LogWarning("[DEBUG-SERVICE] Kernel invocation succeeded. Result JSON length: {Len}", json.Length);
 
                 return DeserializeDrugInfo(json, drugName);
             }
