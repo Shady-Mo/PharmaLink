@@ -136,4 +136,24 @@ public class PharmacistsController(IPharmacistManagementService pharmacistServic
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+
+    /// <summary>
+    /// Assigns or reassigns a pharmacist to a specific branch.
+    /// </summary>
+    /// <response code="200">Pharmacist successfully assigned to branch. Returns updated profile.</response>
+    /// <response code="404">Pharmacist or Branch not found.</response>
+    /// <response code="409">Pharmacist is already assigned to this branch.</response>
+    [HttpPut("{id:guid}/assign-branch")]
+    [ProducesResponseType(typeof(PharmacistResponseDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> AssignBranch(
+        Guid id,
+        [FromBody] AssignPharmacistToBranchRequestDTO dto,
+        CancellationToken cancellationToken)
+    {
+        var result = await pharmacistService.AssignBranchAsync(User.GetUserId(), id, dto.BranchId, cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
 }

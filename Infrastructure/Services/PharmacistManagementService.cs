@@ -458,6 +458,57 @@ public class PharmacistManagementService(
         return Result.Success(pharmacistResponseDTO);
     }
 
+    public async Task<Result<PharmacistResponseDTO>> AssignBranchAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        Guid branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var admin = await context.PharmacyAdmins
+            .Include(x => x.Pharmacy)
+            .FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        if (admin?.PharmacyId is null)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
+
+        var hasAssignment = await context.PharmacistAssignments
+            .AnyAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId, cancellationToken);
+        if (!hasAssignment)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
+
+        var targetBranch = await context.PharmacyBranches
+            .FirstOrDefaultAsync(b => b.BranchId == branchId && b.PharmacyId == admin.PharmacyId.Value, cancellationToken);
+        if (targetBranch is null)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.BranchNotFound);
+
+        var activeAssignment = await context.PharmacistAssignments
+            .FirstOrDefaultAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId && a.IsActive, cancellationToken);
+
+        if (activeAssignment is not null && activeAssignment.BranchId == branchId)
+        {
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AlreadyAssignedToBranch);
+        }
+
+        if (activeAssignment is not null)
+        {
+            activeAssignment.IsActive = false;
+            activeAssignment.EndedAt = DateTime.UtcNow;
+        }
+
+        var newAssignment = new PharmacistAssignment
+        {
+            PharmacistId = pharmacistId,
+            PharmacyId = admin.PharmacyId.Value,
+            BranchId = branchId,
+            AssignedByPharmacyAdminId = adminId,
+            AssignedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+        await context.PharmacistAssignments.AddAsync(newAssignment, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return await GetPharmacistByIdAsync(adminId, pharmacistId, cancellationToken);
+    }
+
     public async Task<Result> DeletePharmacistAsync(
         Guid adminId,
         Guid pharmacistId,
