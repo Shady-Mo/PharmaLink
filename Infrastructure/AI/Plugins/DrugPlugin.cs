@@ -48,7 +48,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         "Retrieves detailed information about a specific drug from the pharmacy database, " +
         "including its generic name, category, dosage forms, and whether it requires a prescription. " +
         "Use this when the user asks about a specific medication by name.")]
-    public async Task<object> GetDrugInfoAsync(
+    public async Task<string> GetDrugInfoAsync(
         [Description(
             "The drug name — brand name (e.g. 'Augmentin') or generic name (e.g. 'Amoxicillin'). Partial names are accepted.")]
         string drugName,
@@ -79,11 +79,12 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         if (drug is null)
         {
             logger.LogDebug("Drug '{DrugName}' not found in database", drugName);
-            return new { error = $"The drug '{drugName}' was not found in the PharmaLink database. Provide general information based on medical knowledge, but note it may not be available in the system." };
+            return
+                $"The drug '{drugName}' was not found in the PharmaLink database. Provide general information based on medical knowledge, but note it may not be available in the system.";
         }
 
         logger.LogDebug("Drug '{DrugName}' found: {DrugId}", drugName, drug.Id);
-        return drug;
+        return JsonSerializer.Serialize(drug, JsonOptions);
     }
 
     [KernelFunction("search_drugs")]
@@ -91,7 +92,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         "Searches for drugs whose names start with or contain the given prefix. " +
         "Returns up to 8 matching drugs. " +
         "Use this when the user is looking for a type of medication or asks 'do you have X?'")]
-    public async Task<object> SearchDrugsAsync(
+    public async Task<string> SearchDrugsAsync(
         [Description("Drug name prefix or partial name to search for (e.g. 'amox', 'para', 'ibu').")]
         string searchTerm,
         CancellationToken cancellationToken = default)
@@ -112,16 +113,16 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
             .ToListAsync(cancellationToken);
 
         if (!drugs.Any())
-            return new { error = $"No drugs matching '{searchTerm}' were found in the PharmaLink database." };
+            return $"No drugs matching '{searchTerm}' were found in the PharmaLink database.";
 
-        return drugs;
+        return JsonSerializer.Serialize(drugs, JsonOptions);
     }
 
     [KernelFunction("get_drugs_by_category")]
     [Description(
         "Retrieves a list of drugs belonging to a specific therapeutic category. " +
         "Use this when the user asks about a class of drugs (e.g. 'antibiotics', 'painkillers', 'antidiabetics').")]
-    public async Task<object> GetDrugsByCategoryAsync(
+    public async Task<string> GetDrugsByCategoryAsync(
         [Description("Therapeutic category name (e.g. 'Antibiotics', 'NSAIDs', 'Antihypertensives').")]
         string category,
         CancellationToken cancellationToken = default)
@@ -138,9 +139,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
             .Take(10)
             .ToListAsync(cancellationToken);
 
-        if (!drugs.Any())
-            return new { error = $"No drugs in category '{category}' were found in the PharmaLink database." };
-            
-        return drugs;
+        return !drugs.Any()
+            ? $"No drugs in category '{category}' were found in the PharmaLink database."
+            : JsonSerializer.Serialize(drugs, JsonOptions);
     }
 }
