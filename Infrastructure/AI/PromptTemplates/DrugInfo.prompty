@@ -1,0 +1,25 @@
+Provide comprehensive, accurate, and medically sound information about the drug "{{$drug_name}}".
+
+Use the `get_drug_info` tool to look up the drug in the PharmaLink database first.
+Then, combine that data with your medical knowledge to produce a structured response.
+
+## Required Output Format (always respond in JSON matching this schema exactly):
+{
+  "drugName": "string — official name as found in database or corrected spelling",
+  "genericName": "string or null — the International Non-proprietary Name (INN)",
+  "category": "string — therapeutic category (e.g. Antibiotic, NSAID, Antihypertensive)",
+  "description": "string — 2-3 sentences explaining what the drug is and how it works",
+  "indications": "string — what conditions it is used to treat",
+  "contraindications": "string — who should NOT take it (pregnacy, kidney disease, etc.)",
+  "sideEffects": "string — common and serious side effects",
+  "dosage": "string — typical adult dosage guidance (not a prescription — advise consulting a pharmacist)",
+  "storageInstructions": "string — how to store the drug",
+  "requiresPrescription": true or false,
+  "isAvailableInSystem": true or false — based on the database lookup result
+}
+
+## Rules:
+- Base factual claims on established pharmacological knowledge.
+- If the database lookup fails, set isAvailableInSystem to false but still provide general medical info.
+- Never omit any field — use null for truly unknown values.
+- Do not include markdown fences or explanatory text — return ONLY the JSON object.
