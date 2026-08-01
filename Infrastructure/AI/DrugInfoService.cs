@@ -72,20 +72,30 @@ public sealed class DrugInfoService(
             [PromptExecutionSettings.DefaultServiceId] = execSettings
         };
 
-        try
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
         {
-            // InvokePromptAsync fills the template, sends to the model,
-            // and returns the text response (which should be JSON).
-            var result = await kernel.InvokePromptAsync(_drugInfoPrompt, arguments, cancellationToken: ct);
-            var json = result.GetValue<string>() ?? string.Empty;
+            try
+            {
+                // InvokePromptAsync fills the template, sends to the model,
+                // and returns the text response (which should be JSON).
+                var result = await kernel.InvokePromptAsync(_drugInfoPrompt, arguments, cancellationToken: ct);
+                var json = result.GetValue<string>() ?? string.Empty;
 
-            return DeserializeDrugInfo(json, drugName);
+                return DeserializeDrugInfo(json, drugName);
+            }
+            catch (Exception ex) when (ex.Message.Contains("429") && i < maxRetries - 1)
+            {
+                logger.LogWarning("Rate limit hit (429) for Gemini. Retrying {RetryCount}/{MaxRetries} in 3 seconds...", i + 1, maxRetries - 1);
+                await Task.Delay(3000, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "DrugInfoService.GetDrugInfoAsync failed for {DrugName}", drugName);
+                break;
+            }
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "DrugInfoService.GetDrugInfoAsync failed for {DrugName}", drugName);
-            return null;
-        }
+        return null;
     }
 
     /// <inheritdoc/>
@@ -120,22 +130,33 @@ public sealed class DrugInfoService(
             [PromptExecutionSettings.DefaultServiceId] = execSettings
         };
 
-        try
+        int maxRetries = 3;
+        for (int i = 0; i < maxRetries; i++)
         {
-            var result = await kernel.InvokePromptAsync(_interactionPrompt, arguments, cancellationToken: ct);
-            var json = result.GetValue<string>() ?? string.Empty;
+            try
+            {
+                var result = await kernel.InvokePromptAsync(_interactionPrompt, arguments, cancellationToken: ct);
+                var json = result.GetValue<string>() ?? string.Empty;
 
-            return DeserializeInteractionResult(json, drugNames);
+                return DeserializeInteractionResult(json, drugNames);
+            }
+            catch (Exception ex) when (ex.Message.Contains("429") && i < maxRetries - 1)
+            {
+                logger.LogWarning("Rate limit hit (429) for Gemini interactions. Retrying {RetryCount}/{MaxRetries} in 3 seconds...", i + 1, maxRetries - 1);
+                await Task.Delay(3000, ct);
+            }
+            catch (Exception ex)
+            {
+                logger.LogError(ex, "DrugInfoService.CheckInteractionsAsync failed");
+                break;
+            }
         }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "DrugInfoService.CheckInteractionsAsync failed");
-            return new InteractionCheckResult(
-                drugNames,
-                [],
-                false,
-                "Unable to perform the interaction check at this time. Please consult your pharmacist.");
-        }
+        
+        return new InteractionCheckResult(
+            drugNames,
+            [],
+            false,
+            "الخدمة مشغولة حالياً (ضغط على الذكاء الاصطناعي). يرجى المحاولة بعد قليل.");
     }
 
     // -------------------------------------------------------------------------
