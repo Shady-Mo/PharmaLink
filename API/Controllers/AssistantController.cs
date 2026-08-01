@@ -159,12 +159,12 @@ public sealed class AssistantController(
     /// </summary>
     /// <param name="drugName">The drug name (brand or generic, partial names accepted).</param>
     /// <param name="ct">Cancellation token.</param>
-    [HttpGet("drug-info/{drugName}")]
+    [HttpGet("drug-info")]
     [ProducesResponseType(typeof(DrugInfoResult), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetDrugInfo(
-        [FromRoute] string drugName,
+        [FromQuery] string drugName,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(drugName))
