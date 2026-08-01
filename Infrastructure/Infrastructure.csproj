@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -32,7 +32,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Include="AI\Prompts\*.prompty" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="AI\PromptTemplates\*.prompty" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

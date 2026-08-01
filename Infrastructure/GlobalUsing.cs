@@ -91,3 +91,5 @@ global using Application.DTOs.Pharmacy.Responses;
 global using Infrastructure.Services.PatientCatalog;
 global using Application.DTOs.PharmacyBranch.Response;
 global using Application.Services.Pharmacy;
+global using Infrastructure.AI.Plugins;
+global using Infrastructure.AI;

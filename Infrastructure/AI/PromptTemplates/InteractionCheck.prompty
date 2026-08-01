@@ -1,0 +1,36 @@
+Analyze potential drug-drug interactions for the following list of medications and return a comprehensive interaction report.
+All interaction descriptions, recommendations, and summaries MUST be written in professional Arabic.
+
+## Drugs to analyze:
+{{$drug_list}}
+
+## Instructions:
+1. For each pair of drugs in the list, identify any known clinically significant interactions.
+2. Classify each interaction by severity: None, Minor, Moderate, Severe, or Contraindicated.
+3. Provide a plain-language description of the interaction mechanism.
+4. Provide a clinical recommendation for each interaction.
+5. Produce a brief overall summary.
+
+## Required Output Format (return ONLY valid JSON, no markdown, no explanation):
+{
+  "checkedDrugs": ["drug1", "drug2", ...],
+  "interactions": [
+    {
+      "drug1": "string",
+      "drug2": "string",
+      "severity": "None|Minor|Moderate|Severe|Contraindicated",
+      "description": "string — mechanism and clinical significance (in Arabic)",
+      "recommendation": "string — what the patient/pharmacist should do (in Arabic)"
+    }
+  ],
+  "hasSevereInteractions": true or false,
+  "summary": "string — 2-3 sentence overall assessment and key warnings (in Arabic)"
+}
+
+## Rules:
+- Only include pairs that have a known interaction (severity != None).
+- If no interactions are found, return an empty interactions array.
+- hasSevereInteractions is true if ANY interaction is Severe or Contraindicated.
+- Base your analysis on established pharmacological literature.
+- Always recommend the patient consult their pharmacist or physician before making any medication changes.
+- Return ONLY the JSON object — no preamble, no postamble.

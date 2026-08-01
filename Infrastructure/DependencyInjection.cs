@@ -138,6 +138,7 @@ public static class DependencyInjection
             services.AddScoped<RoleSeeder>();
 
             services.AddAiInfrastructure(configuration);
+            services.AddSemanticKernelServices(configuration);
 
             return services;
         }
