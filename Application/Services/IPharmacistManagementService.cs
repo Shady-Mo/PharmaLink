@@ -29,6 +29,12 @@ public interface IPharmacistManagementService
         Domain.Enums.UserStatus status,
         CancellationToken cancellationToken = default);
 
+    Task<Result<PharmacistResponseDTO>> AssignBranchAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        Guid branchId,
+        CancellationToken cancellationToken = default);
+
     Task<Result<IReadOnlyList<AssignmentHistoryItemDTO>>> GetPharmacistHistoryAsync(
         Guid adminId,
         Guid pharmacistId,
