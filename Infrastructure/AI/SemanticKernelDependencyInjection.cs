@@ -37,7 +37,13 @@ public static class SemanticKernelDependencyInjection
             var settings = sp.GetRequiredService<IOptions<SemanticKernelSettings>>().Value;
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
 
-            var kernel = SemanticKernelFactory.Build(settings, loggerFactory);
+            var handler = new Infrastructure.Logging.HttpLoggingHandler(loggerFactory.CreateLogger<Infrastructure.Logging.HttpLoggingHandler>())
+            {
+                InnerHandler = new HttpClientHandler()
+            };
+            var httpClient = new HttpClient(handler);
+
+            var kernel = SemanticKernelFactory.Build(settings, loggerFactory, httpClient);
 
             var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
 
@@ -52,6 +58,10 @@ public static class SemanticKernelDependencyInjection
             kernel.Plugins.AddFromObject(
                 new OrderPlugin(scopeFactory, loggerFactory.CreateLogger<OrderPlugin>()),
                 pluginName: "OrderPlugin");
+
+            kernel.Plugins.AddFromObject(
+                new CartOrderPlugin(scopeFactory, loggerFactory.CreateLogger<CartOrderPlugin>()),
+                pluginName: "CartOrderPlugin");
 
             loggerFactory.CreateLogger("SemanticKernelDI")
                 .LogInformation(

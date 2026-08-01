@@ -175,7 +175,7 @@ public sealed class DrugInfoService(
         {
             return new GeminiPromptExecutionSettings
             {
-                MaxTokens = _settings.MaxTokens,
+                MaxTokens = 8192,
                 Temperature = 0.2, // Low temperature for structured/factual output
                 FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
                 SafetySettings =
@@ -205,6 +205,7 @@ public sealed class DrugInfoService(
 
             return new DrugInfoResult(
                 DrugName: raw.DrugName ?? originalDrugName,
+                ArabicName: raw.ArabicName,
                 GenericName: raw.GenericName,
                 Category: raw.Category,
                 Description: raw.Description,
@@ -300,6 +301,7 @@ public sealed class DrugInfoService(
     private sealed class RawDrugInfoResponse
     {
         public string? DrugName { get; set; }
+        public string? ArabicName { get; set; }
         public string? GenericName { get; set; }
         public string? Category { get; set; }
         public string? Description { get; set; }

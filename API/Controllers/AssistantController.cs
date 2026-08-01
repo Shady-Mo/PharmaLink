@@ -1,5 +1,6 @@
 using System.Net.Mime;
 using System.Text;
+using API.Extensions;
 using Application.Services.AI;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -50,9 +51,8 @@ public sealed class AssistantController(
         [FromBody] ChatRequest request,
         CancellationToken ct)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst("sub")?.Value
-                     ?? "anonymous";
+        var id = User.GetUserId();
+        var userId = id == Guid.Empty ? "anonymous" : id.ToString();
 
         logger.LogInformation(
             "AssistantController.Chat — User {UserId}, Message length: {Length}",
@@ -98,9 +98,8 @@ public sealed class AssistantController(
         [FromBody] ChatRequest request,
         CancellationToken ct)
     {
-        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                     ?? User.FindFirst("sub")?.Value
-                     ?? "anonymous";
+        var id = User.GetUserId();
+        var userId = id == Guid.Empty ? "anonymous" : id.ToString();
 
         if (string.IsNullOrWhiteSpace(request.Message))
         {
@@ -139,10 +138,17 @@ public sealed class AssistantController(
             // Client disconnected — this is normal, not an error.
             logger.LogDebug("ChatStream cancelled for user {UserId} (client disconnected)", userId);
         }
+        catch (Exception ex) when (ex.ToString().Contains("429"))
+        {
+            logger.LogWarning("Rate limit exceeded for user {UserId}", userId);
+            var errorData = "data: عذراً، لقد تجاوزت الحد الأقصى للطلبات المجانية للذكاء الاصطناعي. يرجى الانتظار لمدة دقيقة والمحاولة مرة أخرى.\n\n";
+            await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(errorData), ct);
+            await Response.Body.FlushAsync(ct);
+        }
         catch (Exception ex)
         {
             logger.LogError(ex, "ChatStream error for user {UserId}", userId);
-            var errorData = "data: [ERROR] An error occurred. Please try again.\n\n";
+            var errorData = "data: حدث خطأ غير متوقع. يرجى المحاولة مرة أخرى.\n\n";
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(errorData), ct);
             await Response.Body.FlushAsync(ct);
         }

@@ -15,18 +15,38 @@ namespace Infrastructure.AI.Plugins;
 /// </summary>
 public sealed class InventoryPlugin(IServiceScopeFactory scopeFactory, ILogger<InventoryPlugin> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
+    public sealed record InventoryCheckResult(
+        bool Found,
+        string? Message = null,
+        IReadOnlyList<InventoryItem>? Branches = null
+    );
+
+    public sealed record InventoryItem(
+        string BranchName,
+        string Address,
+        string DrugName,
+        int StockQuantity,
+        string UnitPrice
+    );
+
+    public sealed record BranchInventoryResult(
+        bool Found,
+        string? Message = null,
+        IReadOnlyList<BranchInventoryItem>? Drugs = null
+    );
+
+    public sealed record BranchInventoryItem(
+        string DrugName,
+        int StockQuantity,
+        string UnitPrice
+    );
 
     [KernelFunction("check_drug_availability")]
     [Description(
         "Checks whether a specific drug is currently in stock across pharmacy branches. " +
         "Returns the branches that have the drug and the available quantity. " +
         "Use this when the user asks 'Is X available?' or 'Can I get Y at a pharmacy?'")]
-    public async Task<string> CheckDrugAvailabilityAsync(
+    public async Task<InventoryCheckResult> CheckDrugAvailabilityAsync(
         [Description("The exact drug name as stored in the database.")]
         string drugName,
         CancellationToken cancellationToken = default)
@@ -43,23 +63,21 @@ public sealed class InventoryPlugin(IServiceScopeFactory scopeFactory, ILogger<I
             .Where(i => (EF.Functions.Like(i.Drug.BrandName, $"%{drugName}%") ||
                          EF.Functions.Like(i.Drug.GenericName, $"%{drugName}%")) &&
                         i.StockQuantity > 0)
-            .Select(i => new
-            {
-                BranchName = i.Branch.BranchName,
-                Address = i.Branch.AddressLine + ", " + i.Branch.City,
-                DrugName = i.Drug.BrandName,
+            .Select(i => new InventoryItem(
+                i.Branch.BranchName ?? "Unknown Branch",
+                (i.Branch.AddressLine != null ? i.Branch.AddressLine + ", " : "") + (i.Branch.City ?? ""),
+                i.Drug.BrandName ?? "Unknown Drug",
                 i.StockQuantity,
-                i.UnitPrice
-            })
+                i.UnitPrice.ToString()
+            ))
             .Take(5)
             .ToListAsync(cancellationToken);
 
         if (!inventoryItems.Any())
-            return
-                $"'{drugName}' is currently out of stock at all PharmaLink branches. Consider checking back later or ask your doctor about an alternative.";
+            return new InventoryCheckResult(Found: false, Message: $"'{drugName}' is currently out of stock at all PharmaLink branches. Consider checking back later or ask your doctor about an alternative.");
 
         logger.LogDebug("Found {Count} branches with '{DrugName}' in stock", inventoryItems.Count, drugName);
-        return JsonSerializer.Serialize(inventoryItems, JsonOptions);
+        return new InventoryCheckResult(Found: true, Branches: inventoryItems);
     }
 
     [KernelFunction("get_branch_inventory")]
@@ -67,7 +85,7 @@ public sealed class InventoryPlugin(IServiceScopeFactory scopeFactory, ILogger<I
         "Lists the drugs available at a specific pharmacy branch. " +
         "Returns drug names, quantities, and prices. " +
         "Use this when the user wants to know what a specific branch carries.")]
-    public async Task<string> GetBranchInventoryAsync(
+    public async Task<BranchInventoryResult> GetBranchInventoryAsync(
         [Description("The name or partial name of the pharmacy branch.")]
         string branchName,
         CancellationToken cancellationToken = default)
@@ -82,18 +100,17 @@ public sealed class InventoryPlugin(IServiceScopeFactory scopeFactory, ILogger<I
             .Include(i => i.Drug)
             .Include(i => i.Branch)
             .Where(i => EF.Functions.Like(i.Branch.BranchName, $"%{branchName}%") && i.StockQuantity > 0)
-            .Select(i => new
-            {
-                DrugName = i.Drug.BrandName,
+            .Select(i => new BranchInventoryItem(
+                i.Drug.BrandName ?? "Unknown Drug",
                 i.StockQuantity,
-                i.UnitPrice
-            })
+                i.UnitPrice.ToString()
+            ))
             .Take(20)
             .ToListAsync(cancellationToken);
 
         if (!items.Any())
-            return $"No inventory data found for branch '{branchName}', or the branch does not exist.";
+            return new BranchInventoryResult(Found: false, Message: $"No inventory data found for branch '{branchName}', or the branch does not exist.");
 
-        return JsonSerializer.Serialize(items, JsonOptions);
+        return new BranchInventoryResult(Found: true, Drugs: items);
     }
 }

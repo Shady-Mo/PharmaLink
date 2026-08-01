@@ -37,6 +37,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         string? Message = null,
         Guid? Id = null,
         string? Name = null,
+        string? ArabicName = null,
         string? GenericName = null,
         string? Category = null,
         string? Form = null,
@@ -54,6 +55,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
     public sealed record DrugSummary(
         Guid Id,
         string Name,
+        string? ArabicName,
         string GenericName,
         string Category,
         string Form,
@@ -69,7 +71,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
     [Description(
         "Retrieves detailed information about a specific drug from the pharmacy database, " +
         "including its generic name, category, dosage forms, and whether it requires a prescription. " +
-        "Use this when the user asks about a specific medication by name.")]
+        "Use this ONLY when the user asks for medical details about a specific medication, NOT for checking stock/availability.")]
     public async Task<DrugInfoResult> GetDrugInfoAsync(
         [Description(
             "The drug name — brand name (e.g. 'Augmentin') or generic name (e.g. 'Amoxicillin'). Partial names are accepted.")]
@@ -84,12 +86,14 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         var drug = await db.Drugs
             .AsNoTracking()
             .Where(d => EF.Functions.Like(d.BrandName, $"%{drugName}%") ||
-                        EF.Functions.Like(d.GenericName, $"%{drugName}%"))
+                        EF.Functions.Like(d.GenericName, $"%{drugName}%") ||
+                        EF.Functions.Like(d.ArabicName, $"%{drugName}%"))
             .Select(d => new
             {
-                Id = d.DrugId,
+                DrugId = d.DrugId,
                 Name = d.BrandName,
-                GenericName = d.GenericName,
+                d.ArabicName,
+                d.GenericName,
                 Category = d.DrugClass,
                 d.Form,
                 d.Strength,
@@ -105,11 +109,12 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
             return new DrugInfoResult(Found: false, Message: notFoundMsg);
         }
 
-        logger.LogWarning("[DEBUG-PLUGIN] Drug '{DrugName}' found: {DrugId}", drugName, drug.Id);
+        logger.LogWarning("[DEBUG-PLUGIN] Drug '{DrugName}' found: {DrugId}", drugName, drug.DrugId);
         return new DrugInfoResult(
             Found: true,
-            Id: drug.Id,
+            Id: drug.DrugId,
             Name: drug.Name,
+            ArabicName: drug.ArabicName,
             GenericName: drug.GenericName,
             Category: drug.Category,
             Form: drug.Form,
@@ -123,7 +128,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
     [Description(
         "Searches for drugs whose names start with or contain the given prefix. " +
         "Returns up to 8 matching drugs. " +
-        "Use this when the user is looking for a type of medication or asks 'do you have X?'")]
+        "Use this ONLY when the user is looking for general information about a medication type, NOT for checking stock/availability.")]
     public async Task<DrugSearchResult> SearchDrugsAsync(
         [Description("Drug name prefix or partial name to search for (e.g. 'amox', 'para', 'ibu').")]
         string searchTerm,
@@ -140,7 +145,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
                         EF.Functions.Like(d.GenericName, $"%{searchTerm}%") ||
                         EF.Functions.Like(d.ArabicName, $"%{searchTerm}%"))
             .Select(d => new
-                { Id = d.DrugId, Name = d.BrandName, GenericName = d.GenericName, Category = d.DrugClass, d.Form })
+                { Id = d.DrugId, Name = d.BrandName, d.ArabicName, GenericName = d.GenericName, Category = d.DrugClass, d.Form })
             .Take(8)
             .ToListAsync(cancellationToken);
 
@@ -151,7 +156,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Search returned {Count} drugs", drugs.Count);
-        var summaries = drugs.Select(d => new DrugSummary(d.Id, d.Name, d.GenericName, d.Category, d.Form)).ToList();
+        var summaries = drugs.Select(d => new DrugSummary(d.Id, d.Name, d.ArabicName, d.GenericName, d.Category, d.Form)).ToList();
         return new DrugSearchResult(Found: true, Drugs: summaries);
     }
 
@@ -171,8 +176,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
 
         var drugs = await db.Drugs
             .AsNoTracking()
-            .Where(d => EF.Functions.Like(d.DrugClass, $"%{category}%"))
-            .Select(d => new { Name = d.BrandName, GenericName = d.GenericName, d.Form, d.Strength })
+            .Where(d => d.DrugClass == category)
+            .Select(d => new { Id = d.DrugId, Name = d.BrandName, d.ArabicName, GenericName = d.GenericName, Category = d.DrugClass, d.Form, d.Strength })
             .Take(10)
             .ToListAsync(cancellationToken);
 
@@ -183,7 +188,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Category returned {Count} drugs", drugs.Count);
-        var summaries = drugs.Select(d => new DrugSummary(Guid.Empty, d.Name, d.GenericName, "", d.Form, d.Strength)).ToList();
+        var summaries = drugs.Select(d => new DrugSummary(Guid.Empty, d.Name, d.ArabicName, d.GenericName, "", d.Form, d.Strength)).ToList();
         return new DrugSearchResult(Found: true, Drugs: summaries);
     }
 }

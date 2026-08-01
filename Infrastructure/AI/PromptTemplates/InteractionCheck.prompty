@@ -1,4 +1,5 @@
 Analyze potential drug-drug interactions for the following list of medications and return a comprehensive interaction report.
+All interaction descriptions, recommendations, and summaries MUST be written in professional Arabic.
 
 ## Drugs to analyze:
 {{$drug_list}}
@@ -18,12 +19,12 @@ Analyze potential drug-drug interactions for the following list of medications a
       "drug1": "string",
       "drug2": "string",
       "severity": "None|Minor|Moderate|Severe|Contraindicated",
-      "description": "string — mechanism and clinical significance",
-      "recommendation": "string — what the patient/pharmacist should do"
+      "description": "string — mechanism and clinical significance (in Arabic)",
+      "recommendation": "string — what the patient/pharmacist should do (in Arabic)"
     }
   ],
   "hasSevereInteractions": true or false,
-  "summary": "string — 2-3 sentence overall assessment and key warnings"
+  "summary": "string — 2-3 sentence overall assessment and key warnings (in Arabic)"
 }
 
 ## Rules:

@@ -5,6 +5,7 @@ namespace Application.Services.AI;
 /// </summary>
 public sealed record DrugInfoResult(
     string DrugName,
+    string? ArabicName,
     string? GenericName,
     string? Category,
     string? Description,

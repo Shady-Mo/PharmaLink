@@ -1,4 +1,5 @@
 Provide comprehensive, accurate, and medically sound information about the drug "{{$drug_name}}".
+All medical information MUST be written in professional Arabic.
 
 Use the `get_drug_info` tool to look up the drug in the PharmaLink database first.
 Then, combine that data with your medical knowledge to produce a structured response.
@@ -6,14 +7,15 @@ Then, combine that data with your medical knowledge to produce a structured resp
 ## Required Output Format (always respond in JSON matching this schema exactly):
 {
   "drugName": "string — official name as found in database or corrected spelling",
+  "arabicName": "string or null — the Arabic name of the drug from the database",
   "genericName": "string or null — the International Non-proprietary Name (INN)",
-  "category": "string — therapeutic category (e.g. Antibiotic, NSAID, Antihypertensive)",
-  "description": "string — 2-3 sentences explaining what the drug is and how it works",
-  "indications": "string — what conditions it is used to treat",
-  "contraindications": "string — who should NOT take it (pregnacy, kidney disease, etc.)",
-  "sideEffects": "string — common and serious side effects",
-  "dosage": "string — typical adult dosage guidance (not a prescription — advise consulting a pharmacist)",
-  "storageInstructions": "string — how to store the drug",
+  "category": "string — therapeutic category (e.g. Antibiotic, NSAID, Antihypertensive) in Arabic",
+  "description": "string — 2-3 sentences explaining what the drug is and how it works (in Arabic)",
+  "indications": "string — what conditions it is used to treat (in Arabic)",
+  "contraindications": "string — who should NOT take it (pregnancy, kidney disease, etc.) (in Arabic)",
+  "sideEffects": "string — common and serious side effects (in Arabic)",
+  "dosage": "string — typical adult dosage guidance (in Arabic)",
+  "storageInstructions": "string — how to store the drug (in Arabic)",
   "requiresPrescription": true or false,
   "isAvailableInSystem": true or false — based on the database lookup result
 }

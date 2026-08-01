@@ -98,8 +98,7 @@ public sealed class PharmacyAssistantService : IPharmacyAssistantService
 
             // Graceful degradation: return a user-friendly message rather than
             // propagating the exception to the HTTP layer.
-            return "I'm sorry, I'm having trouble connecting to my AI service right now. " +
-                   "Please try again in a moment, or contact our support team.";
+            return "عذراً، أواجه ضغطاً حالياً في الاتصال بالخوادم (429 Too Many Requests). يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.";
         }
     }
 
@@ -146,7 +145,7 @@ public sealed class PharmacyAssistantService : IPharmacyAssistantService
         {
             _logger.LogError(ex,
                 "PharmacyAssistantService.ChatStreamAsync failed to initiate for user {UserId}", userId);
-            errorMessage = "I'm sorry, I'm having trouble connecting to my AI service right now.";
+            errorMessage = "عذراً، أواجه ضغطاً حالياً في الاتصال بالخوادم (429). يرجى الانتظار دقيقة ثم المحاولة.";
         }
 
         if (errorMessage is not null)
@@ -220,7 +219,7 @@ public sealed class PharmacyAssistantService : IPharmacyAssistantService
             // parameters while FunctionChoiceBehavior.Auto() is cross-provider.
             return new GeminiPromptExecutionSettings
             {
-                MaxTokens = _settings.MaxTokens,
+                MaxTokens = 8192,
                 Temperature = _settings.Temperature,
                 // FunctionChoiceBehavior.Auto() — the model can call any plugin
                 // function registered on the Kernel automatically.

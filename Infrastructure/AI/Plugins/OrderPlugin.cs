@@ -9,18 +9,36 @@ namespace Infrastructure.AI.Plugins;
 /// </summary>
 public sealed class OrderPlugin(IServiceScopeFactory scopeFactory, ILogger<OrderPlugin> logger)
 {
-    private static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        WriteIndented = false
-    };
+    public sealed record OrderStatusResult(
+        bool Found,
+        string? Message = null,
+        OrderDetail? Order = null
+    );
+
+    public sealed record OrderDetail(
+        Guid Id,
+        string Status,
+        DateTimeOffset CreatedAt,
+        IReadOnlyList<OrderItem> Items,
+        IReadOnlyList<OrderFulfillmentLeg> FulfillmentLegs
+    );
+
+    public sealed record OrderItem(
+        string DrugName,
+        int Quantity
+    );
+
+    public sealed record OrderFulfillmentLeg(
+        string Status,
+        string BranchName
+    );
 
     [KernelFunction("get_order_status")]
     [Description(
         "Retrieves the current status of a patient's order by order ID. " +
         "Returns the order status, items, and fulfillment legs. " +
         "Use this when the user asks 'What is the status of my order?' or 'Where is my order?'")]
-    public async Task<string> GetOrderStatusAsync(
+    public async Task<OrderStatusResult> GetOrderStatusAsync(
         [Description("The order ID (GUID) to look up.")]
         Guid orderId,
         [Description("The patient's user ID — used to ensure users can only see their own orders.")]
@@ -41,27 +59,24 @@ public sealed class OrderPlugin(IServiceScopeFactory scopeFactory, ILogger<Order
             .Include(o => o.Items).ThenInclude(i => i.Drug)
             .Include(o => o.FulfillmentLegs).ThenInclude(l => l.Branch)
             .Where(o => o.OrderId == orderId && o.PatientUserId == patientUserId)
-            .Select(o => new
-            {
-                Id = o.OrderId,
-                Status = o.OrderStatus.ToString(),
+            .Select(o => new OrderDetail(
+                o.OrderId,
+                o.OrderStatus.ToString(),
                 o.CreatedAt,
-                Items = o.Items.Select(i => new
-                {
-                    DrugName = i.Drug.BrandName,
-                    Quantity = i.QuantityNeeded
-                }),
-                FulfillmentLegs = o.FulfillmentLegs.Select(l => new
-                {
-                    Status = l.LegStatus.ToString(),
-                    BranchName = l.Branch != null ? l.Branch.BranchName : "N/A"
-                })
-            })
+                o.Items.Select(i => new OrderItem(
+                    i.Drug.BrandName,
+                    i.QuantityNeeded
+                )).ToList(),
+                o.FulfillmentLegs.Select(l => new OrderFulfillmentLeg(
+                    l.LegStatus.ToString(),
+                    l.Branch != null ? l.Branch.BranchName : "N/A"
+                )).ToList()
+            ))
             .FirstOrDefaultAsync(cancellationToken);
 
         if (order is null)
-            return "Order not found, or you do not have permission to view this order.";
+            return new OrderStatusResult(Found: false, Message: "Order not found, or you do not have permission to view this order.");
 
-        return JsonSerializer.Serialize(order, JsonOptions);
+        return new OrderStatusResult(Found: true, Order: order);
     }
 }
