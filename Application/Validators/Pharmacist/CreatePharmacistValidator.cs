@@ -25,8 +25,6 @@ public class CreatePharmacistValidator : AbstractValidator<CreatePharmacistReque
             .Matches("[0-9]").WithMessage("Password must contain at least one digit.")
             .Matches("[^a-zA-Z0-9]").WithMessage("Password must contain at least one special character.");
 
-        RuleFor(x => x.ConfirmPassword)
-            .NotEmpty().WithMessage("Confirm password is required.")
-            .Equal(x => x.Password).WithMessage("Passwords do not match.");
+
     }
 }
