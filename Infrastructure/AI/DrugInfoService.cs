@@ -177,7 +177,13 @@ public sealed class DrugInfoService(
             {
                 MaxTokens = _settings.MaxTokens,
                 Temperature = 0.2, // Low temperature for structured/factual output
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
+                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto(),
+                SafetySettings =
+                [
+                    new(GeminiSafetyCategory.DangerousContent, GeminiSafetyThreshold.BlockNone),
+                    new(GeminiSafetyCategory.Harassment, GeminiSafetyThreshold.BlockNone),
+                    new(GeminiSafetyCategory.SexuallyExplicit, GeminiSafetyThreshold.BlockNone)
+                ]
             };
         }
 
