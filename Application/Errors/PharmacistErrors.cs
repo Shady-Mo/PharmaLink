@@ -37,6 +37,11 @@ public static class PharmacistErrors
             "The target pharmacy was not found.",
             StatusCodes.Status404NotFound);
 
+    public static readonly Error BranchNotFound =
+        new("Pharmacist.BranchNotFound",
+            "The target pharmacy is not found", 404
+            );
+
     public static readonly Error AdminNotFound =
         new("Pharmacist.AdminNotFound",
             "The authenticated admin account could not be resolved.",
