@@ -1,5 +1,6 @@
-using Application.Services.AI;
 using Hangfire;
+using Application.Hubs;
+using Application.Services.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,8 +10,10 @@ builder.Services
     .AddInfrastructureServices(builder.Configuration);
 
 builder.Services.AddHealthChecks();
+builder.Services.AddSignalR();
 
 var app = builder.Build();
+
 
 using (var scope = app.Services.CreateScope())
 {
@@ -42,5 +45,7 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.MapHealthChecks("/health");
+
+app.MapHub<InventoryHub>("/inventory-hub");
 
 app.Run();

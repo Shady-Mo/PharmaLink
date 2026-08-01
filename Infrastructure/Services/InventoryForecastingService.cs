@@ -1,6 +1,9 @@
-﻿namespace Infrastructure.Services
+﻿using API.Notification;
+using Application.DTOs.Notification;
+
+namespace Infrastructure.Services
 {
-    public class InventoryForecastingService(AppDbContext _context, IInventoryForecastingCalculator _calculator) : IInventoryForecastingService
+    public class InventoryForecastingService(AppDbContext _context, UserManager<AppUser> userManager, IInventoryForecastingCalculator _calculator, INotificationService _notificationService) : IInventoryForecastingService
     {
 
         public async Task<Result> RunForecastingCycleAsync(Guid? branchId = null, int analysisDays = 30)
@@ -18,6 +21,8 @@
                 .ToListAsync();
 
             DateTime startDate = DateTime.UtcNow.AddDays(-analysisDays);
+
+            var notificationsToSend = new List<PoNotificationDto>();
 
             foreach (var item in inventoryItems)
             {
@@ -69,6 +74,16 @@
 
                         _context.PurchaseOrders.Add(newPo);
                         actionTaken = "PO_Created";
+
+                        notificationsToSend.Add(new PoNotificationDto
+                        {
+                            BranchId = item.BranchId,
+                            DrugName = item.Drug.GenericName,
+                            CurrentStock = item.StockQuantity,
+                            PredictedStockoutDate = depletionDate,
+                            RecommendedOrderQuantity = eoq > 0 ? eoq : 100,
+                            AiRationale = rationale + $"EOQ recommends ordering {eoq} units."
+                        });
                     }
                     else
                     {
@@ -98,6 +113,20 @@
             }
 
             await _context.SaveChangesAsync();
+
+            string email = "ohany3051@gmail.com";
+
+            if (branchId != null)
+            {
+                var user = _context.PharmacyAdmins.Where(p => p.Pharmacy.Branches.Any(b => b.BranchId == branchId)).FirstOrDefault();
+                if(user != null)
+                    email = user.Email!;
+            }
+
+            foreach (var notification in notificationsToSend)
+            {
+                await _notificationService.SendPoCreatedNotificationAsync(notification, email);
+            }
 
             return Result.Success();
         }

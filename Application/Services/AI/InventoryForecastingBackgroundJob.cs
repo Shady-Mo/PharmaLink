@@ -18,7 +18,7 @@ namespace Application.Services.AI
             using (var scope = _serviceProvider.CreateScope())
             {
                 var forecastingService = scope.ServiceProvider.GetRequiredService<IInventoryForecastingService>();
-
+                
                 await forecastingService.RunForecastingCycleAsync(branchId: null, analysisDays: 30);
             }
         }

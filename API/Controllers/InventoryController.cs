@@ -125,7 +125,8 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> TriggerForecast([FromQuery] Guid? branchId, [FromQuery] int analysisDays = 30)
     {
-       var result =  await _forecastingService.RunForecastingCycleAsync(branchId, analysisDays);
+
+        var result =  await _forecastingService.RunForecastingCycleAsync(branchId, analysisDays);
 
        return result.IsSuccess ? Ok(new {
            Success = true,
