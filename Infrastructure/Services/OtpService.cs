@@ -22,7 +22,7 @@ public class OtpService(
     IWebhookOtpDispatcher dispatcher,
     ILogger<OtpService> logger) : IOtpService
 {
-    private const int OtpLifetimeMinutes = 5;
+    private const int OtpLifetimeMinutes = 1;
     private const int MaxAttempts = 5;
     private const int RateLimitWindowMinutes = 5;
 
