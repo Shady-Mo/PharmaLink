@@ -1,8 +1,9 @@
-﻿using Twilio.TwiML.Messaging;
+﻿using Application.Services.AI;
+using Twilio.TwiML.Messaging;
 
 namespace API.Controllers;
 
-public class InventoryController(IInventoryService inventoryService) : BaseApiController
+public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService, IPurchaseOrderService _poService, IInventoryReportService _reportService) : BaseApiController
 {
     /// <summary>
     /// Retrieves a paginated inventory list, with optional text search and stock-status filtering.
@@ -114,5 +115,55 @@ public class InventoryController(IInventoryService inventoryService) : BaseApiCo
         var result = await inventoryService.AdjustStock(id, dto, cancellationToken);
 
         return result.IsSuccess ? Ok(new {Message = result.Value }) : result.ToProblem();
+    }
+
+
+
+    [HttpPost("trigger-forecast")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> TriggerForecast([FromQuery] Guid? branchId, [FromQuery] int analysisDays = 30)
+    {
+
+        var result =  await _forecastingService.RunForecastingCycleAsync(branchId, analysisDays);
+
+       return result.IsSuccess ? Ok(new {
+           Success = true,
+           Message = branchId.HasValue
+                ? $"Forecasting cycle successfully executed for branch: {branchId}"
+                : "Forecasting cycle successfully executed for all branches.",
+           Timestamp = DateTime.UtcNow
+       }) : result.ToProblem();
+       
+    }
+
+
+    [HttpGet("branches/{branchId}/forecast-report")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
+    public async Task<IActionResult> GetForecastReport(Guid branchId)
+    {
+        // ممكن تتأكد هنا إن اليوزر اللي عامل لوجين هو فعلاً مدير نفس الفرع ده
+        var report = await _reportService.GetBranchForecastReportAsync(branchId);
+
+        if (report == null)
+            return NotFound(new { Success = false, Message = "No forecast data found for this branch." });
+
+        return Ok(new { Success = true, Data = report });
+    }
+
+  
+    [HttpPut("purchase-orders/{orderId}/approve")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
+    public async Task<IActionResult> ApprovePurchaseOrder(Guid orderId)
+    {
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
+
+        var result = await _poService.ApprovePurchaseOrderAsync(orderId, userId);
+
+        if (!result)
+            return BadRequest(new { Success = false, Message = "Failed to approve. Order might not exist or is already processed." });
+
+        return Ok(new { Success = true, Message = "Purchase order approved successfully." });
     }
 }

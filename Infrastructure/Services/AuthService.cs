@@ -350,4 +350,6 @@ public class AuthService(
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
     }
+
+    
 }
