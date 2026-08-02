@@ -157,7 +157,6 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
     public async Task<IActionResult> ApprovePurchaseOrder(Guid orderId)
     {
-        // بنجيب الـ ID بتاع اليوزر اللي داس موافقة (عشان الـ Audit)
         var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
 
         var result = await _poService.ApprovePurchaseOrderAsync(orderId, userId);

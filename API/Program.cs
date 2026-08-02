@@ -45,6 +45,8 @@ app.UseAuthentication();
 
 app.UseAuthorization();
 
+app.UseHangfireDashboard();
+
 app.MapControllers();
 
 app.MapHealthChecks("/health");

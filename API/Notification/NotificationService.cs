@@ -14,7 +14,6 @@ namespace API.Notification
             await _hubContext.Clients.Group(groupName).SendAsync("ReceivePoAlert", notification);
             await _hubContext.Clients.All.SendAsync("ReceivePoAlert", notification);
 
-            // 2. إرسال الإيميل (Email Delivery)
 
             string emailBody = $@"
                 <h3>Critical Stock Alert</h3>
