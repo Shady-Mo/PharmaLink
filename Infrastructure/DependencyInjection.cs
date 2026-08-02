@@ -1,3 +1,5 @@
+using Hangfire;
+
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -94,6 +96,9 @@ public static class DependencyInjection
             services.AddScoped<IAdminDashboardService, AdminDashboardService>();
             services.AddScoped<IPharmacyAdminService, PharmacyAdminService>();
 
+            services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+            services.AddScoped<IInventoryReportService, InventoryReportService>();
+
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
 
@@ -137,6 +142,14 @@ public static class DependencyInjection
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
+
+            services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(configuration.GetConnectionString("DefaultConnection")));
+
+            services.AddHangfireServer();
 
             services.AddAiInfrastructure(configuration);
 

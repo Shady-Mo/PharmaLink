@@ -66,7 +66,7 @@ namespace Infrastructure.Services
                         {
                             DrugId = item.DrugId,
                             BranchId = item.BranchId,
-                            OrderedQuantity = eoq > 0 ? eoq : 100,
+                            OrderedQuantity = eoq > 0 ? eoq : 30,
                             Status = POStatus.Pending,
                             AiRationale = rationale + $"EOQ recommends ordering {eoq} units.",
                             CreatedAt = DateTime.UtcNow

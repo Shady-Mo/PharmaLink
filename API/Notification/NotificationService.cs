@@ -12,9 +12,10 @@ namespace API.Notification
             string groupName = $"Branch_{notification.BranchId}";
 
             await _hubContext.Clients.Group(groupName).SendAsync("ReceivePoAlert", notification);
+            await _hubContext.Clients.All.SendAsync("ReceivePoAlert", notification);
 
             // 2. إرسال الإيميل (Email Delivery)
-            
+
             string emailBody = $@"
                 <h3>Critical Stock Alert</h3>
                 <p><strong>Drug:</strong> {notification.DrugName}</p>

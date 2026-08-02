@@ -1,6 +1,7 @@
 using Hangfire;
 using Application.Hubs;
 using Application.Services.AI;
+using API.Notification;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,8 @@ builder.Services
 
 builder.Services.AddHealthChecks();
 builder.Services.AddSignalR();
+
+builder.Services.AddScoped<INotificationService, NotificationService>();
 
 var app = builder.Build();
 

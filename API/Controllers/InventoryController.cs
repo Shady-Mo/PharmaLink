@@ -3,7 +3,7 @@ using Twilio.TwiML.Messaging;
 
 namespace API.Controllers;
 
-public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService) : BaseApiController
+public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService, IPurchaseOrderService _poService, IInventoryReportService _reportService) : BaseApiController
 {
     /// <summary>
     /// Retrieves a paginated inventory list, with optional text search and stock-status filtering.
@@ -136,5 +136,35 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
            Timestamp = DateTime.UtcNow
        }) : result.ToProblem();
        
+    }
+
+
+    [HttpGet("branches/{branchId}/forecast-report")]
+    [Authorize(Roles = "BranchManager,Admin")]
+    public async Task<IActionResult> GetForecastReport(Guid branchId)
+    {
+        // ممكن تتأكد هنا إن اليوزر اللي عامل لوجين هو فعلاً مدير نفس الفرع ده
+        var report = await _reportService.GetBranchForecastReportAsync(branchId);
+
+        if (report == null)
+            return NotFound(new { Success = false, Message = "No forecast data found for this branch." });
+
+        return Ok(new { Success = true, Data = report });
+    }
+
+  
+    [HttpPut("purchase-orders/{orderId}/approve")]
+    [Authorize(Roles = "BranchManager,Admin")]
+    public async Task<IActionResult> ApprovePurchaseOrder(Guid orderId)
+    {
+        // بنجيب الـ ID بتاع اليوزر اللي داس موافقة (عشان الـ Audit)
+        var userId = User.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "System";
+
+        var result = await _poService.ApprovePurchaseOrderAsync(orderId, userId);
+
+        if (!result)
+            return BadRequest(new { Success = false, Message = "Failed to approve. Order might not exist or is already processed." });
+
+        return Ok(new { Success = true, Message = "Purchase order approved successfully." });
     }
 }
