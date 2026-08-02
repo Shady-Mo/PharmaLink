@@ -14,7 +14,21 @@ public class PrescriptionAuditBackgroundService(
     {
         logger.LogInformation("Prescription audit background worker started.");
 
-        await RecoverProcessingReviewsAsync(stoppingToken);
+        // Retry recovery loop to prevent transient DB timeouts from crashing the entire app host
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await RecoverProcessingReviewsAsync(stoppingToken);
+                break; // Recovery successful
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to recover pending prescription reviews due to a DB connection issue. Retrying in 10 seconds...");
+                try { await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken); }
+                catch (TaskCanceledException) { break; }
+            }
+        }
 
         while (!stoppingToken.IsCancellationRequested)
         {

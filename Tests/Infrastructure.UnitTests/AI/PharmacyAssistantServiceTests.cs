@@ -1,6 +1,6 @@
 using Application.Services.AI;
-using Application.Settings;
 using Infrastructure.AI;
+using Infrastructure.AI.Options;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
@@ -30,21 +30,12 @@ public class PharmacyAssistantServiceTests
 {
     // ── Helpers ──────────────────────────────────────────────────────────────
 
-    private static IOptions<SemanticKernelSettings> CreateSettings(
-        int maxHistoryTurns = 10,
-        string provider = "GoogleGemini",
-        int maxTokens = 2048,
-        double temperature = 0.7)
+    private static IOptions<AiOptions> CreateSettings(
+        string provider = "OpenRouter")
     {
-        return MSOptions.Create(new SemanticKernelSettings
-        {
-            Provider = provider,
-            ModelId = "gemini-3.5-flash",
-            ApiKey = "test-key",
-            MaxTokens = maxTokens,
-            Temperature = temperature,
-            MaxHistoryTurns = maxHistoryTurns
-        });
+        var options = new AiOptions();
+        options.Defaults.ChatProvider = provider;
+        return MSOptions.Create(options);
     }
 
     /// <summary>
@@ -57,7 +48,7 @@ public class PharmacyAssistantServiceTests
     private static (PharmacyAssistantService Service, Mock<IChatCompletionService> MockChat)
         CreateService(
             string chatResponse = "Test AI response",
-            IOptions<SemanticKernelSettings>? settings = null)
+            IOptions<AiOptions>? settings = null)
     {
         var mockChat = new Mock<IChatCompletionService>();
 
@@ -161,7 +152,7 @@ public class PharmacyAssistantServiceTests
     public async Task ChatAsync_WhenHistoryExceedsMaxTurns_TrimsHistory()
     {
         // Arrange
-        var settings = CreateSettings(maxHistoryTurns: 3);
+        var settings = CreateSettings();
         var (service, mockChat) = CreateService(settings: settings);
 
         // Create 10 history messages (more than MaxHistoryTurns = 3)
@@ -174,10 +165,10 @@ public class PharmacyAssistantServiceTests
         // Act
         await service.ChatAsync("user-123", history, "New question");
 
-        // Assert: system prompt (1) + trimmed history (max 3) + new user message (1) = max 5
+        // Assert: system prompt (1) + trimmed history (max 10) + new user message (1) = max 12
         mockChat.Verify(
             s => s.GetChatMessageContentsAsync(
-                It.Is<ChatHistory>(h => h.Count <= 5),
+                It.Is<ChatHistory>(h => h.Count <= 12),
                 It.IsAny<PromptExecutionSettings?>(),
                 It.IsAny<Kernel?>(),
                 It.IsAny<CancellationToken>()),

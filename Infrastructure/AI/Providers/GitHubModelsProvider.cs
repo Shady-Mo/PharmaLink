@@ -37,11 +37,13 @@ public class GitHubModelsProvider(IOptions<AiOptions> options) : IKernelProvider
         if (role == ModelRole.Embedding)
         {
             var httpClient = new HttpClient { BaseAddress = new Uri(_options.EmbeddingEndpoint) };
-            builder.AddOpenAITextEmbeddingGeneration(
+#pragma warning disable SKEXP0010
+            builder.AddOpenAIEmbeddingGenerator(
                 modelId: modelId,
                 apiKey: _options.Token,
                 httpClient: httpClient
             );
+#pragma warning restore SKEXP0010
         }
         else
         {
