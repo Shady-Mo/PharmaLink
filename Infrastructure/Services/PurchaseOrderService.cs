@@ -21,6 +21,14 @@ namespace Infrastructure.Services
 
             po.ApprovedBy = userId;
 
+            var inventoryItem = await _context.PharmacyInventories.Where(i => i.DrugId == po.DrugId && i.BranchId == po.BranchId).FirstOrDefaultAsync();
+
+            inventoryItem.StockQuantity += po.OrderedQuantity;
+            inventoryItem.ExpiryDate = DateOnly.FromDateTime(DateTime.Now.AddYears(3));
+
+            _context.Update(inventoryItem);
+           
+
             await _context.SaveChangesAsync();
 
             return true;

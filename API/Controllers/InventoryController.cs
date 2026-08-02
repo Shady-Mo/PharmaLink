@@ -120,7 +120,7 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
 
     [HttpPost("trigger-forecast")]
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> TriggerForecast([FromQuery] Guid? branchId, [FromQuery] int analysisDays = 30)
@@ -140,7 +140,7 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
 
     [HttpGet("branches/{branchId}/forecast-report")]
-    [Authorize(Roles = "BranchManager,Admin")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
     public async Task<IActionResult> GetForecastReport(Guid branchId)
     {
         // ممكن تتأكد هنا إن اليوزر اللي عامل لوجين هو فعلاً مدير نفس الفرع ده
@@ -154,7 +154,7 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
   
     [HttpPut("purchase-orders/{orderId}/approve")]
-    [Authorize(Roles = "BranchManager,Admin")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
     public async Task<IActionResult> ApprovePurchaseOrder(Guid orderId)
     {
         // بنجيب الـ ID بتاع اليوزر اللي داس موافقة (عشان الـ Audit)
