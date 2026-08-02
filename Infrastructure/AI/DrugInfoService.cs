@@ -1,6 +1,10 @@
+using Infrastructure.AI.Options;
+using Microsoft.Extensions.Options;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 using Microsoft.SemanticKernel.Connectors.Google;
+using Microsoft.SemanticKernel.Connectors.OpenAI;
+using System.Text.Json;
 
 namespace Infrastructure.AI;
 
@@ -31,12 +35,12 @@ namespace Infrastructure.AI;
 public sealed class DrugInfoService(
     Kernel kernel,
     IChatCompletionService chatService,
-    IOptions<SemanticKernelSettings> settings,
+    IOptions<AiOptions> aiOptions,
     ILogger<DrugInfoService> logger)
     : IDrugInfoService
 {
     private readonly IChatCompletionService _chatService = chatService;
-    private readonly SemanticKernelSettings _settings = settings.Value;
+    private readonly AiOptions _aiOptions = aiOptions.Value;
     private readonly string _drugInfoPrompt = LoadPrompt("DrugInfo.prompty");
     private readonly string _interactionPrompt = LoadPrompt("InteractionCheck.prompty");
 
@@ -169,7 +173,7 @@ public sealed class DrugInfoService(
 
     private PromptExecutionSettings BuildExecutionSettings()
     {
-        var provider = _settings.Provider.Trim().ToLowerInvariant();
+        var provider = _aiOptions.Defaults.ChatProvider.Trim().ToLowerInvariant();
 
         if (provider is "googlegemini" or "gemini")
         {
@@ -187,8 +191,10 @@ public sealed class DrugInfoService(
             };
         }
 
-        return new PromptExecutionSettings
+        return new OpenAIPromptExecutionSettings
         {
+            MaxTokens = 4096,
+            Temperature = 0.2, // Low temperature for structured/factual output
             FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
         };
     }

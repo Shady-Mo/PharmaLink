@@ -9,5 +9,6 @@ public enum AIProvider
     OpenAI,
     AzureOpenAI,
     Claude,
-    Ollama
+    Ollama,
+    OpenRouter
 }

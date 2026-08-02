@@ -51,7 +51,7 @@ public static class DependencyInjection
             services.AddScoped<IMedicalInquiryService, MedicalInquiryService>();
             services.AddSingleton<IAgentProfileProvider, StaticAgentProfileProvider>();
             services.AddScoped<IPromptRegistry, FileSystemPromptRegistry>();
-            services.AddScoped<IAIProviderSelector, ConfigurationAIProviderSelector>();
+            
             services.AddScoped<IPromptExecutionService, SemanticKernelPromptExecutionService>();
             services.AddScoped<IPrescriptionExtractionService, PrescriptionExtractionService>();
             services.AddScoped<IMedicineImageExtractionService, MedicineImageExtractionService>();
