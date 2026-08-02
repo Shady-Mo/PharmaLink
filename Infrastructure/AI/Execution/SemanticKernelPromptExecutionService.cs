@@ -1,499 +1,273 @@
 using System.Diagnostics;
-using System.Net.Http.Headers;
-using Application.Services.AI;
-using Application.Services.AI.Models;
-using Infrastructure.AI.Factories;
-using Infrastructure.AI.Models;
-using Infrastructure.AI.Options;
-using Infrastructure.AI.Prompts;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
+using Infrastructure.AI.Execution.Providers;
+using Infrastructure.AI.Execution.Resilience;
+using Infrastructure.AI.Execution.Routing;
 
 namespace Infrastructure.AI.Execution;
 
-public class SemanticKernelPromptExecutionService(
-    IKernelFactory kernelFactory,
-    IAIProviderSelector providerSelector,
-    IPromptRegistry promptRegistry,
-    ILogger<SemanticKernelPromptExecutionService> logger,
-    IOptions<AiOptions> options)
-    : IPromptExecutionService
+public class SemanticKernelPromptExecutionService : IPromptExecutionService
 {
-    private readonly AiOptions _aiOptions = options.Value;
+    private readonly IAIProviderRegistry _providerRegistry;
+    private readonly IProviderRouter _providerRouter;
+    private readonly IAIResiliencePipelineProvider _resiliencePipelineProvider;
+    private readonly IPromptRegistry _promptRegistry;
+    private readonly ILogger<SemanticKernelPromptExecutionService> _logger;
+
+    public SemanticKernelPromptExecutionService(
+        IAIProviderRegistry providerRegistry,
+        IProviderRouter providerRouter,
+        IAIResiliencePipelineProvider resiliencePipelineProvider,
+        IPromptRegistry promptRegistry,
+        ILogger<SemanticKernelPromptExecutionService> logger)
+    {
+        _providerRegistry = providerRegistry;
+        _providerRouter = providerRouter;
+        _resiliencePipelineProvider = resiliencePipelineProvider;
+        _promptRegistry = promptRegistry;
+        _logger = logger;
+    }
 
     public async Task<PromptExecutionResult> ExecuteAsync(
         PromptExecutionRequest request,
         CancellationToken cancellationToken = default)
     {
-        var prompt = await promptRegistry.GetAsync(
+        var prompt = await _promptRegistry.GetAsync(
             request.PromptName,
             request.PromptVersion,
             cancellationToken);
 
-        var selection = providerSelector.Select(request.TaskType, request.PromptName);
         var renderedPrompt = Render(prompt.Template, request.Variables);
+        var targets = _providerRouter.GetTargets(request.TaskType, request.PromptName).ToList();
 
-        if (selection.Provider == AIProvider.ITI)
-        {
-            return await ExecuteITIChatAsync(
-                request,
-                prompt,
-                renderedPrompt,
-                selection.Role,
-                selection.ModelId,
-                cancellationToken);
-        }
-
-        if (selection.Provider == AIProvider.Gemini)
-        {
-            return await ExecuteGeminiInteractionAsync(
-                request,
-                prompt,
-                renderedPrompt,
-                selection.ModelId ?? _aiOptions.Providers.Gemini.Models[selection.Role.ToString()][0],
-                cancellationToken);
-        }
-
-        var kernel = kernelFactory.GetKernel(selection.Provider, selection.Role, selection.ModelId);
-        var chatService = kernel.GetRequiredService<IChatCompletionService>();
-
-        var history = new ChatHistory();
-
-        if (request.File is null)
-        {
-            history.AddUserMessage(renderedPrompt);
-        }
-        else
-        {
-            var items = new ChatMessageContentItemCollection
-            {
-                new TextContent(renderedPrompt),
-                CreateFileContent(request.File)
-            };
-
-            history.AddUserMessage(items);
-        }
-
-        var stopwatch = Stopwatch.StartNew();
-        var response = await chatService.GetChatMessageContentAsync(
-            history,
-            kernel: kernel,
-            cancellationToken: cancellationToken);
-        stopwatch.Stop();
-
-        var raw = response.Content ?? string.Empty;
-        logger.LogInformation(
-            "AI prompt executed. Prompt={PromptName} Version={PromptVersion} Provider={Provider} Model={ModelId} LatencyMs={LatencyMs}",
-            prompt.Name,
-            prompt.Version,
-            selection.Provider,
-            selection.ModelId,
-            stopwatch.ElapsedMilliseconds);
-
-        return new PromptExecutionResult
-        {
-            PromptName = prompt.Name,
-            PromptVersion = prompt.Version,
-            Provider = selection.Provider.ToString(),
-            ModelId = selection.ModelId ?? string.Empty,
-            RawResponse = raw,
-            LatencyMs = stopwatch.ElapsedMilliseconds
-        };
-    }
-
-    private async Task<PromptExecutionResult> ExecuteITIChatAsync(
-        PromptExecutionRequest request,
-        PromptDefinition prompt,
-        string renderedPrompt,
-        ModelRole role,
-        string? modelId,
-        CancellationToken cancellationToken)
-    {
-        var itiOptions = _aiOptions.Providers.ITI;
-        var roleName = role.ToString();
-
-        if (!_aiOptions.Providers.ITI.Models.TryGetValue(roleName, out var configuredModels)
-            || configuredModels.Length == 0)
-        {
-            throw new InvalidOperationException($"Model for role {roleName} is not configured for ITI.");
-        }
-
-        var selectedModelId = modelId ?? configuredModels[0];
-        if (!configuredModels.Contains(selectedModelId))
+        if (targets.Count == 0)
         {
             throw new InvalidOperationException(
-                $"Model {selectedModelId} is not configured for role {roleName} in ITI.");
+                $"No routing targets found for Task: {request.TaskType}, Prompt: {request.PromptName}");
         }
 
-        if (string.IsNullOrWhiteSpace(itiOptions.BaseUrl))
+        var exceptions = new List<Exception>();
+
+        foreach (var target in targets)
         {
-            throw new InvalidOperationException("ITI BaseUrl is not configured.");
-        }
-
-        var apiKey = string.IsNullOrWhiteSpace(itiOptions.ApiKey)
-            ? Environment.GetEnvironmentVariable(itiOptions.ApiKeyEnvironmentVariable)
-              ?? Environment.GetEnvironmentVariable("SBG_API_KEY")
-            : itiOptions.ApiKey;
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            throw new InvalidOperationException(
-                $"Missing ITI API key. Set environment variable '{itiOptions.ApiKeyEnvironmentVariable}' or 'SBG_API_KEY'.");
-        }
-
-        var payload = request.File is null
-            ? CreateITIChatPayload(selectedModelId, renderedPrompt, itiOptions)
-            : CreateITIMultimodalPayload(selectedModelId, renderedPrompt, request.File, itiOptions);
-
-        using var httpClient = new HttpClient
-        {
-            BaseAddress = new Uri(EnsureTrailingSlash(itiOptions.BaseUrl)),
-            Timeout = TimeSpan.FromSeconds(itiOptions.TimeoutSeconds)
-        };
-
-        var endpoint = request.File is null ? "student/chat" : "student/multimodal-chat";
-        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", apiKey);
-        httpRequest.Content = new StringContent(payload, Encoding.UTF8, "application/json");
-
-        var stopwatch = Stopwatch.StartNew();
-        using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        stopwatch.Stop();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException(
-                $"ITI chat API failed with status {(int)response.StatusCode}: {responseBody}");
-        }
-
-        var raw = ExtractITIOutputText(responseBody);
-        logger.LogInformation(
-            "AI prompt executed. Prompt={PromptName} Version={PromptVersion} Provider={Provider} Model={ModelId} LatencyMs={LatencyMs}",
-            prompt.Name,
-            prompt.Version,
-            AIProvider.ITI,
-            selectedModelId,
-            stopwatch.ElapsedMilliseconds);
-
-        return new PromptExecutionResult
-        {
-            PromptName = prompt.Name,
-            PromptVersion = prompt.Version,
-            Provider = AIProvider.ITI.ToString(),
-            ModelId = selectedModelId,
-            RawResponse = raw,
-            LatencyMs = stopwatch.ElapsedMilliseconds
-        };
-    }
-
-    private static string CreateITIChatPayload(
-        string modelId,
-        string renderedPrompt,
-        ITIOptions options)
-    {
-        return JsonSerializer.Serialize(new
-        {
-            model_id = modelId,
-            messages = new[]
+            var circuitState = _resiliencePipelineProvider.GetCircuitState(target);
+            if (circuitState == CircuitBreakerState.OpenCircuit || circuitState == CircuitBreakerState.Disabled)
             {
-                new
-                {
-                    role = "user",
-                    content = renderedPrompt
-                }
-            },
-            system_prompt = options.SystemPrompt,
-            max_tokens = options.MaxTokens
-        });
-    }
-
-    private static string CreateITIMultimodalPayload(
-        string modelId,
-        string renderedPrompt,
-        AIFileContent file,
-        ITIOptions options)
-    {
-        if (!file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
-        {
-            throw new InvalidOperationException(
-                $"ITI multimodal-chat currently supports image files only. Received content type '{file.ContentType}'.");
-        }
-
-        return JsonSerializer.Serialize(new
-        {
-            model_id = modelId,
-            messages = new[]
-            {
-                new
-                {
-                    role = "user",
-                    text = renderedPrompt,
-                    images = new[]
-                    {
-                        new
-                        {
-                            format = ResolveITIImageFormat(file.ContentType),
-                            data_base64 = Convert.ToBase64String(file.Content)
-                        }
-                    }
-                }
-            },
-            max_tokens = options.MaxTokens
-        });
-    }
-
-    private static string ResolveITIImageFormat(string contentType)
-    {
-        return contentType.ToLowerInvariant() switch
-        {
-            "image/png" => "png",
-            "image/webp" => "webp",
-            _ => "jpeg"
-        };
-    }
-
-    private static string ExtractITIOutputText(string responseBody)
-    {
-        using var document = JsonDocument.Parse(responseBody);
-        var root = document.RootElement;
-
-        if (TryGetString(root, "content", out var content)
-            || TryGetString(root, "output_text", out content)
-            || TryGetString(root, "text", out content)
-            || TryGetString(root, "response", out content))
-        {
-            return content;
-        }
-
-        if (root.TryGetProperty("message", out var message)
-            && TryGetString(message, "content", out content))
-        {
-            return content;
-        }
-
-        if (root.TryGetProperty("choices", out var choices) && choices.ValueKind == JsonValueKind.Array)
-        {
-            foreach (var choice in choices.EnumerateArray())
-            {
-                if (choice.TryGetProperty("message", out var choiceMessage)
-                    && TryGetString(choiceMessage, "content", out content))
-                {
-                    return content;
-                }
-
-                if (TryGetString(choice, "text", out content))
-                {
-                    return content;
-                }
-            }
-        }
-
-        return responseBody;
-    }
-
-    private static bool TryGetString(JsonElement element, string propertyName, out string value)
-    {
-        value = string.Empty;
-        if (!element.TryGetProperty(propertyName, out var property))
-        {
-            return false;
-        }
-
-        if (property.ValueKind == JsonValueKind.String)
-        {
-            value = property.GetString() ?? string.Empty;
-            return true;
-        }
-
-        if (property.ValueKind == JsonValueKind.Array)
-        {
-            var textParts = property
-                .EnumerateArray()
-                .Select(part =>
-                {
-                    if (part.ValueKind == JsonValueKind.String)
-                    {
-                        return part.GetString();
-                    }
-
-                    if (part.TryGetProperty("text", out var text) && text.ValueKind == JsonValueKind.String)
-                    {
-                        return text.GetString();
-                    }
-
-                    return null;
-                })
-                .Where(text => !string.IsNullOrWhiteSpace(text));
-
-            value = string.Join(Environment.NewLine, textParts);
-            return !string.IsNullOrWhiteSpace(value);
-        }
-
-        return false;
-    }
-
-    private static string EnsureTrailingSlash(string value)
-    {
-        return value.EndsWith('/') ? value : $"{value}/";
-    }
-
-    private async Task<PromptExecutionResult> ExecuteGeminiInteractionAsync(
-        PromptExecutionRequest request,
-        PromptDefinition prompt,
-        string renderedPrompt,
-        string modelId,
-        CancellationToken cancellationToken)
-    {
-        var geminiOptions = _aiOptions.Providers.Gemini;
-        var apiKey = string.IsNullOrWhiteSpace(geminiOptions.ApiKey)
-            ? Environment.GetEnvironmentVariable(geminiOptions.ApiKeyEnvironmentVariable)
-            : geminiOptions.ApiKey;
-
-        if (string.IsNullOrWhiteSpace(apiKey))
-        {
-            throw new InvalidOperationException(
-                $"Missing Gemini API key. Set environment variable '{geminiOptions.ApiKeyEnvironmentVariable}'.");
-        }
-
-        using var httpClient = new HttpClient();
-
-        object input = request.File is null
-            ? renderedPrompt
-            : new object[]
-            {
-                new
-                {
-                    type = "user_input",
-                    content = new object[]
-                    {
-                        new
-                        {
-                            type = "text",
-                            text = renderedPrompt
-                        },
-                        new
-                        {
-                            type = ResolveGeminiInteractionFileType(request.File.ContentType),
-                            data = Convert.ToBase64String(request.File.Content),
-                            mime_type = request.File.ContentType
-                        }
-                    }
-                }
-            };
-
-        var payload = JsonSerializer.Serialize(new
-        {
-            model = modelId,
-            input
-        });
-
-        using var httpRequest = new HttpRequestMessage(
-            HttpMethod.Post,
-            "https://generativelanguage.googleapis.com/v1/interactions");
-
-        httpRequest.Headers.Add("x-goog-api-key", apiKey);
-        httpRequest.Headers.Add("Api-Revision", "2026-05-20");
-        httpRequest.Content = new StringContent(payload, Encoding.UTF8, "application/json");
-
-        var stopwatch = Stopwatch.StartNew();
-        using var response = await httpClient.SendAsync(httpRequest, cancellationToken);
-        var responseBody = await response.Content.ReadAsStringAsync(cancellationToken);
-        stopwatch.Stop();
-
-        if (!response.IsSuccessStatusCode)
-        {
-            throw new InvalidOperationException(
-                $"Gemini Interactions API failed with status {(int)response.StatusCode}: {responseBody}");
-        }
-
-        var raw = ExtractGeminiOutputText(responseBody);
-        logger.LogInformation(
-            "AI prompt executed. Prompt={PromptName} Version={PromptVersion} Provider={Provider} Model={ModelId} LatencyMs={LatencyMs}",
-            prompt.Name,
-            prompt.Version,
-            AIProvider.Gemini,
-            modelId,
-            stopwatch.ElapsedMilliseconds);
-
-        return new PromptExecutionResult
-        {
-            PromptName = prompt.Name,
-            PromptVersion = prompt.Version,
-            Provider = AIProvider.Gemini.ToString(),
-            ModelId = modelId,
-            RawResponse = raw,
-            LatencyMs = stopwatch.ElapsedMilliseconds
-        };
-    }
-
-    private static string ExtractGeminiOutputText(string responseBody)
-    {
-        using var document = JsonDocument.Parse(responseBody);
-
-        if (!document.RootElement.TryGetProperty("steps", out var steps))
-        {
-            return string.Empty;
-        }
-
-        foreach (var step in steps.EnumerateArray())
-        {
-            if (!step.TryGetProperty("type", out var type)
-                || type.GetString() != "model_output"
-                || !step.TryGetProperty("content", out var content))
-            {
+                _logger.LogWarning("Skipping target {Provider}:{Model} due to circuit state: {State}",
+                    target.ProviderName, target.ModelId, circuitState);
                 continue;
             }
 
-            var textParts = content
-                .EnumerateArray()
-                .Where(part => part.TryGetProperty("type", out var partType)
-                    && partType.GetString() == "text"
-                    && part.TryGetProperty("text", out _))
-                .Select(part => part.GetProperty("text").GetString())
-                .Where(text => !string.IsNullOrWhiteSpace(text));
+            if (!_providerRegistry.TryGetProvider(target.ProviderName, out var executionProvider) || 
+                (target.ProviderName == "Gemini" && request.TaskType != AITaskType.Vision))
+            {
+                // Fallback to the generic SK provider if specific one isn't found, or if it is Gemini for Chat/Agent tasks
+                executionProvider = _providerRegistry.GetProvider("SemanticKernel");
+            }
 
-            return string.Join(Environment.NewLine, textParts);
+            var pipeline = _resiliencePipelineProvider.GetPipeline(target);
+            var stopwatch = Stopwatch.StartNew();
+
+            try
+            {
+                var result = await pipeline.ExecuteAsync(async (ct) =>
+                {
+                    _logger.LogInformation("Executing Prompt={PromptName} Target={Provider}:{Model}", prompt.Name,
+                        target.ProviderName, target.ModelId);
+
+                    var execResult = await executionProvider.ExecuteAsync(target, request, prompt, renderedPrompt, ct);
+                    if (!execResult.IsSuccess)
+                    {
+                        // Wrap business failures that are retryable into an exception so the Polly pipeline can handle it
+                        throw new InvalidOperationException($"Provider execution failed: {execResult.Error}");
+                    }
+
+                    return execResult.Value!;
+                }, cancellationToken);
+
+                stopwatch.Stop();
+                _logger.LogInformation(
+                    "Successfully executed Prompt={PromptName} via {Provider}:{Model} in {ElapsedMs}ms",
+                    prompt.Name, target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
+
+                result.LatencyMs = stopwatch.ElapsedMilliseconds;
+                return result;
+            }
+            catch (Exception ex) when (AIFallbackPolicy.IsTransient(ex))
+            {
+                stopwatch.Stop();
+                _logger.LogWarning(ex,
+                    "Transient failure for {Provider}:{Model} after {ElapsedMs}ms. Moving to next fallback target.",
+                    target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
+                exceptions.Add(ex);
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                _logger.LogError(ex, "Fatal failure for {Provider}:{Model} after {ElapsedMs}ms. Halting execution.",
+                    target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
+                throw;
+            }
         }
 
-        return string.Empty;
+        var fallbackChain = string.Join(" -> ", targets.Select(t => $"{t.ProviderName}:{t.ModelId}"));
+        var errorMsg =
+            $"All AI providers failed for task {request.TaskType}. Fallback chain exhausted: {fallbackChain}";
+        _logger.LogError(new AggregateException(exceptions), errorMsg);
+
+        throw new InvalidOperationException(errorMsg, new AggregateException(exceptions));
     }
 
-    private static string ResolveGeminiInteractionFileType(string contentType)
+    private static string Render(string template, Dictionary<string, object?> variables)
     {
-        if (contentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        var result = template;
+        foreach (var kvp in variables)
         {
-            return "image";
+            var value = kvp.Value?.ToString() ?? string.Empty;
+            result = result.Replace($"{{{{${kvp.Key}}}}}", value);
         }
 
-        if (contentType.Equals("application/pdf", StringComparison.OrdinalIgnoreCase))
-        {
-            return "document";
-        }
-
-        return "file";
+        return result;
     }
 
-    private static string Render(string template, IReadOnlyDictionary<string, object?> variables)
+    public async IAsyncEnumerable<string> ExecuteStreamAsync(
+        PromptExecutionRequest request,
+        [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
     {
-        var rendered = template;
-        foreach (var (key, value) in variables)
+        var prompt = await _promptRegistry.GetAsync(
+            request.PromptName,
+            request.PromptVersion,
+            cancellationToken);
+
+        var renderedPrompt = Render(prompt.Template, request.Variables);
+        var targets = _providerRouter.GetTargets(request.TaskType, request.PromptName).ToList();
+
+        if (targets.Count == 0)
         {
-            rendered = rendered.Replace($"{{{{{key}}}}}", value?.ToString() ?? string.Empty);
+            throw new InvalidOperationException(
+                $"No routing targets found for Task: {request.TaskType}, Prompt: {request.PromptName}");
         }
 
-        return rendered;
-    }
+        var exceptions = new List<Exception>();
 
-    private static KernelContent CreateFileContent(AIFileContent file)
-    {
-#pragma warning disable SKEXP0001
-        if (file.ContentType.StartsWith("image/", StringComparison.OrdinalIgnoreCase))
+        foreach (var target in targets)
         {
-            return new ImageContent(file.Content, file.ContentType);
+            var circuitState = _resiliencePipelineProvider.GetCircuitState(target);
+            if (circuitState == CircuitBreakerState.OpenCircuit || circuitState == CircuitBreakerState.Disabled)
+            {
+                _logger.LogWarning("Skipping target {Provider}:{Model} due to circuit state: {State}",
+                    target.ProviderName, target.ModelId, circuitState);
+                continue;
+            }
+
+            if (!_providerRegistry.TryGetProvider(target.ProviderName, out var executionProvider) || 
+                (target.ProviderName == "Gemini" && request.TaskType != AITaskType.Vision))
+            {
+                // Fallback to the generic SK provider if specific one isn't found, or if it is Gemini for Chat/Agent tasks
+                executionProvider = _providerRegistry.GetProvider("SemanticKernel");
+            }
+
+            var pipeline = _resiliencePipelineProvider.GetPipeline(target);
+            var stopwatch = Stopwatch.StartNew();
+
+            IAsyncEnumerator<string>? enumerator = null;
+            bool streamStarted = false;
+            bool hasFirstItem = false;
+            long firstTokenLatencyMs = 0;
+
+            try
+            {
+                // Use Polly pipeline for retrying the INITIAL connection (before any tokens are streamed)
+                var result = await pipeline.ExecuteAsync(async (ct) =>
+                {
+                    _logger.LogInformation("Starting Stream Prompt={PromptName} Target={Provider}:{Model}", prompt.Name,
+                        target.ProviderName, target.ModelId);
+
+                    var stream = executionProvider.ExecuteStreamAsync(target, request, prompt, renderedPrompt, ct);
+                    var enumr = stream.GetAsyncEnumerator(ct);
+
+                    bool hasItem = await enumr.MoveNextAsync();
+
+                    return (Enumerator: enumr, HasFirstItem: hasItem);
+                }, cancellationToken);
+
+                enumerator = result.Enumerator;
+                hasFirstItem = result.HasFirstItem;
+                firstTokenLatencyMs = stopwatch.ElapsedMilliseconds;
+            }
+            catch (Exception ex) when (AIFallbackPolicy.IsTransient(ex))
+            {
+                stopwatch.Stop();
+                _logger.LogWarning(ex,
+                    "Transient failure starting stream for {Provider}:{Model} after {ElapsedMs}ms. Moving to next fallback target.",
+                    target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
+                exceptions.Add(ex);
+
+                if (enumerator != null) await enumerator.DisposeAsync();
+                continue; // Move to the next provider!
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                _logger.LogError(ex, "Fatal non-transient failure starting stream for {Provider}:{Model}", target.ProviderName, target.ModelId);
+                exceptions.Add(ex);
+
+                if (enumerator != null) await enumerator.DisposeAsync();
+                throw; // Non-transient errors bubble up immediately
+            }
+
+            if (hasFirstItem)
+            {
+                streamStarted = true;
+                yield return enumerator.Current;
+            }
+
+            // If the stream started but yielded no items, or started and yielded the first item...
+            if (!streamStarted)
+            {
+                if (enumerator != null) await enumerator.DisposeAsync();
+                yield break;
+            }
+
+            // Yield the rest of the stream WITHOUT Polly (Polly can't easily retry mid-stream)
+            bool midStreamFailure = false;
+            string? midStreamError = null;
+
+            while (true)
+            {
+                try
+                {
+                    if (!await enumerator!.MoveNextAsync())
+                    {
+                        break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Mid-stream failure for {Provider}:{Model}", target.ProviderName, target.ModelId);
+                    midStreamFailure = true;
+                    midStreamError = "\n\n[عذراً، حدث انقطاع في الاتصال أثناء المعالجة. يرجى المحاولة مرة أخرى.]";
+                    break;
+                }
+
+                yield return enumerator!.Current;
+            }
+
+            await enumerator!.DisposeAsync();
+
+            if (midStreamError != null)
+            {
+                yield return midStreamError;
+            }
+
+            stopwatch.Stop();
+            _logger.LogInformation(
+                "Successfully streamed Prompt={PromptName} via {Provider}:{Model} in {ElapsedMs}ms (FirstToken={FirstTokenMs}ms, MidStreamFailure={Failed})",
+                prompt.Name, target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds, firstTokenLatencyMs, midStreamFailure);
+
+            // Do not fallback if we already streamed tokens, to avoid duplicate text.
+            yield break;
         }
 
-        return new BinaryContent(file.Content, file.ContentType);
-#pragma warning restore SKEXP0001
+        throw new AggregateException($"All streaming targets failed for Prompt: {request.PromptName}", exceptions);
     }
 }

@@ -83,7 +83,7 @@ namespace Infrastructure.Services.PharmacyOwner
                 .Include(a => a.Pharmacy)
                 .FirstOrDefaultAsync(a => a.Id == admin.Id, cancellationToken);
 
-            return Result.Success(mapper.Map<PharmacyOwnerResponseDTO>(createdAdmin));
+            return Result.Success(mapper.Map<PharmacyOwnerResponseDTO>(createdAdmin!));
         }
 
         public async Task<Result<PharmacyOwnerResponseDTO>> GetPharmacyOwnerByIdAsync(
@@ -123,7 +123,7 @@ namespace Infrastructure.Services.PharmacyOwner
             if (!string.IsNullOrWhiteSpace(request.Search))
             {
                 var term = request.Search.Trim().ToLower();
-                query = query.Where(a => a.FullName.ToLower().Contains(term) || a.Email.ToLower().Contains(term));
+                query = query.Where(a => (a.FullName != null && a.FullName.ToLower().Contains(term)) || (a.Email != null && a.Email.ToLower().Contains(term)));
             }
 
             if (request.PharmacyId.HasValue)

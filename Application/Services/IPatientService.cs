@@ -1,4 +1,4 @@
-﻿using Application.DTOs;
+using Application.DTOs;
 using Application.DTOs.Patient;
 using System;
 using System.Threading;
@@ -10,4 +10,5 @@ public interface IPatientService
 {
     Task<Result<PatientProfileDto>> GetProfileAsync(Guid patientId, CancellationToken cancellationToken = default);
     Task<Result<PatientProfileDto>> UpdateProfileAsync(Guid patientId, UpdatePatientProfileDto updateDto, CancellationToken cancellationToken = default);
+    Task<Result<string>> UploadProfilePictureAsync(Guid patientId, UploadProfilePictureDto dto, CancellationToken cancellationToken = default);
 }
