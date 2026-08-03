@@ -49,7 +49,7 @@ public class AaTestController(
                 email = patient.Email,
                 role = AppRoles.Patient,
                 token = patientTokenResult.IsSuccess
-                    ? patientTokenResult.Value.AccessToken
+                    ? patientTokenResult.Value?.AccessToken
                     : null
             },
 
@@ -60,7 +60,7 @@ public class AaTestController(
                 email = pharmacist.Email,
                 role = AppRoles.Pharmacist,
                 token = pharmacistTokenResult.IsSuccess
-                    ? pharmacistTokenResult.Value.AccessToken
+                    ? pharmacistTokenResult.Value?.AccessToken
                     : null
             },
 
@@ -71,7 +71,7 @@ public class AaTestController(
                 email = systemAdmin.Email,
                 role = AppRoles.Admin,
                 token = systemAdminTokenResult.IsSuccess
-                    ? systemAdminTokenResult.Value.AccessToken
+                    ? systemAdminTokenResult.Value?.AccessToken
                     : null
             },
 
@@ -82,7 +82,7 @@ public class AaTestController(
                 email = pharmacyAdmin.Email,
                 role = AppRoles.PharmacyAdmin,
                 token = pharmacyAdminTokenResult.IsSuccess
-                    ? pharmacyAdminTokenResult.Value.AccessToken
+                    ? pharmacyAdminTokenResult.Value?.AccessToken
                     : null
             }
         });

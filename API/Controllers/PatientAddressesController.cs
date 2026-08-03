@@ -56,7 +56,7 @@ public class PatientAddressesController(
     {
        
         
-            var result = await addressService.GetByIdAsync(id, User.GetUserId(), User.GetRoleName(),cancellationToken);
+            var result = await addressService.GetByIdAsync(id, User.GetUserId(), User.GetRoleName() ?? string.Empty, cancellationToken);
             return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
         
     }
