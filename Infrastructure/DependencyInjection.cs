@@ -132,9 +132,9 @@ public static class DependencyInjection
 
             services.Configure<OrderFulfillmentSettings>(
                 configuration.GetSection(OrderFulfillmentSettings.SectionName));
-
-            services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
-                client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
+            //
+            // services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
+            //     client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
 
             //services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
             services.AddScoped<IOtpService, OtpService>();
