@@ -203,6 +203,9 @@ public class AIController(
 
     private ObjectResult AIProviderUnavailable(Exception ex, string routeKey)
     {
+        var logger = HttpContext.RequestServices.GetRequiredService<ILogger<AIController>>();
+        logger.LogError(ex, "AI Provider for route {RouteKey} is unavailable. Error: {Message}", routeKey, ex.Message);
+
         return StatusCode(StatusCodes.Status503ServiceUnavailable, new
         {
             message = "مزود الذكاء الاصطناعي مش متاح حاليًا. جرّب تاني بعد شوية أو غيّر الـ AI provider من الإعدادات.",

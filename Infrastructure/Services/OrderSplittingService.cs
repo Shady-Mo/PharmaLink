@@ -199,7 +199,7 @@ public class OrderSplittingService(
 
         var legSw = Stopwatch.StartNew();
         var newLegs = legGenerationService.GenerateLegs(order, assignedBranchIds).Value;
-        context.OrderFulfillmentLegs.AddRange(newLegs);
+        context.OrderFulfillmentLegs.AddRange(newLegs!);
         legSw.Stop();
         logger.LogInformation("[OrderId={OrderId}] Fulfillment legs generated in {ElapsedMs}ms.", order.OrderId, legSw.ElapsedMilliseconds);
 

@@ -30,8 +30,17 @@ public class MedicineImageExtractionService(
             cancellationToken);
 
         var json = AIJson.ExtractJsonObject(execution.RawResponse);
-        var response = JsonSerializer.Deserialize<MedicineImageExtractionResponseDTO>(json, JsonOptions)
-            ?? new MedicineImageExtractionResponseDTO();
+        MedicineImageExtractionResponseDTO? response = null;
+        try
+        {
+            response = JsonSerializer.Deserialize<MedicineImageExtractionResponseDTO>(json, JsonOptions);
+        }
+        catch (System.Text.Json.JsonException ex)
+        {
+            logger.LogWarning(ex, "Failed to parse AI response as JSON: {RawResponse}", execution.RawResponse);
+        }
+
+        response ??= new MedicineImageExtractionResponseDTO();
 
         var validation = businessValidator.Validate(response);
         if (!validation.IsValid)

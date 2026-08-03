@@ -7,7 +7,7 @@ public sealed class PromptExecutionResult
     public string Provider { get; init; } = string.Empty;
     public string ModelId { get; init; } = string.Empty;
     public string RawResponse { get; init; } = string.Empty;
-    public long LatencyMs { get; init; }
+    public long LatencyMs { get; set; }
     public int? PromptTokens { get; init; }
     public int? CompletionTokens { get; init; }
 }

@@ -1,4 +1,4 @@
-﻿using Application.DTOs.Addresses.Requests;
+using Application.DTOs.Addresses.Requests;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -22,6 +22,12 @@ namespace Application.Validators.Address
             RuleFor(x => x.Governorate)
                 .NotEmpty().WithMessage("Governorate is required.")
                 .MaximumLength(100);
+
+            RuleFor(x => x.Label).MaximumLength(50);
+            RuleFor(x => x.BuildingNumber).MaximumLength(20);
+            RuleFor(x => x.FloorNumber).MaximumLength(20);
+            RuleFor(x => x.ApartmentNumber).MaximumLength(20);
+            RuleFor(x => x.AdditionalInstructions).MaximumLength(500);
 
             // AC: invalid lat/long values (outside valid geographic range) -> 400
             RuleFor(x => x.Latitude)
