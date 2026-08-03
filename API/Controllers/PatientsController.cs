@@ -59,6 +59,21 @@ public class PatientsController(
 
         var result = await patientService.UploadProfilePictureAsync(patientId, uploadDto, cancellationToken);
 
-        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+        return result.IsSuccess ? NoContent() : result.ToProblem();
+    }
+
+    [HttpGet("profile/picture")]
+    public async Task<IActionResult> GetProfilePicture(CancellationToken cancellationToken = default)
+    {
+        var patientId = User.GetUserId();
+        if (patientId == Guid.Empty)
+        {
+            logger.LogWarning("Unauthorized profile picture access attempt: Invalid token claims.");
+            return Unauthorized();
+        }
+
+        var result = await patientService.GetProfilePictureUrlAsync(patientId, cancellationToken);
+
+        return result.IsSuccess ? Ok(new { url = result.Value }) : result.ToProblem();
     }
 }
