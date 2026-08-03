@@ -99,6 +99,7 @@ namespace Infrastructure.Services
                 {
                     DrugId = item.DrugId,
                     BranchId = item.BranchId,
+                    DrugName = item.Drug.GenericName,
                     ForecastDate = DateTime.UtcNow,
                     AverageDailyDemand = add,
                     ReorderPoint = rop,

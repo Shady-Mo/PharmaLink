@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Application.DTOs.PurchaseOrder;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -32,6 +33,22 @@ namespace Infrastructure.Services
             await _context.SaveChangesAsync();
 
             return true;
+        }
+
+        public async Task<List<GetPurchaseOrderDTO>> GetPendingPurchaseOrders(Guid branchId)
+        {
+            var result = await _context.PurchaseOrders.Where(p => p.BranchId == branchId && p.Status == POStatus.Pending).Select(p => new GetPurchaseOrderDTO
+            {
+                Id = p.Id,
+                AiRationale = p.AiRationale,
+                CreatedAt = p.CreatedAt,
+                DrugName = p.Drug.GenericName,
+                BranchName = p.Branch.BranchName,
+                OrderedQuantity = p.OrderedQuantity,
+                Status = p.Status
+            }).ToListAsync();
+
+            return result;
         }
     }
 }

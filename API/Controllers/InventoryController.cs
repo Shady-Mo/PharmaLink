@@ -141,15 +141,23 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
     [HttpGet("branches/{branchId}/forecast-report")]
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
-    public async Task<IActionResult> GetForecastReport(Guid branchId)
+    public async Task<IActionResult> GetForecastReport(Guid branchId, [FromQuery] int pageNumber = 1,
+    [FromQuery] int pageSize = 10)
     {
-        // ممكن تتأكد هنا إن اليوزر اللي عامل لوجين هو فعلاً مدير نفس الفرع ده
-        var report = await _reportService.GetBranchForecastReportAsync(branchId);
+        var (report, totalCount) = await _reportService.GetBranchForecastReportAsync(branchId, pageNumber, pageSize);
 
         if (report == null)
             return NotFound(new { Success = false, Message = "No forecast data found for this branch." });
 
-        return Ok(new { Success = true, Data = report });
+        return Ok(new { Success = true, Data = report,
+            Pagination = new
+            {
+                CurrentPage = pageNumber,
+                PageSize = pageSize,
+                TotalCount = totalCount,
+                TotalPages = (int)Math.Ceiling(totalCount / (double)pageSize)
+            }
+        });
     }
 
   
@@ -166,4 +174,15 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
         return Ok(new { Success = true, Message = "Purchase order approved successfully." });
     }
+
+    [HttpGet("{branchId}/pending-purchase-orders")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
+    public async Task<IActionResult> GetPendingPurchaseOrder(Guid branchId)
+    {
+        var result = await _poService.GetPendingPurchaseOrders(branchId);
+
+        return Ok(result);
+    }
+
+
 }
