@@ -1,8 +1,4 @@
 ﻿using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
@@ -36,7 +32,8 @@ public class WhapiWhatsAppOtpDispatcher(
         }
         // -----------------------------------------------------------------
 
-        var messageBody = $"رمز التحقق الخاص بك هو: *{otpCode}*\nصالح لمدة دقيقة واحدة فقط. لا تقم بمشاركة الكود مع أي شخص.";
+        var messageBody =
+            $"رمز التحقق الخاص بك هو: *{otpCode}*\nصالح لمدة دقيقة واحدة فقط. لا تقم بمشاركة الكود مع أي شخص.";
 
         var payload = new
         {
@@ -65,5 +62,4 @@ public class WhapiWhatsAppOtpDispatcher(
 
         logger.LogInformation("WhatsApp OTP successfully dispatched to {Phone}", formattedPhone);
     }
-
 }

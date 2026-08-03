@@ -1,5 +1,7 @@
-using Microsoft.SemanticKernel;
+using System.ClientModel;
 using System.Net;
+using Microsoft.SemanticKernel;
+using Polly.CircuitBreaker;
 
 namespace Infrastructure.AI.Execution.Resilience;
 
@@ -14,11 +16,14 @@ public static class AIFallbackPolicy
         {
             TaskCanceledException => true, // Timeout
             HttpRequestException => true, // Network failures
-            Polly.CircuitBreaker.BrokenCircuitException => true, // When circuit breaker opens, we must fallback to the next provider
+            BrokenCircuitException => true, // When circuit breaker opens, we must fall back to the next provider
             HttpOperationException httpEx => IsTransientStatusCode(httpEx.StatusCode),
-            System.ClientModel.ClientResultException clientEx => IsTransientStatusCode((HttpStatusCode)clientEx.Status),
-            InvalidOperationException invEx when invEx.Message.Contains("status", StringComparison.OrdinalIgnoreCase) => true, // API failures encapsulated in InvalidOperationException
-            ArgumentOutOfRangeException argEx when argEx.Message.Contains("ChatFinishReason", StringComparison.OrdinalIgnoreCase) => true, // OpenAI SDK doesn't support 'error' finish reason from OpenRouter
+            ClientResultException clientEx => IsTransientStatusCode((HttpStatusCode)clientEx.Status),
+            InvalidOperationException invEx when invEx.Message.Contains("status", StringComparison.OrdinalIgnoreCase) =>
+                true, // API failures encapsulated in InvalidOperationException
+            ArgumentOutOfRangeException argEx when argEx.Message.Contains("ChatFinishReason",
+                    StringComparison.OrdinalIgnoreCase) =>
+                true, // OpenAI SDK doesn't support 'error' finish reason from OpenRouter
             _ => false
         };
     }

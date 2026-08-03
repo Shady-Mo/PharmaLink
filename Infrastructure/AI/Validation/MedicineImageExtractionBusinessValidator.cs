@@ -1,12 +1,10 @@
-using Application.DTOs.AI;
-
 namespace Infrastructure.AI.Validation;
 
 public class MedicineImageExtractionBusinessValidator : IAIResponseValidator<MedicineImageExtractionResponseDTO>
 {
-    public Application.Services.AI.Models.ValidationResult Validate(MedicineImageExtractionResponseDTO response)
+    public ValidationResult Validate(MedicineImageExtractionResponseDTO response)
     {
-        var result = new Application.Services.AI.Models.ValidationResult();
+        var result = new ValidationResult();
 
         if (string.IsNullOrWhiteSpace(response.MedicineName))
         {

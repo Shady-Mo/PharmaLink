@@ -35,6 +35,7 @@ public static class DependencyInjection
             services.AddHttpContextAccessor();
 
             services.AddHttpClient<IWebhookOtpDispatcher, WhapiWhatsAppOtpDispatcher>();
+
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
@@ -54,12 +55,14 @@ public static class DependencyInjection
             services.AddScoped<IMedicalInquiryService, MedicalInquiryService>();
             services.AddSingleton<IAgentProfileProvider, StaticAgentProfileProvider>();
             services.AddScoped<IPromptRegistry, FileSystemPromptRegistry>();
-            
+
             services.AddScoped<IPromptExecutionService, SemanticKernelPromptExecutionService>();
             services.AddScoped<IPrescriptionExtractionService, PrescriptionExtractionService>();
             services.AddScoped<IMedicineImageExtractionService, MedicineImageExtractionService>();
             services.AddScoped<IAIResponseValidator<AIExtractionResult>, PrescriptionExtractionBusinessValidator>();
-            services.AddScoped<IAIResponseValidator<MedicineImageExtractionResponseDTO>, MedicineImageExtractionBusinessValidator>();
+            services
+                .AddScoped<IAIResponseValidator<MedicineImageExtractionResponseDTO>,
+                    MedicineImageExtractionBusinessValidator>();
             services.AddScoped<IDrugCatalogPlugin, DrugCatalogPlugin>();
             services.AddScoped<IAlternativeSearchPlugin, AlternativeSearchPlugin>();
             services.AddScoped<ICartBuilderPlugin, CartBuilderPlugin>();

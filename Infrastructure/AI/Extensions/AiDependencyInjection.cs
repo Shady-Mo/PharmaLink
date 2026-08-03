@@ -1,13 +1,11 @@
 using Infrastructure.AI.Abstractions;
+using Infrastructure.AI.Execution.Providers;
+using Infrastructure.AI.Execution.Resilience;
+using Infrastructure.AI.Execution.Routing;
 using Infrastructure.AI.Factories;
 using Infrastructure.AI.Options;
 using Infrastructure.AI.Providers;
 using Infrastructure.AI.Services;
-using Infrastructure.AI.Execution.Providers;
-using Infrastructure.AI.Execution.Resilience;
-using Infrastructure.AI.Execution.Routing;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
 
 namespace Infrastructure.AI.Extensions;
 
@@ -20,7 +18,7 @@ public static class AiDependencyInjection
         // Core Orchestration Engine
         services.AddSingleton<IAIProviderRegistry, AIProviderRegistry>();
         services.AddSingleton<IAIResiliencePipelineProvider, AIResiliencePipelineProvider>();
-        
+
         services.AddScoped<IRoutingStrategy, PriorityRoutingStrategy>();
         services.AddScoped<IProviderRouter, ProviderRouter>();
 
@@ -34,6 +32,7 @@ public static class AiDependencyInjection
         services.AddSingleton<IKernelProvider, GeminiProvider>();
         services.AddSingleton<IKernelProvider, GitHubModelsProvider>();
         services.AddSingleton<IKernelProvider, OpenRouterProvider>();
+        services.AddSingleton<IKernelProvider, TokenRouterProvider>();
 
         // Factory
         services.AddSingleton<IKernelFactory, KernelFactory>();
@@ -41,7 +40,7 @@ public static class AiDependencyInjection
         // Generic Services
         services.AddScoped<PromptExecutionService>();
         services.AddScoped<EmbeddingService>();
-        
+
         services.AddHttpClient<TranscriptionService>();
         services.AddScoped<AiHealthService>();
 

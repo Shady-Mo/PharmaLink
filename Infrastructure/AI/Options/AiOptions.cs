@@ -34,7 +34,8 @@ public class ModelConfig
     public int Priority { get; set; } = 99;
     public int Weight { get; set; } = 1;
     public bool Enabled { get; set; } = true;
-    public int TimeoutSeconds { get; set; } = 30; public Dictionary<string, string[]> Models { get; set; } = new();
+    public int TimeoutSeconds { get; set; } = 30;
+    public Dictionary<string, string[]> Models { get; set; } = new();
     public RetryPolicyConfig? RetryPolicy { get; set; }
     public string[] Tags { get; set; } = [];
 }
@@ -75,13 +76,15 @@ public class ProvidersOptions
     public GitHubModelsOptions GitHubModels { get; set; } = new();
     public ITIOptions ITI { get; set; } = new();
     public OpenRouterOptions OpenRouter { get; set; } = new();
+    public TokenRouterOptions TokenRouter { get; set; } = new();
 }
 
 public class GroqOptions
 {
     public string BaseUrl { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
-    public string ApiKeyEnvironmentVariable { get; set; } = "GROQ_API_KEY"; public Dictionary<string, string[]> Models { get; set; } = new();
+    public string ApiKeyEnvironmentVariable { get; set; } = "GROQ_API_KEY";
+    public Dictionary<string, string[]> Models { get; set; } = new();
 }
 
 public class GeminiOptions
@@ -89,14 +92,16 @@ public class GeminiOptions
     public string BaseUrl { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
     public string ApiKeyEnvironmentVariable { get; set; } = "GEMINI_API_KEY";
-    public int TimeoutSeconds { get; set; } = 30; public Dictionary<string, string[]> Models { get; set; } = new();
+    public int TimeoutSeconds { get; set; } = 30;
+    public Dictionary<string, string[]> Models { get; set; } = new();
 }
 
 public class GitHubModelsOptions
 {
     public string BaseUrl { get; set; } = string.Empty;
     public string EmbeddingEndpoint { get; set; } = string.Empty;
-    public string Token { get; set; } = string.Empty; public Dictionary<string, string[]> Models { get; set; } = new();
+    public string Token { get; set; } = string.Empty;
+    public Dictionary<string, string[]> Models { get; set; } = new();
 }
 
 public class ITIOptions
@@ -104,7 +109,8 @@ public class ITIOptions
     public string BaseUrl { get; set; } = string.Empty;
     public string ApiKey { get; set; } = string.Empty;
     public string ApiKeyEnvironmentVariable { get; set; } = "ITI_API_KEY";
-    public int TimeoutSeconds { get; set; } = 60; public Dictionary<string, string[]> Models { get; set; } = new();
+    public int TimeoutSeconds { get; set; } = 60;
+    public Dictionary<string, string[]> Models { get; set; } = new();
     public int MaxTokens { get; set; } = 1200;
 
     public string SystemPrompt { get; set; } =
@@ -118,5 +124,17 @@ public class OpenRouterOptions
     public string ApiKeyEnvironmentVariable { get; set; } = "OPENROUTER_API_KEY";
     public string SiteUrl { get; set; } = "https://pharmalink.tryasp.net";
     public string SiteName { get; set; } = "PharmaLink";
-    public int TimeoutSeconds { get; set; } = 60; public Dictionary<string, string[]> Models { get; set; } = new();
+    public int TimeoutSeconds { get; set; } = 60;
+    public Dictionary<string, string[]> Models { get; set; } = new();
+}
+
+public class TokenRouterOptions
+{
+    public string BaseUrl { get; set; } = "https://api.tokenrouter.com/v1";
+    public string ApiKey { get; set; } = string.Empty;
+    public string ApiKeyEnvironmentVariable { get; set; } = "TOKENROUTER_API_KEY";
+    public string SiteUrl { get; set; } = "https://pharmalink.tryasp.net";
+    public string SiteName { get; set; } = "PharmaLink";
+    public int TimeoutSeconds { get; set; } = 60;
+    public Dictionary<string, string[]> Models { get; set; } = new();
 }

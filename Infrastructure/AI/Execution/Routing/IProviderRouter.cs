@@ -1,5 +1,3 @@
-using Application.Services.AI.Models;
-
 namespace Infrastructure.AI.Execution.Routing;
 
 public interface IProviderRouter
