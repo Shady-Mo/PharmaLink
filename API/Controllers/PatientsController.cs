@@ -57,7 +57,8 @@ public class PatientsController(
             return Unauthorized();
         }
 
-        var result = await patientService.UploadProfilePictureAsync(patientId, uploadDto, cancellationToken);
+        var baseUrl = $"{Request.Scheme}://{Request.Host.Value}/";
+        var result = await patientService.UploadProfilePictureAsync(patientId, uploadDto, baseUrl, cancellationToken);
 
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }

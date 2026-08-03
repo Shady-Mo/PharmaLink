@@ -95,7 +95,7 @@ public class PatientService(
     }
 
 
-    public async Task<Result> UploadProfilePictureAsync(Guid patientId, UploadProfilePictureDto dto, CancellationToken cancellationToken = default)
+    public async Task<Result> UploadProfilePictureAsync(Guid patientId, UploadProfilePictureDto dto, string baseUrl, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -122,18 +122,32 @@ public class PatientService(
         }
 
         var relativePath = $"uploads/profiles/{uniqueFileName}";
+        var fullUrl = $"{baseUrl.TrimEnd('/')}/{relativePath}";
         
         // Delete old picture if it exists
         if (!string.IsNullOrEmpty(patient.ProfilePictureUrl))
         {
-            var oldAbsolutePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", patient.ProfilePictureUrl);
-            if (File.Exists(oldAbsolutePath))
+            try
             {
-                File.Delete(oldAbsolutePath);
+                var oldRelativePath = patient.ProfilePictureUrl;
+                if (Uri.TryCreate(patient.ProfilePictureUrl, UriKind.Absolute, out var uri))
+                {
+                    oldRelativePath = uri.AbsolutePath.TrimStart('/');
+                }
+                
+                var oldAbsolutePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", oldRelativePath);
+                if (File.Exists(oldAbsolutePath))
+                {
+                    File.Delete(oldAbsolutePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to delete old profile picture.");
             }
         }
 
-        patient.ProfilePictureUrl = relativePath;
+        patient.ProfilePictureUrl = fullUrl;
         await context.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Profile picture uploaded successfully for patient ID {PatientId}.", patientId);
