@@ -34,6 +34,7 @@ public static class DependencyInjection
 
             services.AddHttpContextAccessor();
 
+            services.AddHttpClient<IWebhookOtpDispatcher, WhapiWhatsAppOtpDispatcher>();
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
@@ -135,7 +136,7 @@ public static class DependencyInjection
             services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
                 client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
 
-            services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
+            //services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
             services.AddScoped<IOtpService, OtpService>();
             services.AddScoped<IInventoryForecastingService, InventoryForecastingService>();
 

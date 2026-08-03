@@ -25,11 +25,22 @@ public class WhapiWhatsAppOtpDispatcher(
             throw new InvalidOperationException("Whapi API token is not configured.");
         }
 
+        var formattedPhone = phoneNumber.Trim().TrimStart('+');
+        if (formattedPhone.StartsWith("0"))
+        {
+            formattedPhone = "2" + formattedPhone;
+        }
+        else if (!formattedPhone.StartsWith("20"))
+        {
+            formattedPhone = "20" + formattedPhone;
+        }
+        // -----------------------------------------------------------------
+
         var messageBody = $"رمز التحقق الخاص بك هو: *{otpCode}*\nصالح لمدة دقيقة واحدة فقط. لا تقم بمشاركة الكود مع أي شخص.";
 
         var payload = new
         {
-            to = phoneNumber, 
+            to = formattedPhone,
             body = messageBody
         };
 
@@ -39,7 +50,7 @@ public class WhapiWhatsAppOtpDispatcher(
         httpClient.DefaultRequestHeaders.Clear();
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
 
-        logger.LogInformation("Sending WhatsApp OTP via Whapi to phone number: {Phone}", phoneNumber);
+        logger.LogInformation("Sending WhatsApp OTP via Whapi to phone number: {Phone}", formattedPhone);
 
         var response = await httpClient.PostAsync(apiUrl, content);
 
@@ -52,8 +63,7 @@ public class WhapiWhatsAppOtpDispatcher(
             throw new HttpRequestException($"Whapi dispatch failed with status code {response.StatusCode}");
         }
 
-        logger.LogInformation("WhatsApp OTP successfully dispatched to {Phone}", phoneNumber);
+        logger.LogInformation("WhatsApp OTP successfully dispatched to {Phone}", formattedPhone);
     }
-
 
 }
