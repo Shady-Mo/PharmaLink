@@ -1,10 +1,10 @@
-﻿using Application.DTOs.Notification;
+using Application.DTOs.Notification;
 using Application.Hubs;
 using Microsoft.AspNetCore.SignalR;
 
 namespace API.Notification
 {
-    public class NotificationService(IEmailService _emailService, IHubContext<InventoryHub> _hubContext, IAuthService authService) : INotificationService
+    public class NotificationService(IEmailService _emailService, IHubContext<InventoryHub> _hubContext) : INotificationService
     {
 
         public async Task SendPoCreatedNotificationAsync(PoNotificationDto notification, string email)
