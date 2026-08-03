@@ -95,7 +95,7 @@ public class PatientService(
     }
 
 
-    public async Task<Result<string>> UploadProfilePictureAsync(Guid patientId, UploadProfilePictureDto dto, CancellationToken cancellationToken = default)
+    public async Task<Result> UploadProfilePictureAsync(Guid patientId, UploadProfilePictureDto dto, CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
@@ -137,6 +137,23 @@ public class PatientService(
         await context.SaveChangesAsync(cancellationToken);
 
         logger.LogInformation("Profile picture uploaded successfully for patient ID {PatientId}.", patientId);
-        return Result.Success(relativePath);
+        return Result.Success();
+    }
+
+    public async Task<Result<string>> GetProfilePictureUrlAsync(Guid patientId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var patient = await context.Patients
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == patientId, cancellationToken);
+
+        if (patient is null)
+        {
+            logger.LogWarning("Get profile picture failed: Patient with ID {PatientId} was not found.", patientId);
+            return Result.Failure<string>(PatientErrors.PatientNotFound);
+        }
+
+        return Result.Success(patient.ProfilePictureUrl ?? string.Empty);
     }
 }
