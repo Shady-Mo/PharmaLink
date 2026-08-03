@@ -103,16 +103,19 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                _logger.LogError(ex, "Fatal failure for {Provider}:{Model} after {ElapsedMs}ms. Halting execution.",
+                _logger.LogError(ex, "Fatal failure for {Provider}:{Model} after {ElapsedMs}ms. Moving to next fallback target.",
                     target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
-                throw;
+                exceptions.Add(ex);
+                continue; // Treat non-transient errors as fallbackable too
             }
         }
 
         var fallbackChain = string.Join(" -> ", targets.Select(t => $"{t.ProviderName}:{t.ModelId}"));
+        var errorDetails = string.Join("\n", exceptions.Select((e, i) => $"[Attempt {i + 1}] {e.GetType().Name}: {e.Message}"));
         var errorMsg =
-            $"All AI providers failed for task {request.TaskType}. Fallback chain exhausted: {fallbackChain}";
-        _logger.LogError(new AggregateException(exceptions), errorMsg);
+            $"All AI providers failed for task {request.TaskType}. Fallback chain exhausted: {fallbackChain}\nFailure Details:\n{errorDetails}";
+        
+        _logger.LogError(new AggregateException(exceptions), "{ErrorMsg}", errorMsg);
 
         throw new InvalidOperationException(errorMsg, new AggregateException(exceptions));
     }
@@ -208,11 +211,11 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
             catch (Exception ex)
             {
                 stopwatch.Stop();
-                _logger.LogError(ex, "Fatal non-transient failure starting stream for {Provider}:{Model}", target.ProviderName, target.ModelId);
+                _logger.LogError(ex, "Fatal non-transient failure starting stream for {Provider}:{Model}. Moving to next fallback target.", target.ProviderName, target.ModelId);
                 exceptions.Add(ex);
 
                 if (enumerator != null) await enumerator.DisposeAsync();
-                throw; // Non-transient errors bubble up immediately
+                continue; // Treat non-transient errors as fallbackable too
             }
 
             if (hasFirstItem)
@@ -268,6 +271,11 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
             yield break;
         }
 
-        throw new AggregateException($"All streaming targets failed for Prompt: {request.PromptName}", exceptions);
+        var fallbackChain = string.Join(" -> ", targets.Select(t => $"{t.ProviderName}:{t.ModelId}"));
+        var errorDetails = string.Join("\n", exceptions.Select((e, i) => $"[Attempt {i + 1}] {e.GetType().Name}: {e.Message}"));
+        var errorMsg = $"All streaming targets failed for Prompt: {request.PromptName}. Fallback chain exhausted: {fallbackChain}\nFailure Details:\n{errorDetails}";
+
+        _logger.LogError(new AggregateException(exceptions), "{ErrorMsg}", errorMsg);
+        yield return "عذراً، خدمة الذكاء الاصطناعي تواجه ضغطاً شديداً أو غير متاحة حالياً بسبب استنفاد الحصة المجانية. يرجى المحاولة مرة أخرى لاحقاً.";
     }
 }
