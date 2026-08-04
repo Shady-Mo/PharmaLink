@@ -1,3 +1,4 @@
+using Application.Services.OrderRouting;
 using Application.Services.OrderSplitting.Models;
 using System.Diagnostics;
 
@@ -10,6 +11,7 @@ public class OrderSplittingService(
     ILegGenerationService legGenerationService,
     IOrderSplittingAlgorithm
     splittingAlgorithm,
+    IOrderRoutingOrchestrator orderRoutingOrchestrator,
     ILogger<OrderSplittingService> logger) : IOrderSplittingService
 {
     public async Task<Result> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
@@ -171,10 +173,36 @@ public class OrderSplittingService(
         var pendingItemModels = pendingItems.Select(i => new PendingItem(i.OrderItemId, i.DrugId, i.QuantityNeeded)).ToList();
         var splitContext = new SplittingContext(order.OrderId, order.FulfillmentMode, pendingItemModels, candidateBranches);
 
+        // DECISION BRAIN — Semantic Kernel Multi-Agent Fulfillment Engine.
+        // The engine decides item→branch allocation over the candidate branches + inventory snapshot
+        // we already assembled (geo-radius + fulfillment-mode filtered, expiry filtered). If the engine
+        // is unavailable or returns nothing usable, we fall back to the deterministic algorithm so
+        // checkout is never blocked by the AI path.
         var algoSw = Stopwatch.StartNew();
-        var splitResult = splittingAlgorithm.Execute(splitContext);
+        SplittingResult splitResult;
+        string decisionSource;
+        try
+        {
+            var aiResult = await orderRoutingOrchestrator.OptimizeSplitAsync(splitContext, cancellationToken);
+            if (aiResult is not null && aiResult.Assignments.Count > 0)
+            {
+                splitResult = aiResult;
+                decisionSource = "AI-MultiAgent";
+            }
+            else
+            {
+                splitResult = splittingAlgorithm.Execute(splitContext);
+                decisionSource = splittingAlgorithm.AlgorithmName;
+            }
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[OrderId={OrderId}] AI routing engine failed. Falling back to deterministic algorithm.", order.OrderId);
+            splitResult = splittingAlgorithm.Execute(splitContext);
+            decisionSource = splittingAlgorithm.AlgorithmName;
+        }
         algoSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Algorithm {AlgorithmName} completed in {ElapsedMs}ms. Assigned={AssignedCount}, Unassigned={UnassignedCount}", order.OrderId, splittingAlgorithm.AlgorithmName, algoSw.ElapsedMilliseconds, splitResult.Assignments.Count, splitResult.UnassignedItemIds.Count);
+        logger.LogInformation("[OrderId={OrderId}] Decision engine {DecisionSource} completed in {ElapsedMs}ms. Assigned={AssignedCount}, Unassigned={UnassignedCount}", order.OrderId, decisionSource, algoSw.ElapsedMilliseconds, splitResult.Assignments.Count, splitResult.UnassignedItemIds.Count);
 
         ApplySplitResultToItems(pendingItems, splitResult);
 
