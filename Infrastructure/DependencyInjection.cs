@@ -146,6 +146,12 @@ public static class DependencyInjection
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
+            
+            services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://meilisearch.chefaa.com/");
+            });
+            services.AddScoped<Infrastructure.Services.Chefaa.IChefaaImporterService, Infrastructure.Services.Chefaa.ChefaaImporterService>();
 
             services.AddHangfire(config => config
                 .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
