@@ -56,7 +56,7 @@ namespace Infrastructure.Services
                 .AsNoTracking()
                 .Where(po => branchIds.Contains(po.BranchId)
                           && drugIds.Contains(po.DrugId)
-                          && po.Status == POStatus.Pending)
+                          && po.Status == POStatus.PendingPharmacyApproval)
                 .Select(po => new { po.BranchId, po.DrugId })
                 .Distinct()
                 .ToListAsync();
@@ -110,7 +110,7 @@ namespace Infrastructure.Services
                             DrugId = item.DrugId,
                             BranchId = item.BranchId,
                             OrderedQuantity = eoq > 0 ? eoq : 30,
-                            Status = POStatus.Pending,
+                            Status = POStatus.PendingPharmacyApproval,
                             AiRationale = rationale + $"EOQ recommends ordering {eoq} units.",
                             CreatedAt = DateTime.UtcNow
                         };

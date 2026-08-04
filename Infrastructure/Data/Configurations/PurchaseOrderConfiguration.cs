@@ -15,6 +15,11 @@ namespace Infrastructure.Data.Configurations
             builder.HasOne(b => b.Branch)
                 .WithMany(d => d.PurchaseOrders)
                 .HasForeignKey(b => b.BranchId);
+
+            builder.HasOne(po => po.Supplier)
+                   .WithMany(s => s.PurchaseOrders)
+                   .HasForeignKey(po => po.SupplierId)
+                   .OnDelete(DeleteBehavior.Restrict);
         }
     }
 }
