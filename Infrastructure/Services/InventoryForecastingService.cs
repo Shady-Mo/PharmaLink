@@ -3,9 +3,12 @@ using Application.DTOs.Notification;
 
 namespace Infrastructure.Services
 {
-    public class InventoryForecastingService(AppDbContext _context, UserManager<AppUser> userManager, IInventoryForecastingCalculator _calculator, INotificationService _notificationService) : IInventoryForecastingService
+    public class InventoryForecastingService(
+        AppDbContext _context,
+        UserManager<AppUser> userManager,
+        IInventoryForecastingCalculator _calculator,
+        INotificationService _notificationService) : IInventoryForecastingService
     {
-
         public async Task<Result> RunForecastingCycleAsync(Guid? branchId = null, int analysisDays = 30)
         {
             var query = _context.PharmacyInventories.AsQueryable();
@@ -16,29 +19,72 @@ namespace Infrastructure.Services
             }
 
             var inventoryItems = await query
+                .AsNoTracking()
                 .Include(i => i.Drug)
                 .Include(i => i.Branch)
                 .ToListAsync();
 
+            if (!inventoryItems.Any())
+                return Result.Success();
+
             DateTime startDate = DateTime.UtcNow.AddDays(-analysisDays);
+
+
+            var branchIds = inventoryItems.Select(i => i.BranchId).Distinct().ToList();
+            var drugIds = inventoryItems.Select(i => i.DrugId).Distinct().ToList();
+
+            var salesDataList = await _context.OrderItems
+                .AsNoTracking()
+                .Where(oi => oi.BranchId != null && branchIds.Contains(oi.BranchId.Value)
+                          && drugIds.Contains(oi.DrugId)
+                          && oi.Order.CreatedAt >= startDate
+                          && oi.Order.OrderStatus == OrderStatus.Completed)
+                .GroupBy(oi => new { oi.BranchId, oi.DrugId })
+                .Select(g => new
+                {
+                    g.Key.BranchId,
+                    g.Key.DrugId,
+                    TotalQuantity = g.Sum(oi => oi.QuantityNeeded)
+                })
+                .ToListAsync();
+
+            var salesDictionary = salesDataList
+                .ToDictionary(x => (x.BranchId, x.DrugId), x => x.TotalQuantity);
+
+
+            var pendingPosList = await _context.PurchaseOrders
+                .AsNoTracking()
+                .Where(po => branchIds.Contains(po.BranchId)
+                          && drugIds.Contains(po.DrugId)
+                          && po.Status == POStatus.Pending)
+                .Select(po => new { po.BranchId, po.DrugId })
+                .Distinct()
+                .ToListAsync();
+
+            var pendingPoSet = new HashSet<(Guid BranchId, Guid DrugId)>(
+                pendingPosList.Select(p => (p.BranchId, p.DrugId)));
+
+
+            var inventoriesToUpdateQuery = _context.PharmacyInventories.AsQueryable();
+
+            if (branchId.HasValue)
+            {
+                inventoriesToUpdateQuery = inventoriesToUpdateQuery.Where(i => i.BranchId == branchId.Value);
+            }
+            var trackedInventories = await inventoriesToUpdateQuery
+                .ToDictionaryAsync(i => i.InventoryId);
+
 
             var notificationsToSend = new List<PoNotificationDto>();
 
             foreach (var item in inventoryItems)
             {
-              
                 int leadTimeDays = 3;
                 int safetyStock = 10;
                 double orderCost = 100.0;
                 double holdingCost = item.Drug.Price > 0 ? (double)(item.Drug.Price * 0.2m) : 2.5;
 
-                int totalSales = await _context.OrderItems
-                     .Where(oi => oi.DrugId == item.DrugId
-                               && oi.BranchId == item.BranchId
-                               && oi.Order.CreatedAt >= startDate
-                               && oi.Order.OrderStatus == OrderStatus.Completed
-                           )
-                     .SumAsync(oi => oi.QuantityNeeded);
+                salesDictionary.TryGetValue((item.BranchId, item.DrugId), out int totalSales);
 
                 double add = _calculator.CalculateAverageDailyDemand(totalSales, analysisDays);
                 int rop = _calculator.CalculateReorderPoint(add, leadTimeDays, safetyStock);
@@ -55,10 +101,7 @@ namespace Infrastructure.Services
                 {
                     rationale += $"Current stock ({item.StockQuantity}) is below or equal to ROP ({rop}). ";
 
-                    bool pendingExists = await _context.PurchaseOrders
-                        .AnyAsync(po => po.DrugId == item.DrugId
-                                     && po.BranchId == item.BranchId
-                                     && po.Status == POStatus.Pending);
+                    bool pendingExists = pendingPoSet.Contains((item.BranchId, item.DrugId));
 
                     if (!pendingExists)
                     {
@@ -81,7 +124,7 @@ namespace Infrastructure.Services
                             DrugName = item.Drug.GenericName,
                             CurrentStock = item.StockQuantity,
                             PredictedStockoutDate = depletionDate,
-                            RecommendedOrderQuantity = eoq > 0 ? eoq : 100,
+                            RecommendedOrderQuantity = eoq > 0 ? eoq : 30,
                             AiRationale = rationale + $"EOQ recommends ordering {eoq} units."
                         });
                     }
@@ -92,8 +135,11 @@ namespace Infrastructure.Services
                     }
                 }
 
-                item.ReorderPoint = rop;
-                item.LastForecastDate = DateTime.UtcNow;
+                if (trackedInventories.TryGetValue(item.InventoryId, out var inventoryToUpdate))
+                {
+                    inventoryToUpdate.ReorderPoint = rop;
+                    inventoryToUpdate.LastForecastDate = DateTime.UtcNow;
+                }
 
                 var forecastLog = new InventoryForecastLog
                 {
@@ -119,9 +165,13 @@ namespace Infrastructure.Services
 
             if (branchId != null)
             {
-                var user = _context.PharmacyAdmins.Where(p => p.Pharmacy.Branches.Any(b => b.BranchId == branchId)).FirstOrDefault();
-                if(user != null)
-                    email = user.Email!;
+                var user = await _context.PharmacyAdmins
+                    .AsNoTracking()
+                    .Where(p => p.Pharmacy.Branches.Any(b => b.BranchId == branchId))
+                    .FirstOrDefaultAsync();
+
+                if (user != null && !string.IsNullOrEmpty(user.Email))
+                    email = user.Email;
             }
 
             foreach (var notification in notificationsToSend)

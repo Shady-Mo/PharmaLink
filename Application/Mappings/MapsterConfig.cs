@@ -17,6 +17,10 @@ public class MapsterConfig : IRegister
         config.NewConfig<Drug, DrugDto>();
         config.NewConfig<CreateDrugDto, Drug>();
         config.NewConfig<UpdateDrugDto, Drug>();
+        
+        // Fix for circular reference in Projection
+        config.NewConfig<DrugCategory, DrugCategoryDto>()
+            .MaxDepth(2);
 
         // Patient Mappings
         config.NewConfig<RegisterRequestDTO, Patient>()
@@ -35,6 +39,7 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.GenericName, src => src.Drug.GenericName)
             .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
+            .Map(dest => dest.ImageUrl, src => src.Drug.ImageUrl)
             .Map(dest => dest.AvailableQuantity, src => src.StockQuantity - src.ReservedQuantity)
             .Map(dest => dest.StockStatus, src => src.StockQuantity == 0
                 ? InventoryStockStatus.OutOfStock
@@ -84,6 +89,8 @@ public class MapsterConfig : IRegister
         config.NewConfig<OrderItem, OrderItemResponseDTO>()
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.GenericName, src => src.Drug.GenericName)
+            .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
+            .Map(dest => dest.ImageUrl, src => src.Drug.ImageUrl)
             .Map(dest => dest.Strength, src => src.Drug.Strength)
             .Map(dest => dest.DosageForm, src => src.Drug.Form)
             .Map(dest => dest.UnitPrice, src => src.Drug.Price);
@@ -95,7 +102,9 @@ public class MapsterConfig : IRegister
         // Cart Mappings
         config.NewConfig<CartItem, CartItemResponseDTO>()
             .Map(dest => dest.DrugBrandName, src => src.Drug != null ? src.Drug.BrandName : string.Empty)
-            .Map(dest => dest.DrugGenericName, src => src.Drug != null ? src.Drug.GenericName : string.Empty);
+            .Map(dest => dest.DrugGenericName, src => src.Drug != null ? src.Drug.GenericName : string.Empty)
+            .Map(dest => dest.DrugArabicName, src => src.Drug != null ? src.Drug.ArabicName : string.Empty)
+            .Map(dest => dest.DrugImageUrl, src => src.Drug != null ? src.Drug.ImageUrl : null);
             
         // PrescriptionReview Mappings
         config.NewConfig<PrescriptionReview, PrescriptionReviewSummaryDTO>()

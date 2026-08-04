@@ -56,7 +56,7 @@ public class DrugSeeder(AppDbContext context, ILogger<DrugSeeder> logger)
                     Manufacturer = record.Manufacturer ?? string.Empty,
                     ArabicName = record.CommercialNameAr ?? string.Empty,
                     DrugClass = record.DrugClass ?? string.Empty,
-                    Category = DrugCategoryMapper.Map(record.DrugClass, record.ScientificName),
+                    CategoryId = null, // Will be seeded later
                     Form = record.Route ?? string.Empty,
                     Price = record.PriceEgp ?? 0,
                     IsActive = true,

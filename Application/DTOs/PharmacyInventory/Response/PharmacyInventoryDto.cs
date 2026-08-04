@@ -1,4 +1,4 @@
-﻿namespace Application.DTOs.PharmacyInventory.Response;
+namespace Application.DTOs.PharmacyInventory.Response;
 
 public class PharmacyInventoryDto
 {
@@ -15,6 +15,8 @@ public class PharmacyInventoryDto
     public string GenericName { get; set; } = string.Empty;
 
     public string ArabicName { get; set; } = string.Empty;
+
+    public string? ImageUrl { get; set; }
 
     public int StockQuantity { get; set; }
 
