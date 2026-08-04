@@ -17,5 +17,6 @@ namespace Domain.Entities
         public string ActionTaken { get; set; }
         public decimal ConfidenceScore { get; set; }
         public string AiRationale { get; set; }
+        public string DrugName { get; set; }
     }
 }

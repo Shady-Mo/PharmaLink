@@ -6,6 +6,6 @@ namespace Application.Services
 {
     public interface IInventoryReportService
     {
-        Task<IEnumerable<ForecastLogDto>> GetBranchForecastReportAsync(Guid branchId);
+        Task<(List<ForecastLogDto> Items, int TotalCount)> GetBranchForecastReportAsync(Guid branchId, int pageNumber, int pageSize);
     }
 }
