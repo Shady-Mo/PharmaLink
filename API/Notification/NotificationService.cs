@@ -12,7 +12,7 @@ namespace API.Notification
             string groupName = $"Branch_{notification.BranchId}";
 
             await _hubContext.Clients.Group(groupName).SendAsync("ReceivePoAlert", notification);
-            await _hubContext.Clients.All.SendAsync("ReceivePoAlert", notification);
+            //await _hubContext.Clients.All.SendAsync("ReceivePoAlert", notification);
 
 
             string emailBody = $@"
