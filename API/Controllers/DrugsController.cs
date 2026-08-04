@@ -22,6 +22,20 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     }
 
     /// <summary>
+    /// Triggers the background import process for Chefaa catalog.
+    /// </summary>
+    [HttpPost("import-chefaa")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [Authorize(Roles = AppRoles.Admin)]
+    public async Task<IActionResult> ImportChefaa([FromServices] Infrastructure.Services.Chefaa.IChefaaImporterService importerService, CancellationToken cancellationToken)
+    {
+        // Fire and forget or background job would be better, but we can start it here
+        _ = Task.Run(() => importerService.StartImportAsync(CancellationToken.None));
+        return Ok(new { message = "Chefaa import started in the background. Check logs for details." });
+    }
+
+    /// <summary>
     /// Retrieves a paginated list of drugs from the catalog with optional filtering and sorting.
     /// </summary>
     [HttpGet("")]

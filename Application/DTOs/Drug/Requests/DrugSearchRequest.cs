@@ -12,11 +12,7 @@ public class DrugSearchRequest : PaginatedRequest
     /// <example>Paracetamol</example>
     public string? SearchValue { get; init; }
 
-    public DrugCategory? Category { get; init; }
-
-    public double? Latitude { get; init; }
-
-    public double? Longitude { get; init; }
+    public int? CategoryId { get; init; }
 
     /// <summary>
     /// Filters drugs by dosage form.

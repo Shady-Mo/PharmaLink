@@ -27,6 +27,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<PharmacyBranch> PharmacyBranches { get; set; }
     public DbSet<PharmacyBranchSchedule> PharmacyBranchSchedules { get; set; }
     public DbSet<Drug> Drugs { get; set; }
+    public DbSet<DrugCategory> DrugCategories { get; set; }
+    public DbSet<DrugSupplier> DrugSuppliers { get; set; }
+    public DbSet<DrugLandingPage> DrugLandingPages { get; set; }
     public DbSet<PharmacyInventory> PharmacyInventories { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
