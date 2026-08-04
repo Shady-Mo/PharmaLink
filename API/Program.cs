@@ -25,7 +25,7 @@ using (var scope = app.Services.CreateScope())
     recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
         "inventory-forecasting-daily-job",
         job => job.RunDailyForecastAsync(),
-        Cron.Daily
+        Cron.Minutely
     );
 }
 
