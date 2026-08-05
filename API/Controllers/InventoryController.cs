@@ -230,5 +230,16 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
         return Ok(new { Message = "تم استلام الطلبية وتحديث المخزون بنجاح." });
     }
 
+    [HttpGet("supplier-orders/{branchId:guid}")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
+    public async Task<IActionResult> GetBranchOrders(Guid branchId)
+    {
+        var result = await _poService.GetBranchOrdersAsync(branchId);
+
+        if (result.IsFailure)
+            return result.ToProblem();
+
+        return Ok(result.Value);
+    }
 
 }

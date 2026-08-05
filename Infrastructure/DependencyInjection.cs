@@ -102,6 +102,10 @@ public static class DependencyInjection
 
             services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
             services.AddScoped<IInventoryReportService, InventoryReportService>();
+            services.AddScoped<ISupplierOrderService, SupplierOrderService>();
+
+            services.AddScoped<ISupplierDrugService, SupplierDrugService>();
+            services.AddScoped<ISupplierProfileService, SupplierProfileService>();
 
             services.AddScoped<ISupplierOrderService, SupplierOrderService>();
             services.Configure<GeminiSettings>(

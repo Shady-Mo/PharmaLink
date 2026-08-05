@@ -12,7 +12,7 @@ namespace Infrastructure.Services
         public async Task<Result<List<SupplierOrderDto>>> GetOrdersBySupplierAsync(Guid supplierId, POStatus? status = null)
         {
             var query = _context.PurchaseOrders
-                .Include(po => po.Branch)
+                .Include(po => po.Branch).ThenInclude(b => b.Pharmacy)
                 .Include(po => po.Drug)
                 .Where(po => po.SupplierId == supplierId);
 
@@ -26,7 +26,7 @@ namespace Infrastructure.Services
             var orderDtos = orders.Select(po => new SupplierOrderDto
             {
                 OrderId = po.Id,
-                PharmacyBranchName = po.Branch?.BranchName,
+                PharmacyBranchName = $"{po.Branch.Pharmacy.LegalName}, {po.Branch?.BranchName}",
                 OrderedAt = po.CreatedAt,
                 CurrentStatus = po.Status.ToString(),
                 DrugId = po.DrugId,
