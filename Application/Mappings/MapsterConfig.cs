@@ -46,6 +46,7 @@ public class MapsterConfig : IRegister
                 : src.StockQuantity <= 10 ? InventoryStockStatus.LowStock : InventoryStockStatus.Available);
 
         config.NewConfig<PharmacyInventory, GetPharmacyInventoryDTO>()
+            .Map(dest => dest.BranchName, src => src.Branch.BranchName)
             .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.StockStatus, src => src.StockQuantity == 0
