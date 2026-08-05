@@ -10,9 +10,7 @@ namespace API.Controllers
     {
         private Guid GetSupplierId()
         {
-            var idString = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(idString) || !Guid.TryParse(idString, out var id))
-                throw new UnauthorizedAccessException("المستخدم غير مصرح له.");
+            var id = User.GetUserId();
 
             return id;
         }
