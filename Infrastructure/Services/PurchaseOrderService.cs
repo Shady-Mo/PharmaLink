@@ -12,12 +12,12 @@ namespace Infrastructure.Services
         {
             var po = await _context.PurchaseOrders.FindAsync(orderId);
 
-            if (po == null || po.Status != POStatus.Pending)
+            if (po == null || po.Status != POStatus.PendingPharmacyApproval)
             {
                 return false;
             }
 
-            po.Status = POStatus.Approved;
+            po.Status = POStatus.SentToSupplier;
             po.ApprovedAt = DateTime.UtcNow;
 
             po.ApprovedBy = userId;
@@ -37,7 +37,7 @@ namespace Infrastructure.Services
 
         public async Task<List<GetPurchaseOrderDTO>> GetPendingPurchaseOrders(Guid branchId)
         {
-            var result = await _context.PurchaseOrders.Where(p => p.BranchId == branchId && p.Status == POStatus.Pending).Select(p => new GetPurchaseOrderDTO
+            var result = await _context.PurchaseOrders.Where(p => p.BranchId == branchId && p.Status == POStatus.PendingPharmacyApproval).Select(p => new GetPurchaseOrderDTO
             {
                 Id = p.Id,
                 AiRationale = p.AiRationale,
