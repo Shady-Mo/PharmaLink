@@ -143,6 +143,15 @@ public static class DependencyInjection
             services.AddScoped<IOtpService, OtpService>();
             services.AddScoped<IInventoryForecastingService, InventoryForecastingService>();
 
+            // OSRM Routing Service — sole source of truth for driving distance/duration calculation
+            services.AddHttpClient("OsrmClient", client =>
+            {
+                client.BaseAddress = new Uri("https://router.project-osrm.org/");
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+            // Singleton: OsrmRoutingService is stateless (only depends on IHttpClientFactory + ILogger),
+            // and it is consumed by the singleton PharmacyInventoryPlugin, so it must not be scoped.
+            services.AddSingleton<IOsrmRoutingService, OsrmRoutingService>();
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();

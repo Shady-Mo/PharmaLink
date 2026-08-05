@@ -1,12 +1,14 @@
 using System.ComponentModel;
 using System.Text.Json;
 using Application.DTOs.OrderRouting;
+using Infrastructure.Services;
 using Microsoft.SemanticKernel;
 
 namespace Infrastructure.AI.Plugins;
 
 public sealed class PharmacyInventoryPlugin(
     IServiceScopeFactory scopeFactory,
+    IOsrmRoutingService osrmRoutingService,
     ILogger<PharmacyInventoryPlugin> logger)
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
@@ -77,50 +79,60 @@ public sealed class PharmacyInventoryPlugin(
 
         var requestedCount = drugIds.Count;
 
-        var evaluations = stockRows
-            .GroupBy(r => r.BranchId)
-            .Select(branchGroup =>
+        var evaluations = new List<BranchFulfillmentEvaluation>();
+
+        foreach (var branchGroup in stockRows.GroupBy(r => r.BranchId))
+        {
+            var first = branchGroup.First();
+            var stockByDrug = branchGroup.ToDictionary(r => r.DrugId, r => r);
+
+            var available = new List<AvailableItem>();
+            var missing = new List<MissingItem>();
+
+            foreach (var drugId in drugIds)
             {
-                var first = branchGroup.First();
-                var stockByDrug = branchGroup.ToDictionary(r => r.DrugId, r => r);
+                var needed = quantityByDrug[drugId];
+                var name = nameByDrug[drugId];
 
-                var available = new List<AvailableItem>();
-                var missing = new List<MissingItem>();
+                if (stockByDrug.TryGetValue(drugId, out var row) && row.AvailableStock >= needed)
+                    available.Add(new AvailableItem(drugId, name, needed, row.AvailableStock, row.UnitPrice));
+                else
+                    missing.Add(new MissingItem(
+                        drugId, name, needed,
+                        stockByDrug.TryGetValue(drugId, out var partial) ? partial.AvailableStock : 0));
+            }
 
-                foreach (var drugId in drugIds)
-                {
-                    var needed = quantityByDrug[drugId];
-                    var name = nameByDrug[drugId];
+            // Real-world driving distance via OSRM (single source of truth).
+            var distanceKm = double.MaxValue;
+            if (first.Latitude is { } lat && first.Longitude is { } lng)
+            {
+                var route = await osrmRoutingService.GetDrivingRouteAsync(
+                    patientLocation.Latitude, patientLocation.Longitude, lat, lng, cancellationToken);
 
-                    if (stockByDrug.TryGetValue(drugId, out var row) && row.AvailableStock >= needed)
-                        available.Add(new AvailableItem(drugId, name, needed, row.AvailableStock, row.UnitPrice));
-                    else
-                        missing.Add(new MissingItem(
-                            drugId, name, needed,
-                            stockByDrug.TryGetValue(drugId, out var partial) ? partial.AvailableStock : 0));
-                }
+                // Only trust a successful OSRM result; a failed lookup leaves the branch
+                // at MaxValue so it sorts last rather than being misrepresented as "closest".
+                if (route.IsSuccess)
+                    distanceKm = Math.Round(route.DistanceKm, 3);
+            }
 
-                var distanceKm = first.Latitude is { } lat && first.Longitude is { } lng
-                    ? Math.Round(GeoDistancePlugin.Haversine(
-                        patientLocation.Latitude, patientLocation.Longitude, lat, lng), 3)
-                    : double.MaxValue;
+            evaluations.Add(new BranchFulfillmentEvaluation
+            {
+                PharmacyId = first.PharmacyId,
+                BranchId = first.BranchId,
+                BranchName = first.BranchName,
+                AvailableItemsCount = available.Count,
+                RequestedItemsCount = requestedCount,
+                AvailableItems = available,
+                MissingItems = missing,
+                DistanceKm = distanceKm,
+                ServiceRadiusKm = first.ServiceRadiusKm,
+                SupportsDelivery = first.SupportsDelivery,
+                SupportsPickup = first.SupportsPickup
+            });
+        }
 
-                return new BranchFulfillmentEvaluation
-                {
-                    PharmacyId = first.PharmacyId,
-                    BranchId = first.BranchId,
-                    BranchName = first.BranchName,
-                    AvailableItemsCount = available.Count,
-                    RequestedItemsCount = requestedCount,
-                    AvailableItems = available,
-                    MissingItems = missing,
-                    DistanceKm = distanceKm,
-                    ServiceRadiusKm = first.ServiceRadiusKm,
-                    SupportsDelivery = first.SupportsDelivery,
-                    SupportsPickup = first.SupportsPickup
-                };
-            })
-            // Primary: coverage desc (fewest splits). Secondary: distance asc.
+        // Primary: coverage desc (fewest splits). Secondary: distance asc.
+        evaluations = evaluations
             .OrderByDescending(e => e.AvailableItemsCount)
             .ThenBy(e => e.DistanceKm)
             .ToList();

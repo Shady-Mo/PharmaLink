@@ -88,6 +88,7 @@ public static class SemanticKernelDependencyInjection
         //   can run the deterministic evaluation used for reconciliation/fallback.
         services.AddSingleton(sp => new PharmacyInventoryPlugin(
             sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<IOsrmRoutingService>(),
             sp.GetRequiredService<ILoggerFactory>().CreateLogger<PharmacyInventoryPlugin>()));
 
         services.AddScoped<Application.Services.OrderRouting.IOrderRoutingOrchestrator,
@@ -107,6 +108,7 @@ public static class SemanticKernelDependencyInjection
 
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+            var osrmRoutingService = sp.GetRequiredService<IOsrmRoutingService>();
 
             kernel.Plugins.AddFromObject(
                 new DrugPlugin(scopeFactory, loggerFactory.CreateLogger<DrugPlugin>()),
@@ -125,11 +127,11 @@ public static class SemanticKernelDependencyInjection
                 pluginName: "CartOrderPlugin");
 
             kernel.Plugins.AddFromObject(
-                new PharmacyInventoryPlugin(scopeFactory, loggerFactory.CreateLogger<PharmacyInventoryPlugin>()),
+                new PharmacyInventoryPlugin(scopeFactory, osrmRoutingService, loggerFactory.CreateLogger<PharmacyInventoryPlugin>()),
                 pluginName: "PharmacyInventory");
 
             kernel.Plugins.AddFromObject(
-                new GeoDistancePlugin(loggerFactory.CreateLogger<GeoDistancePlugin>()),
+                new GeoDistancePlugin(osrmRoutingService, loggerFactory.CreateLogger<GeoDistancePlugin>()),
                 pluginName: "GeoDistance");
 
             return kernel;

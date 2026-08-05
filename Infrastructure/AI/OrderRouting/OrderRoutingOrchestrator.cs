@@ -22,6 +22,8 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 {
     private readonly IKernelProvider _kernelProvider;
     private readonly PharmacyInventoryPlugin _inventoryPlugin;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly IOsrmRoutingService _osrmRoutingService;
     private readonly ILoggerFactory _loggerFactory;
     private readonly ILogger<OrderRoutingOrchestrator> _logger;
 
@@ -30,6 +32,8 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
     public OrderRoutingOrchestrator(
         IEnumerable<IKernelProvider> kernelProviders,
         PharmacyInventoryPlugin inventoryPlugin,
+        IServiceScopeFactory scopeFactory,
+        IOsrmRoutingService osrmRoutingService,
         ILoggerFactory loggerFactory,
         ILogger<OrderRoutingOrchestrator> logger)
     {
@@ -38,6 +42,11 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 "ITIOrderSplitting provider not registered. Ensure ITIOrderSplittingProvider is " +
                 "registered in DI and AI:Providers:ITIOrderSplitting is configured in appsettings.json.");
         _inventoryPlugin = inventoryPlugin;
+        // Application root scope factory — the ONLY provider that has AppDbContext registered.
+        // The Kernel's internal service provider (kernel.Services) does NOT contain application
+        // services, so plugins must be built from this factory, never from kernel.Services.
+        _scopeFactory = scopeFactory;
+        _osrmRoutingService = osrmRoutingService;
         _loggerFactory = loggerFactory;
         _logger = logger;
     }
@@ -264,13 +273,16 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         CancellationToken cancellationToken)
     {
         var workerKernel = _kernelProvider.GetKernel(ModelRole.Chat).Clone();
+        // Build the plugin from the application root scope factory (has AppDbContext), NOT from
+        // workerKernel.Services — the Kernel's internal DI container does not register app services.
         workerKernel.Plugins.AddFromObject(
             new PharmacyInventoryPlugin(
-                workerKernel.Services.GetRequiredService<IServiceScopeFactory>(),
+                _scopeFactory,
+                _osrmRoutingService,
                 _loggerFactory.CreateLogger<PharmacyInventoryPlugin>()),
             pluginName: "PharmacyInventory");
         workerKernel.Plugins.AddFromObject(
-            new GeoDistancePlugin(_loggerFactory.CreateLogger<GeoDistancePlugin>()),
+            new GeoDistancePlugin(_osrmRoutingService, _loggerFactory.CreateLogger<GeoDistancePlugin>()),
             pluginName: "GeoDistance");
 
         var routerKernel = _kernelProvider.GetKernel(ModelRole.Chat).Clone();
