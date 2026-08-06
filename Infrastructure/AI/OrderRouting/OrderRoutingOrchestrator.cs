@@ -83,9 +83,36 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 "OrderRoutingOrchestrator — Agent decision failed; falling back to deterministic heuristic.");
         }
 
-        var plan = decision is not null
-            ? BuildPlanFromDecision(decision, evaluations, cartItems)
-            : null;
+        // DIAGNOSTIC: separate the two distinct AI-failure cases so the logs say WHICH one happened:
+        //   • decision == null  → the agent never produced a parseable RouterDecision JSON
+        //                         (no final router message, quota error, or unparseable output).
+        //   • decision != null but plan == null → the JSON WAS parsed, but none of its legs mapped
+        //                         to real branches/drugs (e.g. hallucinated branchId), so it yielded
+        //                         zero usable legs.
+        OrderRoutingPlan? plan;
+        if (decision is null)
+        {
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — AI FALLBACK CAUSE #1: no parseable RouterDecision returned " +
+                "(router produced no final JSON message, hit quota, or output was unparseable). " +
+                "Falling back to Held-Karp.");
+            plan = null;
+        }
+        else
+        {
+            plan = BuildPlanFromDecision(decision, evaluations, cartItems);
+            if (plan is null || plan.Legs.Count == 0)
+            {
+                _logger.LogWarning(
+                    "OrderRoutingOrchestrator — AI FALLBACK CAUSE #3: RouterDecision parsed OK " +
+                    "(strategy={Strategy}, {LegCount} raw leg(s)) but produced ZERO usable legs after " +
+                    "validation — likely hallucinated branchId(s)/drugId(s) not present in the evaluations. " +
+                    "Raw legs: {RawLegs}. Falling back to Held-Karp.",
+                    decision.Strategy,
+                    decision.Legs?.Count ?? 0,
+                    JsonSerializer.Serialize(decision.Legs, JsonOptions));
+            }
+        }
 
         // Track how the plan was produced so the route summary can label its optimizer honestly:
         // when the AI is unavailable (quota / null / unparseable), the Held-Karp TSP fallback both
@@ -95,9 +122,16 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         if (!producedByAi)
         {
             _logger.LogInformation(
-                "OrderRoutingOrchestrator — Agent returned no usable plan (null/quota/parse-fail); running Held-Karp TSP fallback.");
+                "OrderRoutingOrchestrator — Agent returned no usable plan; running Held-Karp TSP fallback.");
             plan = BuildDeterministicPlan(evaluations, cartItems);
         }
+        else
+        {
+            _logger.LogInformation(
+                "OrderRoutingOrchestrator — AI plan accepted: {LegCount} leg(s), tripDistanceKm={Trip}.",
+                plan!.Legs.Count, plan.TotalDistanceKm);
+        }
+
 
         // Attach a driver-facing, ordered route summary ("go to A first, then B, ..."). For an
         // AI plan we keep the AI's chosen leg order; for the fallback we compute the exact optimal
@@ -401,41 +435,87 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
         chat.AddChatMessage(new ChatMessageContent(AuthorRole.User, seed));
 
+        // DIAGNOSTIC: capture EVERY agent turn so the logs show exactly what the group chat produced —
+        // whether the router ever spoke, how many turns each agent took, and the raw text of each.
+        // This is what tells us apart "router never emitted a final JSON" from "router emitted text we
+        // couldn't parse".
         string? lastRouterMessage = null;
+        var turnCount = 0;
+        var routerTurns = 0;
         await foreach (var message in chat.InvokeAsync(cancellationToken))
         {
-            if (string.Equals(message.AuthorName, OrderRoutingAgentDefinitions.RouteOptimizationAgentName,
+            turnCount++;
+            var author = message.AuthorName ?? "(unknown)";
+            var content = message.Content ?? string.Empty;
+
+            _logger.LogInformation(
+                "OrderRoutingOrchestrator — Agent turn #{Turn} by {Author} ({Len} chars): {Content}",
+                turnCount, author, content.Length,
+                content.Length > 2000 ? content[..2000] + "…(truncated)" : content);
+
+            if (string.Equals(author, OrderRoutingAgentDefinitions.RouteOptimizationAgentName,
                     StringComparison.Ordinal))
             {
+                routerTurns++;
                 lastRouterMessage = message.Content;
             }
         }
 
+        _logger.LogInformation(
+            "OrderRoutingOrchestrator — Group chat finished: {TotalTurns} total turn(s), {RouterTurns} router turn(s).",
+            turnCount, routerTurns);
+
         if (string.IsNullOrWhiteSpace(lastRouterMessage))
         {
-            _logger.LogWarning("OrderRoutingOrchestrator — Router agent produced no output.");
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — AI FALLBACK CAUSE #1a: the RouteOptimizationAgent never produced " +
+                "a final text message (it likely exhausted MaximumIterations={MaxIter} on tool calls, e.g. " +
+                "calculate_trip_distance_km, before emitting its JSON). RouterTurns={RouterTurns}, TotalTurns={TotalTurns}.",
+                2, routerTurns, turnCount);
             return null;
         }
 
+        // Log the exact raw router text BEFORE parsing so we can see whether it's valid JSON, wrapped
+        // in markdown fences, or truncated.
+        _logger.LogInformation(
+            "OrderRoutingOrchestrator — Raw router final message ({Len} chars): {Raw}",
+            lastRouterMessage.Length, lastRouterMessage);
+
         return ParseRouterDecision(lastRouterMessage);
     }
+
 
     private RouterDecision? ParseRouterDecision(string raw)
     {
         var json = ExtractJsonObject(raw);
         if (json is null)
+        {
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — AI FALLBACK CAUSE #2a: router output contained no JSON object " +
+                "(no '{{' … '}}' found) — the model replied with prose only. Raw: {Raw}", raw);
             return null;
+        }
 
         try
         {
-            return JsonSerializer.Deserialize<RouterDecision>(json, JsonOptions);
+            var decision = JsonSerializer.Deserialize<RouterDecision>(json, JsonOptions);
+            if (decision is null)
+            {
+                _logger.LogWarning(
+                    "OrderRoutingOrchestrator — AI FALLBACK CAUSE #2b: router JSON deserialized to null. " +
+                    "Extracted JSON: {Json}", json);
+            }
+            return decision;
         }
         catch (JsonException ex)
         {
-            _logger.LogWarning(ex, "OrderRoutingOrchestrator — Failed to parse router JSON: {Raw}", raw);
+            _logger.LogWarning(ex,
+                "OrderRoutingOrchestrator — AI FALLBACK CAUSE #2c: failed to parse router JSON (malformed / " +
+                "wrong shape). Extracted JSON: {Json} | Raw: {Raw}", json, raw);
             return null;
         }
     }
+
 
     private static string? ExtractJsonObject(string text)
     {
@@ -461,7 +541,13 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         foreach (var legChoice in decision.Legs)
         {
             if (!evalByBranch.TryGetValue(legChoice.BranchId, out var eval))
+            {
+                _logger.LogWarning(
+                    "OrderRoutingOrchestrator — Dropping leg: branchId {BranchId} is NOT in the candidate " +
+                    "evaluations (hallucinated / out-of-set). Valid branchIds: {ValidIds}.",
+                    legChoice.BranchId, string.Join(", ", evalByBranch.Keys));
                 continue; // ignore hallucinated branches
+            }
 
             var lineItems = new List<FulfilledLineItem>();
             var availableByDrug = eval.AvailableItems.ToDictionary(a => a.DrugId);
@@ -470,7 +556,14 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             foreach (var drugId in chosenDrugIds)
             {
                 if (assignedDrugs.Contains(drugId)) continue; 
-                if (!availableByDrug.TryGetValue(drugId, out var avail)) continue;
+                if (!availableByDrug.TryGetValue(drugId, out var avail))
+                {
+                    _logger.LogWarning(
+                        "OrderRoutingOrchestrator — Leg for branch {BranchId} references drugId {DrugId} that " +
+                        "the branch does NOT have available (hallucinated / not in AvailableItems); skipping it.",
+                        legChoice.BranchId, drugId);
+                    continue;
+                }
                 if (!quantityByDrug.TryGetValue(drugId, out var qty)) continue;
 
                 lineItems.Add(new FulfilledLineItem(drugId, avail.DrugName, avail.DrugNameAr, qty, avail.UnitPrice));
@@ -478,7 +571,15 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 assignedDrugs.Add(drugId);
             }
 
-            if (lineItems.Count == 0) continue;
+            if (lineItems.Count == 0)
+            {
+                _logger.LogWarning(
+                    "OrderRoutingOrchestrator — Leg for branch {BranchId} yielded no usable line items " +
+                    "(all its drugs were already assigned or not available here); dropping the leg.",
+                    legChoice.BranchId);
+                continue;
+            }
+
 
             legs.Add(new OrderFulfillmentLegPlan
             {
