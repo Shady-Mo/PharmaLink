@@ -18,7 +18,14 @@ public sealed record BranchFulfillmentEvaluation
 
     public double DistanceKm { get; init; }
 
+    /// <summary>Branch latitude (decimal degrees). Needed to compute branch→branch trip distances.</summary>
+    public double? Latitude { get; init; }
+
+    /// <summary>Branch longitude (decimal degrees). Needed to compute branch→branch trip distances.</summary>
+    public double? Longitude { get; init; }
+
     public double ServiceRadiusKm { get; init; }
+
 
     public bool SupportsDelivery { get; init; }
 
@@ -29,6 +36,28 @@ public sealed record BranchFulfillmentEvaluation
     public bool WithinServiceRadius => DistanceKm <= ServiceRadiusKm;
 }
 
-public sealed record MissingItem(Guid DrugId, string DrugName, int QuantityNeeded, int QuantityAvailable);
+/// <summary>
+/// A requested cart item a branch cannot (fully) supply. <c>DrugName</c> is the English brand
+/// name and <c>DrugNameAr</c> is the Arabic name (both for the confirmation popup).
+/// </summary>
+public sealed record MissingItem(
+    Guid DrugId,
+    string DrugName,
+    string DrugNameAr,
+    int QuantityNeeded,
+    int QuantityAvailable);
 
-public sealed record AvailableItem(Guid DrugId, string DrugName, int QuantityNeeded, int QuantityAvailable, decimal UnitPrice);
+/// <summary>
+/// A requested cart item a branch can supply. <c>DrugName</c> is the English brand name and
+/// <c>DrugNameAr</c> is the Arabic name (both for the confirmation popup).
+/// </summary>
+public sealed record AvailableItem(
+
+    Guid DrugId,
+    string DrugName,
+    string DrugNameAr,
+    int QuantityNeeded,
+    int QuantityAvailable,
+    decimal UnitPrice);
+
+

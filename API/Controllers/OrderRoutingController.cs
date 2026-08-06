@@ -62,11 +62,13 @@ public class OrderRoutingController(IOrderRoutingOrchestrator orchestrator) : Co
             User.GetUserId(),
             request.PatientLocation,
             request.CartItems,
+            request.FulfillmentMode,
             cancellationToken);
 
         return Ok(plan);
     }
 }
+
 
 /// <summary>
 /// Request model for the routing preview endpoint.
@@ -78,4 +80,12 @@ public record OrderRoutingPreviewRequest
 
     /// <summary>Cart items to route (DrugId + Quantity).</summary>
     public IReadOnlyList<CartItemDto> CartItems { get; init; } = [];
+
+    /// <summary>
+    /// Fulfillment mode for the preview. Delivery (default) filters branches by each branch's
+    /// ServiceRadiusKm; Pickup filters branches within a fixed 20 km drive of the patient.
+    /// </summary>
+    public FulfillmentMode FulfillmentMode { get; init; } = FulfillmentMode.Delivery;
 }
+
+

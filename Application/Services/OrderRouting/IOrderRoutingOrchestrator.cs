@@ -20,11 +20,17 @@ public interface IOrderRoutingOrchestrator
     /// <param name="patientUserId">The authenticated patient placing the order.</param>
     /// <param name="patientLocation">The patient's delivery coordinates.</param>
     /// <param name="cartItems">The cart lines to route.</param>
+    /// <param name="fulfillmentMode">
+    /// Delivery vs Pickup — controls the geographic candidate filter: Delivery keeps branches whose
+    /// ServiceRadiusKm covers the patient; Pickup keeps branches within a fixed 20 km drive.
+    /// </param>
     Task<OrderRoutingPlan> OptimizeOrderFulfillmentAsync(
         Guid patientUserId,
         GeoLocation patientLocation,
         IReadOnlyList<CartItemDto> cartItems,
+        FulfillmentMode fulfillmentMode,
         CancellationToken cancellationToken = default);
+
 
     /// <summary>
     /// Pipeline integration entry point used during Cart-to-Order conversion.
