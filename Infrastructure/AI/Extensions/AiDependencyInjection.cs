@@ -33,6 +33,7 @@ public static class AiDependencyInjection
         services.AddSingleton<IKernelProvider, GitHubModelsProvider>();
         services.AddSingleton<IKernelProvider, OpenRouterProvider>();
         services.AddSingleton<IKernelProvider, TokenRouterProvider>();
+        services.AddSingleton<IKernelProvider, ITIOrderSplittingProvider>();
 
         // Factory
         services.AddSingleton<IKernelFactory, KernelFactory>();

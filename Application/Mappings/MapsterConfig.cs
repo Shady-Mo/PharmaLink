@@ -80,8 +80,15 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.GoogleMapsUrl, src => src.Branch.GeoLocation != null ? "https://www.google.com/maps/dir/?api=1&destination=" + src.Branch.GeoLocation.Y + "," + src.Branch.GeoLocation.X : string.Empty)
             .Map(dest => dest.SupportsDelivery, src => src.Branch.SupportsDelivery)
             .Map(dest => dest.SupportsPickup, src => src.Branch.SupportsPickup)
-            .Map(dest => dest.DistanceKm, src => (src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null) 
-                ? src.Branch.GeoLocation.Distance(src.Order.DeliveryAddress.GeoLocation) / 1000.0 : (double?)null)
+            // Prefer the OSRM driving distance captured on the leg at split time (same value the
+            // order-routing preview returns). Fall back to a straight-line estimate only for legacy
+            // legs created before the distance was persisted.
+            .Map(dest => dest.DistanceKm, src => src.DistanceKm != null
+                ? src.DistanceKm
+                : (src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null)
+                    ? src.Branch.GeoLocation.Distance(src.Order.DeliveryAddress.GeoLocation) / 1000.0
+                    : (double?)null)
+
             .Map(dest => dest.IsReady, src => src.LegStatus == LegStatus.ReadyForPickup || src.LegStatus == LegStatus.OutForDelivery)
             .Map(dest => dest.IsCompleted, src => src.LegStatus == LegStatus.Delivered)
             .Map(dest => dest.EstimatedPreparationMinutes, src => (int)((src.ReadyByEstimate - DateTime.UtcNow).TotalMinutes))

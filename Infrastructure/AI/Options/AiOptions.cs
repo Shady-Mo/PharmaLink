@@ -75,6 +75,7 @@ public class ProvidersOptions
     public GeminiOptions Gemini { get; set; } = new();
     public GitHubModelsOptions GitHubModels { get; set; } = new();
     public ITIOptions ITI { get; set; } = new();
+    public ITIOptions ITIOrderSplitting { get; set; } = new();
     public OpenRouterOptions OpenRouter { get; set; } = new();
     public TokenRouterOptions TokenRouter { get; set; } = new();
 }

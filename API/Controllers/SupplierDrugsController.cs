@@ -10,7 +10,7 @@ namespace API.Controllers
     public class SupplierDrugsController(ISupplierDrugService _supplierDrugService) : BaseApiController
     {
 
-
+        [HttpGet]
         public async Task<IActionResult> GetMyDrugs([FromQuery] string? search, [FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
         {
             var result = await _supplierDrugService.GetMyDrugsAsync(User.GetUserId(), search, pageNumber, pageSize);
