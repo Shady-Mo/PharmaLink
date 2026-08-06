@@ -34,6 +34,11 @@ public class PrescriptionReview
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
+
+    public PrescriptionEmbeddingStatus EmbeddingStatus { get; set; } = PrescriptionEmbeddingStatus.Pending;
+    public DateTime? EmbeddedAt { get; set; }
+    public string? EmbeddingFailureReason { get; set; }
+
     // Navigation properties
     public Patient Patient { get; set; } = null!;
     public Pharmacist? Pharmacist { get; set; }

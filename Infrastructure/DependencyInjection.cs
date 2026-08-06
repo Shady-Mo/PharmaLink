@@ -1,4 +1,5 @@
 using Hangfire;
+using Infrastructure.BackgroundJobs;
 
 namespace Infrastructure;
 
@@ -33,6 +34,7 @@ public static class DependencyInjection
             services.AddJwtServices(configuration);
 
             services.AddHttpContextAccessor();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             services.AddHttpClient<IWebhookOtpDispatcher, WhapiWhatsAppOtpDispatcher>();
 
@@ -160,6 +162,14 @@ public static class DependencyInjection
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
+
+
+            // Program.cs / DependencyInjection.cs
+            services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
+            services.AddHostedService<PrescriptionEmbeddingHostedService>();
+            services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
+            services.AddScoped<PatientPrescriptionSearchPlugin>();
+
 
             services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
             {
