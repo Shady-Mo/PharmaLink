@@ -10,5 +10,6 @@ namespace Application.Services
         Task<bool> ApprovePurchaseOrderAsync(Guid orderId, string userId);
 
         Task<List<GetPurchaseOrderDTO>> GetPendingPurchaseOrders(Guid branchId);
+        Task<Result<List<GetPurchaseOrderDTO>>> GetBranchOrdersAsync(Guid branchId);
     }
 }

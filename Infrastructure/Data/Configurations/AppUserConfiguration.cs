@@ -13,6 +13,7 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasValue<Patient>("Patient")
             .HasValue<Pharmacist>("Pharmacist")
             .HasValue<SystemAdmin>("SystemAdmin")
-            .HasValue<PharmacyAdmin>("PharmacyAdmin");
+            .HasValue<PharmacyAdmin>("PharmacyAdmin")
+            .HasValue<Supplier>("Supplier"); ;
     }
 }

@@ -102,7 +102,12 @@ public static class DependencyInjection
 
             services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
             services.AddScoped<IInventoryReportService, InventoryReportService>();
+            services.AddScoped<ISupplierOrderService, SupplierOrderService>();
 
+            services.AddScoped<ISupplierDrugService, SupplierDrugService>();
+            services.AddScoped<ISupplierProfileService, SupplierProfileService>();
+
+            services.AddScoped<ISupplierOrderService, SupplierOrderService>();
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
 
@@ -155,7 +160,7 @@ public static class DependencyInjection
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
-            
+
             services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
             {
                 client.BaseAddress = new Uri("https://meilisearch.chefaa.com/");

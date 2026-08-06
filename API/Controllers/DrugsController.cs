@@ -27,7 +27,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpPost("import-chefaa")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Authorize(Roles = AppRoles.Admin)]
+    //[Authorize(Roles = AppRoles.Admin)]
     public async Task<IActionResult> ImportChefaa([FromServices] Infrastructure.Services.Chefaa.IChefaaImporterService importerService, CancellationToken cancellationToken)
     {
         // Fire and forget or background job would be better, but we can start it here

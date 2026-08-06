@@ -44,4 +44,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<PharmacistAssignment> PharmacistAssignments { get; set; }
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<InventoryForecastLog> InventoryForecastLogs { get; set; }
+    public DbSet<Supplier> Suppliers { get; set; }
+    public DbSet<SupplierDrug> SupplierDrugs { get; set; }
+
 }

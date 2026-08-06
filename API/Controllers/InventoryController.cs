@@ -1,9 +1,10 @@
 ﻿using Application.Services.AI;
+using Infrastructure.Services;
 using Twilio.TwiML.Messaging;
 
 namespace API.Controllers;
 
-public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService, IPurchaseOrderService _poService, IInventoryReportService _reportService) : BaseApiController
+public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService, IPurchaseOrderService _poService, IInventoryReportService _reportService, ISupplierOrderService _supplierOrderService) : BaseApiController
 {
     /// <summary>
     /// Retrieves a paginated inventory list, with optional text search and stock-status filtering.
@@ -184,5 +185,61 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
         return Ok(result);
     }
 
+
+    [HttpGet("drugs/{drugId:guid}/suppliers")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
+    public async Task<IActionResult> GetSuppliersForDrug(Guid drugId)
+    {
+        var result = await _supplierOrderService.GetSuppliersForDrugAsync(drugId);
+
+        if (result.IsFailure)
+        {
+            return result.ToProblem();
+        }
+
+        return Ok(result.Value);
+    }
+
+    [HttpPost("{orderId:guid}/assign-supplier/{supplierId:guid}")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
+    public async Task<IActionResult> AssignSupplierToOrder(Guid orderId, Guid supplierId, Guid branchId)
+    {
+
+        var result = await _supplierOrderService.AssignSupplierToOrderAsync(orderId, supplierId, branchId);
+
+        if (result.IsFailure)
+        {
+            return result.ToProblem();
+        }
+
+        return Ok(new { Message = "تم إرسال أمر الشراء للمورد بنجاح." });
+    }
+
+    [HttpPost("{orderId:guid}/receive")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
+    public async Task<IActionResult> ReceiveOrder(Guid orderId, Guid branchId)
+    {
+
+        var result = await _supplierOrderService.ReceiveOrderAsync(orderId, branchId);
+
+        if (result.IsFailure)
+        {
+            result.ToProblem();
+        }
+
+        return Ok(new { Message = "تم استلام الطلبية وتحديث المخزون بنجاح." });
+    }
+
+    [HttpGet("supplier-orders/{branchId:guid}")]
+    [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
+    public async Task<IActionResult> GetBranchOrders(Guid branchId)
+    {
+        var result = await _poService.GetBranchOrdersAsync(branchId);
+
+        if (result.IsFailure)
+            return result.ToProblem();
+
+        return Ok(result.Value);
+    }
 
 }
