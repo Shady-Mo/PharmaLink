@@ -6,6 +6,7 @@ public enum AIProvider
     Gemini,
     GitHubModels,
     ITI,
+    ITIOrderSplitting,
     OpenAI,
     AzureOpenAI,
     Claude,

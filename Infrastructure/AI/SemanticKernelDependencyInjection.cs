@@ -83,6 +83,17 @@ public static class SemanticKernelDependencyInjection
         services.AddScoped<IPharmacyAssistantService, PharmacyAssistantService>();
         services.AddScoped<IDrugInfoService, DrugInfoService>();
 
+        // ── 5. Order Fulfillment Optimization Engine (multi-agent) ───────────
+        //   The PharmacyInventoryPlugin is also resolvable directly so the orchestrator
+        //   can run the deterministic evaluation used for reconciliation/fallback.
+        services.AddSingleton(sp => new PharmacyInventoryPlugin(
+            sp.GetRequiredService<IServiceScopeFactory>(),
+            sp.GetRequiredService<IOsrmRoutingService>(),
+            sp.GetRequiredService<ILoggerFactory>().CreateLogger<PharmacyInventoryPlugin>()));
+
+        services.AddScoped<Application.Services.OrderRouting.IOrderRoutingOrchestrator,
+            Infrastructure.AI.OrderRouting.OrderRoutingOrchestrator>();
+
         return services;
     }
 
@@ -97,6 +108,7 @@ public static class SemanticKernelDependencyInjection
 
             var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
             var scopeFactory = sp.GetRequiredService<IServiceScopeFactory>();
+            var osrmRoutingService = sp.GetRequiredService<IOsrmRoutingService>();
 
             kernel.Plugins.AddFromObject(
                 new DrugPlugin(scopeFactory, loggerFactory.CreateLogger<DrugPlugin>()),
@@ -113,6 +125,14 @@ public static class SemanticKernelDependencyInjection
             kernel.Plugins.AddFromObject(
                 new CartOrderPlugin(scopeFactory, loggerFactory.CreateLogger<CartOrderPlugin>()),
                 pluginName: "CartOrderPlugin");
+
+            kernel.Plugins.AddFromObject(
+                new PharmacyInventoryPlugin(scopeFactory, osrmRoutingService, loggerFactory.CreateLogger<PharmacyInventoryPlugin>()),
+                pluginName: "PharmacyInventory");
+
+            kernel.Plugins.AddFromObject(
+                new GeoDistancePlugin(osrmRoutingService, loggerFactory.CreateLogger<GeoDistancePlugin>()),
+                pluginName: "GeoDistance");
 
             return kernel;
         }

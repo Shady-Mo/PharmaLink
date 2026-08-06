@@ -14,8 +14,12 @@ public class LegGenerationService(
 {
     private readonly OrderFulfillmentSettings _settings = options.Value;
 
-    public Result<List<OrderFulfillmentLeg>> GenerateLegs(Domain.Entities.Order order, IEnumerable<Guid> assignedBranchIds)
+    public Result<List<OrderFulfillmentLeg>> GenerateLegs(
+        Domain.Entities.Order order,
+        IEnumerable<Guid> assignedBranchIds,
+        IReadOnlyDictionary<Guid, double>? distanceByBranchKm = null)
     {
+
         var distinctBranchIds = assignedBranchIds.Distinct().ToList();
 
         if (distinctBranchIds.Count == 0)
@@ -34,6 +38,14 @@ public class LegGenerationService(
 
         foreach (var branchId in distinctBranchIds)
         {
+            double? distanceKm = null;
+            if (distanceByBranchKm is not null
+                && distanceByBranchKm.TryGetValue(branchId, out var km)
+                && km < double.MaxValue)
+            {
+                distanceKm = Math.Round(km, 3);
+            }
+
             legs.Add(new OrderFulfillmentLeg
             {
                 LegId = Guid.NewGuid(),
@@ -41,8 +53,10 @@ public class LegGenerationService(
                 BranchId = branchId,
                 LegStatus = LegStatus.Assigned,
                 LegType = calculatedLegType,
-                ReadyByEstimate = readyByEstimateTime
+                ReadyByEstimate = readyByEstimateTime,
+                DistanceKm = distanceKm
             });
+
         }
 
         return Result.Success(legs);
