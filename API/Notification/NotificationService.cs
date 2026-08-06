@@ -16,11 +16,7 @@ namespace API.Notification
 
             string emailBody = $@"
                 <h3>Critical Stock Alert</h3>
-                <p><strong>Drug:</strong> {notification.DrugName}</p>
-                <p><strong>Current Stock:</strong> {notification.CurrentStock}</p>
-                <p><strong>Predicted Stock-out Date:</strong> {notification.PredictedStockoutDate?.ToString("yyyy-MM-dd") ?? "N/A"}</p>
-                <p><strong>Recommended Order:</strong> {notification.RecommendedOrderQuantity}</p>
-                <p><strong>AI Reasoning:</strong> {notification.AiRationale}</p>
+                <p><strong>Branch</strong> {notification.BranchName}</p>
             ";
 
             await _emailService.SendEmailAsync(email, "AI Purchase Order Generated", emailBody);

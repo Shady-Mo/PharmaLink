@@ -27,6 +27,7 @@ public class AuthController(IAuthService authService) : BaseApiController
         [FromBody] RegisterRequestDTO request,
         CancellationToken cancellationToken)
     {
+
         var result = await authService.RegisterPatientAsync(request, cancellationToken);
 
         if (result.IsFailure)
