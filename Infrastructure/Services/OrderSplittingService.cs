@@ -23,7 +23,7 @@ public class OrderSplittingService(
     IOrderRoutingOrchestrator orderRoutingOrchestrator,
     ILogger<OrderSplittingService> logger) : IOrderSplittingService
 {
-    public async Task<Result> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
+    public async Task<Result<OrderRoutingPlan>> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         logger.LogInformation("[OrderId={OrderId}] Starting split process.", orderId);
@@ -80,7 +80,7 @@ public class OrderSplittingService(
         }, cancellationToken);
     }
 
-    private async Task<Result> ExecuteWithRetryAsync(Guid orderId, Func<Order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction, CancellationToken, Task<Result>> action, CancellationToken cancellationToken)
+    private async Task<Result<T>> ExecuteWithRetryAsync<T>(Guid orderId, Func<Order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction, CancellationToken, Task<Result<T>>> action, CancellationToken cancellationToken)
     {
         const int maxRetries = 3;
         var totalSw = Stopwatch.StartNew();
@@ -95,7 +95,7 @@ public class OrderSplittingService(
                 if (order is null)
                 {
                     logger.LogWarning("[OrderId={OrderId}] Order not found.", orderId);
-                    return Result.Failure(OrderSplittingErrors.OrderNotFound);
+                    return Result.Failure<T>(OrderSplittingErrors.OrderNotFound);
                 }
                 loadSw.Stop();
                 logger.LogInformation("[OrderId={OrderId}] Order loaded in {ElapsedMs}ms. Status={Status}, Items={Count}", orderId, loadSw.ElapsedMilliseconds, order.OrderStatus, order.Items.Count);
@@ -104,7 +104,7 @@ public class OrderSplittingService(
                 if (validationResult.IsFailure)
                 {
                     logger.LogWarning("[OrderId={OrderId}] Order validation failed: {Error}. Marking as failed without modifying items.", orderId, validationResult.Error.Description);
-                    return validationResult;
+                    return Result.Failure<T>(validationResult.Error);
                 }
 
                 var result = await action(order, transaction, cancellationToken);
@@ -130,7 +130,7 @@ public class OrderSplittingService(
                 if (attempt == maxRetries)
                 {
                     logger.LogError("[OrderId={OrderId}] Max retries reached. Failing split.", orderId);
-                    return Result.Failure(OrderSplittingErrors.TransactionFailed);
+                    return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
                 }
 
                 // Clear the change tracker so the next attempt loads fresh data and re-evaluates all business rules.
@@ -142,14 +142,14 @@ public class OrderSplittingService(
             {
                 logger.LogError(ex, "[OrderId={OrderId}] Split failed due to an unexpected error. Rolling back.", orderId);
                 await transaction.RollbackAsync(cancellationToken);
-                return Result.Failure(OrderSplittingErrors.TransactionFailed);
+                return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
             }
         }
 
-        return Result.Failure(OrderSplittingErrors.TransactionFailed);
+        return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
     }
 
-    private async Task<Result> ExecuteSplitInternalAsync(Order order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
+    private async Task<Result<OrderRoutingPlan>> ExecuteSplitInternalAsync(Order order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
     {
         order.OrderStatus = OrderStatus.Processing;
 
@@ -194,7 +194,7 @@ public class OrderSplittingService(
             logger.LogWarning(ex, "[OrderId={OrderId}] AI fulfillment engine failed. Marking pending items Unavailable.", order.OrderId);
             foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
             await context.SaveChangesAsync(cancellationToken);
-            return Result.Success();
+            return Result.Success(new OrderRoutingPlan());
         }
         algoSw.Stop();
 
@@ -208,7 +208,7 @@ public class OrderSplittingService(
             logger.LogWarning("[OrderId={OrderId}] Engine produced no fulfillable assignments. Marking items Unavailable.", order.OrderId);
             foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
             await context.SaveChangesAsync(cancellationToken);
-            return Result.Success();
+            return Result.Success(plan);
         }
 
         ApplySplitResultToItems(pendingItems, splitResult);
@@ -237,7 +237,7 @@ public class OrderSplittingService(
         {
             logger.LogWarning("[OrderId={OrderId}] No items could be fulfilled. Order remains Processing, items Unavailable.", order.OrderId);
             await context.SaveChangesAsync(cancellationToken); // Save empty split status
-            return Result.Success();
+            return Result.Success(plan);
         }
 
         // Carry the AI engine's OSRM driving distance per branch onto the persisted legs so the
@@ -255,7 +255,7 @@ public class OrderSplittingService(
 
         await context.SaveChangesAsync(cancellationToken); // Save assignments, status, and generated legs once
 
-        return Result.Success();
+        return Result.Success(plan);
     }
 
     /// <summary>

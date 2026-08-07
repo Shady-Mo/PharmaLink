@@ -5,14 +5,10 @@ using Application.Services.OrderRouting;
 using Application.Services.OrderSplitting.Models;
 using Infrastructure.AI;
 using Infrastructure.AI.Abstractions;
-using Infrastructure.AI.Agents;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Plugins;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Agents;
-using Microsoft.SemanticKernel.Agents.Chat;
 using Microsoft.SemanticKernel.ChatCompletion;
-using ChatMessageContent = Microsoft.SemanticKernel.ChatMessageContent;
 
 namespace Infrastructure.AI.OrderRouting;
 
@@ -31,11 +27,11 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
     // model may GENERATE. The real 429 rate-limit problem came from multi-agent group chat + function-calling
     // which triggered ~5-10 requests in quick succession (each re-sending history+schemas), blowing the TPM
     // cap (Used 4515 + Requested 11118 > Limit 12000). RunAgentDecisionAsync now makes a SINGLE tool-free call,
-    // but it asks for SEVERAL candidate clusters (each just a short list of branch indices), so 1200 tokens
-    // gives ample headroom for that JSON without truncation. Setting it too low truncates the JSON and breaks
-
-    // parsing. Do NOT set this to 2000+: that wastes the per-request budget and risks hitting TPM again if
-    // multiple orders arrive together.
+    // but it asks for SEVERAL candidate clusters (each just a short list of branch indices). 1200 tokens
+    // occasionally truncated the JSON on larger carts (several clusters + reasoning), which salvaged only a
+    // partial reply and forced the Held-Karp fallback — so it was raised to 1600 for extra headroom. Setting
+    // it too low truncates the JSON and breaks parsing. Do NOT set this to 2000+: that wastes the per-request
+    // budget and risks hitting TPM again if multiple orders arrive together.
     public static readonly int MAX_TOKENS = 1200;
 
     // Held-Karp is O(n²·2ⁿ), so we cap how many branches ONE cluster may contain. A covering cluster never
@@ -85,15 +81,60 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
         var evaluations = await _inventoryPlugin.EvaluateAsync(patientLocation, cartItems, fulfillmentMode, cancellationToken);
 
+        // Diagnostic: how many candidate branches the inventory plugin found for THIS call. This is the
+        // FIRST gate before the AI clustering (and therefore before the "clusters SURVIVED filtering" log).
+        // If this is 0, the method returns NothingAvailablePlan below and NONE of the cluster logs run —
+        // which is the usual reason the logs appear for the order-routing PREVIEW (body location + default
+        // Delivery mode) but NOT for create-order (saved DeliveryAddress location + the order's own
+        // FulfillmentMode): a different location/mode can leave zero in-range branches.
+        _logger.LogInformation(
+            "OrderRoutingOrchestrator — Inventory evaluation found {Count} candidate branch(es) for mode={Mode}.",
+            evaluations.Count, fulfillmentMode);
 
         if (evaluations.Count == 0)
+        {
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — NO in-range branch stocks any cart item (patient=({Lat},{Lon}), mode={Mode}). " +
+                "Returning NothingAvailablePlan — the AI clustering step (and its cluster logs) is SKIPPED.",
+                patientLocation.Latitude, patientLocation.Longitude, fulfillmentMode);
             return NothingAvailablePlan(cartItems);
+        }
+
+        // ── PRE-FILTER (ROOT-CAUSE FIX for the hallucination): separate cart drugs that NO in-range branch
+        //    stocks (e.g. a drug that exists in the catalog but is out of stock everywhere, or was just
+        //    added and is nowhere nearby). Feeding these to the router is exactly what triggers the bad
+        //    behaviour: the prompt says coverage is MANDATORY ("every cluster must stock EVERY cart drug"),
+        //    so when a drug is stocked NOWHERE the model is cornered into either (a) FABRICATING a branch
+        //    that "has" it — a hallucination — or (b) rambling/retrying until it BURNS the whole output-token
+        //    budget and the JSON gets truncated. We therefore route ONLY the drugs at least one branch
+        //    actually stocks, and fold the rest back in as unfulfillable at the very end. This makes the
+        //    coverage rule satisfiable, shrinks the prompt, and removes the token-exhaustion path entirely.
+        var stockedDrugs = evaluations
+            .SelectMany(e => e.AvailableItems.Select(a => a.DrugId))
+            .ToHashSet();
+        var routableCart = cartItems.Where(c => stockedDrugs.Contains(c.DrugId)).ToList();
+        var unstockedItems = cartItems.Where(c => !stockedDrugs.Contains(c.DrugId)).ToList();
+
+        if (unstockedItems.Count > 0)
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — {Count} cart drug(s) are stocked by NO in-range branch; they will be " +
+                "reported UNFULFILLABLE and are deliberately NOT sent to the AI (prevents the coverage-rule " +
+                "hallucination / token exhaustion): [{Drugs}]",
+                unstockedItems.Count, string.Join(", ", unstockedItems.Select(i => i.DrugId)));
+
+        // If NOTHING in the cart is stocked anywhere, there is nothing to route at all.
+        if (routableCart.Count == 0)
+        {
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — No cart drug is stocked by any in-range branch; returning NothingAvailablePlan.");
+            return NothingAvailablePlan(cartItems);
+        }
 
         RouterDecision? decision = null;
         double[][]? globalMatrix = null;
         try
         {
-            (decision, globalMatrix) = await RunAgentDecisionAsync(patientLocation, cartItems, evaluations, fulfillmentMode, cancellationToken);
+            (decision, globalMatrix) = await RunAgentDecisionAsync(patientLocation, routableCart, evaluations, fulfillmentMode, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -111,7 +152,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         OrderRoutingPlan? plan = null;
         if (decision?.Clusters is { Count: > 0 })
         {
-            plan = SelectBestCluster(decision, globalMatrix, evaluations, cartItems);
+            plan = SelectBestCluster(decision, globalMatrix, evaluations, routableCart);
             if (plan is null)
                 _logger.LogWarning(
                     "OrderRoutingOrchestrator — AI FALLBACK CAUSE #3: {ClusterCount} cluster(s) parsed but NONE " +
@@ -141,7 +182,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         {
             _logger.LogInformation(
                 "OrderRoutingOrchestrator — Agent returned no usable plan; running Held-Karp TSP fallback.");
-            plan = BuildDeterministicPlan(evaluations, cartItems);
+            plan = BuildDeterministicPlan(evaluations, routableCart);
         }
         else
         {
@@ -149,6 +190,10 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 "OrderRoutingOrchestrator — AI winning cluster accepted: {LegCount} leg(s), tripKm={Trip}.",
                 plan!.Legs.Count, plan.TotalDistanceKm);
         }
+
+        // Fold the pre-filtered, stocked-nowhere drugs back into the plan as unfulfillable items so the
+        // patient still sees them in the confirmation (they were simply never sent to the AI/clustering).
+        plan = AppendUnstockedItems(plan!, unstockedItems, evaluations);
 
 
 
@@ -160,7 +205,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
         try
         {
-            var summary = await BuildRouteSummaryAsync(patientLocation, plan!, evaluations, producedByAi, cancellationToken);
+            var summary = await BuildRouteSummaryAsync(patientLocation, plan!, evaluations, producedByAi, fulfillmentMode, cancellationToken);
 
             if (summary is not null)
             {
@@ -186,183 +231,6 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             producedByAi ? "AI-MultiAgent" : "Held-Karp");
 
         return plan;
-    }
-
-
-    public async Task<SplittingResult?> OptimizeSplitAsync(
-        SplittingContext context,
-        CancellationToken cancellationToken = default)
-
-    {
-        _logger.LogInformation(
-            "OrderRoutingOrchestrator — Agent split for Order {OrderId}: {ItemCount} pending item(s), {BranchCount} candidate branch(es)",
-            context.OrderId, context.PendingItems.Count, context.CandidateBranches.Count);
-
-        if (context.PendingItems.Count == 0 || context.CandidateBranches.Count == 0)
-            return null; // nothing the engine can improve on — let the deterministic algorithm decide
-
-        SplitDecision? decision;
-        try
-        {
-            decision = await RunSplitDecisionAsync(context, cancellationToken);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "OrderRoutingOrchestrator — Agent split failed for Order {OrderId}; caller should fall back to deterministic algorithm.",
-                context.OrderId);
-            return null;
-        }
-
-        if (decision is null || decision.Assignments is null || decision.Assignments.Count == 0)
-        {
-            _logger.LogWarning(
-                "OrderRoutingOrchestrator — Agent produced no usable split for Order {OrderId}; caller should fall back.",
-                context.OrderId);
-            return null;
-        }
-
-        return MapToSplittingResult(context, decision);
-    }
-
-    /// <summary>
-    /// Reconciles the LLM's chosen assignments against the authoritative <see cref="SplittingContext"/>.
-    /// The model only ever *chooses* which candidate branch fulfils which pending item; this method
-    /// re-validates every choice against real available stock and greedily decrements a working copy
-    /// so the engine can never over-commit inventory or reference a hallucinated branch/item.
-    /// Any pending item the model fails to place is returned as unassigned.
-    /// </summary>
-    private SplittingResult MapToSplittingResult(SplittingContext context, SplitDecision decision)
-    {
-        var branchById = context.CandidateBranches.ToDictionary(b => b.BranchId);
-        // Mutable working copy of available stock so multi-item legs don't double-spend.
-        var remainingStock = context.CandidateBranches.ToDictionary(
-            b => b.BranchId,
-            b => b.AvailableStock.ToDictionary(kv => kv.Key, kv => kv.Value));
-
-        var assignmentByItem = decision.Assignments
-            .Where(a => a.OrderItemId != Guid.Empty)
-            .GroupBy(a => a.OrderItemId)
-            .ToDictionary(g => g.Key, g => g.First());
-
-        var assignments = new List<ItemAssignment>();
-        var unassigned = new List<Guid>();
-
-        foreach (var item in context.PendingItems)
-        {
-            if (!assignmentByItem.TryGetValue(item.OrderItemId, out var choice) ||
-                !branchById.TryGetValue(choice.BranchId, out var branch) ||
-                !remainingStock.TryGetValue(choice.BranchId, out var stockByDrug) ||
-                !stockByDrug.TryGetValue(item.DrugId, out var available) ||
-                available < item.QuantityNeeded)
-            {
-                unassigned.Add(item.OrderItemId);
-                continue;
-            }
-
-            var remaining = available - item.QuantityNeeded;
-            stockByDrug[item.DrugId] = remaining;
-
-            var coverage = context.PendingItems.Count(p => p.DrugId == item.DrugId);
-            assignments.Add(new ItemAssignment(
-                item.OrderItemId,
-                branch.BranchId,
-                item.DrugId,
-                item.QuantityNeeded,
-                new AssignmentDecision("AI-MultiAgent", coverage, branch.DistanceKm, remaining)));
-        }
-
-        _logger.LogInformation(
-            "OrderRoutingOrchestrator — Agent split for Order {OrderId} mapped: {Assigned} assigned, {Unassigned} unassigned across {Branches} branch(es)",
-            context.OrderId, assignments.Count, unassigned.Count,
-            assignments.Select(a => a.BranchId).Distinct().Count());
-
-        return new SplittingResult(assignments, unassigned);
-    }
-
-    private async Task<SplitDecision?> RunSplitDecisionAsync(
-        SplittingContext context,
-        CancellationToken cancellationToken)
-    {
-        // Only the tool-free router agent is needed here: the OrderSplittingService already gathered
-        // the candidate branches (geo + fulfillment filtered) and inventory snapshot, so the model
-        // reasons purely over the supplied context instead of calling inventory tools.
-        var routerKernel = _kernelProvider.GetKernel(ModelRole.Chat).Clone();
-        routerKernel.Plugins.Clear();
-
-        var routerAgent = new ChatCompletionAgent
-        {
-            Name = OrderRoutingAgentDefinitions.RouteOptimizationAgentName,
-            Instructions = OrderRoutingAgentDefinitions.RouteOptimizationAgentInstructions,
-            Kernel = routerKernel
-        };
-
-        var pendingJson = JsonSerializer.Serialize(
-            context.PendingItems.Select(p => new { p.OrderItemId, p.DrugId, p.QuantityNeeded }), JsonOptions);
-        var branchesJson = JsonSerializer.Serialize(
-            context.CandidateBranches.Select(b => new
-            {
-                b.BranchId,
-                b.BranchName,
-                b.DistanceKm,
-                AvailableStock = b.AvailableStock
-            }), JsonOptions);
-
-        var prompt =
-            $$"""
-            You are allocating a patient's pending order items across candidate pharmacy branches.
-            Fulfillment mode: {{context.FulfillmentMode}}.
-
-            Pending items (JSON): {{pendingJson}}
-
-            Candidate branches with available stock per DrugId (JSON): {{branchesJson}}
-
-            RULES:
-            - Prefer fulfilling the WHOLE order from the FEWEST branches; break ties by shortest DistanceKm.
-            - You may only assign an item to a branch whose AvailableStock for that DrugId is >= QuantityNeeded.
-            - Never exceed a branch's available stock across all items you assign to it.
-            - If no branch can supply an item, leave it out (it will be marked unavailable).
-
-            Respond with ONLY this JSON (no prose, no code fences):
-            {
-              "assignments": [ { "orderItemId": "<guid>", "branchId": "<guid>" } ]
-            }
-            """;
-
-        var chat = routerKernel.GetRequiredService<IChatCompletionService>();
-        var history = new ChatHistory();
-        history.AddUserMessage(prompt);
-
-        var settings = new PromptExecutionSettings
-        {
-            ExtensionData = new Dictionary<string, object> { ["max_tokens"] = MAX_TOKENS }
-        };
-
-        var response = await chat.GetChatMessageContentAsync(
-            history, settings, kernel: routerKernel, cancellationToken: cancellationToken);
-
-
-        var raw = response.Content;
-        if (string.IsNullOrWhiteSpace(raw))
-        {
-            _logger.LogWarning("OrderRoutingOrchestrator — Router produced no output for Order {OrderId}.", context.OrderId);
-            return null;
-        }
-
-        var json = ExtractJsonObject(raw);
-        if (json is null)
-            return null;
-
-        try
-        {
-            return JsonSerializer.Deserialize<SplitDecision>(json, JsonOptions);
-        }
-        catch (JsonException ex)
-        {
-            _logger.LogWarning(ex, "OrderRoutingOrchestrator — Failed to parse split JSON for Order {OrderId}: {Raw}",
-                context.OrderId, raw);
-            return null;
-        }
     }
 
     private async Task<(RouterDecision? Decision, double[][]? Matrix)> RunAgentDecisionAsync(
@@ -472,10 +340,17 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
               branches already cover the same drugs. If two branches sit close to each other (small M[a][b])
               AND close to the patient (small M[0][m]), grouping THEM together is almost always best — do not
               pair one of them with a distant branch instead.
+            - RULE 4 — MINIMALITY (NO REDUNDANT BRANCHES): 
+              * Every branch in a cluster MUST contribute AT LEAST ONE UNIQUE DRUG that is not already provided by the other branches in that same cluster.
+              * Never add extra branches to a cluster if the cart is already 100% covered by a smaller subset of those branches.
+              * EXAMPLE A: If the patient requests Drug A, Pharmacy 1 (stocks A) and Pharmacy 2 (stocks A) must be returned as SEPARATE clusters:
+                              `[1]` and `[2]`. NEVER combine them into `[1, 2]`.
+              * EXAMPLE B: If the patient requests Drug B and Drug D, and Pharmacy 1 stocks (A, B) while Pharmacy 2 stocks (A, D),
+                              combine them into ONE cluster `[1, 2]` because BOTH are required to complete the cart.
             - Prefer FEWER branches per cluster. If a branch has coversEntireCart=true, a single-branch
               cluster with just it is valid and is often the shortest. Never add extra branches to a cluster
               if the cart is already 100% covered by a smaller subset of those branches.
-            - Propose 3 to 6 clusters ORDERED BEST-FIRST (smallest estimatedTripKm first). Make them
+            - Propose 4 to 6 clusters ORDERED BEST-FIRST (smallest estimatedTripKm first). Make them
               genuinely different so the backend has real choices. Each cluster may contain at most
               {{MAX_CLUSTER_BRANCHES}} branches. Use ONLY the "m" indices shown above; never invent indices.
 
@@ -501,9 +376,19 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         var history = new ChatHistory();
         history.AddUserMessage(prompt);
 
+        // temperature = 0 → make the router as DETERMINISTIC as possible. This is a routing/optimization
+        // task with one right answer, not a creative one: the same cart + same branches should always
+        // yield the same clusters. The default temperature (~0.7-1.0) is what caused the same order to
+        // sometimes return a tight 0.3 km cluster and sometimes a bad 13 km one on different runs. Pinning
+        // it to 0 sharply cuts that run-to-run variance (the backend baselines below still cap the worst
+        // case even if the model slips). top_p = 1 keeps the full—but now greedily-ranked—token choice.
         var settings = new PromptExecutionSettings
         {
-            ExtensionData = new Dictionary<string, object> { ["max_tokens"] = MAX_TOKENS }
+            ExtensionData = new Dictionary<string, object>
+            {
+                ["max_tokens"] = MAX_TOKENS,
+                ["temperature"] = 0.3
+            }
         };
 
         var response = await chat.GetChatMessageContentAsync(
@@ -534,10 +419,12 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
     /// Deterministically turns the AI's proposed clusters into the winning <see cref="OrderRoutingPlan"/>.
     /// (1) Validate each AI cluster — keep only in-range branch indices whose branches TOGETHER cover the
     /// whole cart. (2) ALWAYS add the nearest single branch that covers the cart (if any) as a guaranteed
-    /// baseline candidate, so the result can never be worse than "just drive to the closest covering
-    /// branch" — this protects the case where every branch already covers the cart. (3) Ask
+    /// baseline, so a single-branch answer can never be worse than "just drive to the closest covering
+    /// branch". (3) ALSO add a deterministic MULTI-branch baseline — the set of nearest branches that
+    /// together cover the cart — so that even if the AI proposes only far/hallucinated clusters, the
+    /// backend still measures a tight covering option and can never pick a route worse than it. (4) Ask
     /// <see cref="FindBestCluster"/> to pick the cluster with the minimum real open-tour distance over the
-    /// SHARED global matrix. (4) Build the legs in that optimal visiting order.
+    /// SHARED global matrix. (5) Build the legs in that optimal visiting order.
     /// </summary>
     private OrderRoutingPlan? SelectBestCluster(
         RouterDecision decision,
@@ -556,8 +443,11 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         var cartDrugs = cartItems.Select(c => c.DrugId).ToHashSet();
         var validClusters = new List<List<int>>();
         var seen = new HashSet<string>(); // dedupe identical branch-sets
+        // Remembers where each surviving cluster came from (AI vs a deterministic baseline), keyed by the
+        // same sorted-index string used for de-duplication, purely so the diagnostic log below can label it.
+        var clusterSources = new Dictionary<string, string>();
 
-        void TryAddCluster(IEnumerable<int> branchIndices)
+        void TryAddCluster(IEnumerable<int> branchIndices, string source)
         {
             var idx = branchIndices
                 .Where(m => m >= 1 && m <= evaluations.Count) // in-range 1-based global index
@@ -571,35 +461,90 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             if (!cartDrugs.All(covered.Contains))
                 return;
 
-            if (seen.Add(string.Join(",", idx.OrderBy(x => x))))
+            var key = string.Join(",", idx.OrderBy(x => x));
+            if (seen.Add(key))
+            {
                 validClusters.Add(idx);
+                clusterSources[key] = source;
+            }
         }
 
         // (1) the AI's proposed clusters (each a set of branch "m" indices).
         foreach (var c in decision.Clusters!)
             if (c.Branches is { Count: > 0 })
-                TryAddCluster(c.Branches);
+                TryAddCluster(c.Branches, "AI");
 
-        // (2) GUARANTEED baseline: nearest single branch that alone covers the cart (evaluations are
-        //     pre-sorted nearest-first within the covering tier). Even if the AI forgets the closest
-        //     covering branch, it is always part of the comparison — so a single-branch answer stays optimal.
+        // (2) GUARANTEED baseline #1 (single-branch): nearest single branch that alone covers the cart
+        //     (evaluations are pre-sorted nearest-first within the covering tier). Even if the AI forgets
+        //     the closest covering branch, it is always in the comparison — so a single-branch answer
+        //     stays optimal.
         var nearestSingleCover = evaluations
             .Select((e, i) => (Eval: e, M: i + 1))
             .FirstOrDefault(x => x.Eval.CoversEntireCart);
         if (nearestSingleCover.Eval is not null)
-            TryAddCluster(new[] { nearestSingleCover.M });
+            TryAddCluster(new[] { nearestSingleCover.M }, "Baseline:NearestSingleCover");
+
+        // (3) GUARANTEED baseline #2 (multi-branch): the set of NEAREST branches that TOGETHER cover the
+        //     cart. For every cart drug we take the closest branch that stocks it (evaluations are sorted
+        //     nearest-first, so the FIRST match is the closest) and union those branches. This yields a
+        //     deterministic, tight covering cluster built purely from the closest available stock, so even
+        //     when the AI proposes ONLY far / hallucinated clusters, Held-Karp still measures this one and
+        //     can never return a route worse than "collect each item from its nearest stocking branch".
+        //     THIS is the main guard against the AI's occasional bad grouping (e.g. 13 km instead of 0.3 km):
+        //     the AI can only ever IMPROVE on this baseline, never degrade below it.
+        var nearestPerDrug = new List<int>();
+        var perDrugSeen = new HashSet<int>();
+        foreach (var drug in cartDrugs)
+        {
+            for (int i = 0; i < evaluations.Count; i++)
+            {
+                if (evaluations[i].AvailableItems.Any(a => a.DrugId == drug))
+                {
+                    if (perDrugSeen.Add(i + 1))
+                        nearestPerDrug.Add(i + 1);
+                    break; // first match = nearest branch stocking this drug
+                }
+            }
+        }
+        if (nearestPerDrug.Count > 0)
+            TryAddCluster(nearestPerDrug, "Baseline:NearestPerDrug");
+
+        // DIAGNOSTIC: dump every cluster that SURVIVED TryAddCluster's filter (in-range + full coverage +
+        // de-duplicated), tagged by where it came from (AI proposal vs the two deterministic baselines),
+        // BEFORE Held-Karp scores them — so it's clear exactly what the winner is being chosen from. Note
+        // that identical branch-sets are collapsed by de-dup, so a baseline that matches an AI cluster
+        // keeps whichever source was added FIRST (AI is added first).
+        if (validClusters.Count > 0)
+        {
+            string NameOf(int m) => m >= 1 && m <= evaluations.Count ? evaluations[m - 1].BranchName : $"?({m})";
+            var dump = validClusters.Select((cluster, i) =>
+            {
+                var key = string.Join(",", cluster.OrderBy(x => x));
+                var src = clusterSources.TryGetValue(key, out var s) ? s : "unknown";
+                var names = string.Join(" → ", cluster.Select(NameOf));
+                return $"  #{i + 1} [{src}] branches=[{string.Join(",", cluster)}] ({names})";
+            });
+            _logger.LogInformation(
+                "OrderRoutingOrchestrator — {Count} cluster(s) SURVIVED filtering (pre-scoring):\n{Clusters}",
+                validClusters.Count, string.Join("\n", dump));
+        }
+        else
+        {
+            _logger.LogWarning(
+                "OrderRoutingOrchestrator — NO clusters survived filtering (in-range + coverage + dedup).");
+        }
 
         if (validClusters.Count == 0)
             return null;
 
-        // (3) deterministic winner = smallest real open-tour distance sliced from the global matrix.
+        // (4) deterministic winner = smallest real open-tour distance sliced from the global matrix.
         var (bestPath, minDistance, winningCluster) = FindBestCluster(globalDist, validClusters);
         if (bestPath.Count == 0)
             return null;
 
         LogClusterComparison(globalDist, validClusters, winningCluster, evaluations);
 
-        // (4) build the legs following the OPTIMAL visiting order Held-Karp returned.
+        // (5) build the legs following the OPTIMAL visiting order Held-Karp returned.
         var orderedBranches = bestPath.Select(globalIdx => evaluations[globalIdx - 1]).ToList();
         return BuildLegsForBranches(orderedBranches, cartItems, evaluations, minDistance);
     }
@@ -1075,12 +1020,46 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         Legs = [],
         UnfulfillableItems = cartItems
             .GroupBy(c => c.DrugId)
-            .Select(g => new MissingItem(g.Key, g.First().DrugName, string.Empty, g.Sum(x => x.Quantity), 0))
+            .Select(g => new MissingItem(g.Key, g.First().DrugName, g.First().DrugNameAr, g.Sum(x => x.Quantity), 0))
             .ToList(),
 
         TotalDistanceKm = 0,
-        Reasoning = "No nearby branch stocks any of the requested items."
+        Reasoning = "عذراً، لا يوجد أي فرع قريب يتوفر به أي من الأدوية المطلوبة حالياً."
     };
+
+    /// <summary>
+    /// Folds the drugs that NO in-range branch stocks (pre-filtered out before the AI ran) back into the
+    /// plan as <see cref="MissingItem"/>s, so the patient still sees them as unfulfillable even though they
+    /// were never sent to the router. Bilingual names are sourced from the branches' MissingItems (a drug
+    /// stocked nowhere still appears there as "missing" in every branch), falling back to the cart's own
+    /// English name and an empty Arabic name.
+    /// </summary>
+    private static OrderRoutingPlan AppendUnstockedItems(
+        OrderRoutingPlan plan,
+        IReadOnlyList<CartItemDto> unstockedItems,
+        IReadOnlyList<BranchFulfillmentEvaluation> evaluations)
+    {
+        if (unstockedItems.Count == 0)
+            return plan;
+
+        var nameByDrug = evaluations
+            .SelectMany(e => e.MissingItems.Select(m => (m.DrugId, m.DrugName, m.DrugNameAr)))
+            .GroupBy(x => x.DrugId)
+            .ToDictionary(g => g.Key, g => (g.First().DrugName, g.First().DrugNameAr));
+
+        var extra = unstockedItems
+            .GroupBy(c => c.DrugId)
+            .Select(g =>
+            {
+                var first = g.First();
+                var (nameEn, nameAr) = nameByDrug.TryGetValue(g.Key, out var n)
+                    ? n
+                    : (first.DrugName, first.DrugNameAr);
+                return new MissingItem(g.Key, nameEn, nameAr, g.Sum(x => x.Quantity), 0);
+            });
+
+        return plan with { UnfulfillableItems = plan.UnfulfillableItems.Concat(extra).ToList() };
+    }
 
     /// <summary>
     /// Builds the driver-facing, ordered pickup route ("go to A first, then B, ...").
@@ -1098,6 +1077,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         OrderRoutingPlan plan,
         IReadOnlyList<BranchFulfillmentEvaluation> evaluations,
         bool producedByAi,
+        FulfillmentMode fulfillmentMode,
         CancellationToken cancellationToken)
     {
         if (plan.Legs.Count == 0)
@@ -1143,12 +1123,10 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 : Math.Round(legs.Sum(l => l.DistanceKm), 3);
         }
 
-        // Materialize ordered stops with per-hop distances. In parallel we collect each stop's
-        // ARABIC drug names (falling back to the English name when a drug has no Arabic name) so the
-        // LLM can phrase the description with Arabic medicine names, while the persisted
-        // RouteStop.ItemsToCollect stays on the English brand names used elsewhere in the UI.
+        // Materialize ordered stops with per-hop distances. RouteStop.ItemsToCollect keeps the Arabic
+        // drug names for the UI; the patient-facing pickup description no longer lists medicines, so we
+        // don't build a separate per-stop item list for the LLM anymore.
         var stops = new List<RouteStop>(order.Count);
-        var arabicItemsPerStop = new List<IReadOnlyList<string>>(order.Count);
         var prevCoordIndex = 0; // patient
         for (int i = 0; i < order.Count; i++)
         {
@@ -1167,20 +1145,23 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 ItemsToCollect = leg.Items.Select(it => it.DrugNameAr).ToList()
             });
 
-            arabicItemsPerStop.Add(leg.Items
-                .Select(it => string.IsNullOrWhiteSpace(it.DrugNameAr) ? it.DrugName : it.DrugNameAr)
-                .ToList());
-
             prevCoordIndex = legIdx + 1;
         }
 
         var optimizedBy = producedByAi ? "AI-MultiAgent" : "Held-Karp (TSP fallback)";
 
-        // Prefer a natural, human-friendly ARABIC description written by the LLM (with Arabic drug
-        // names). If the model is unavailable (quota / error / empty), fall back to a locally-built
-        // Arabic template so the response always ships an Arabic description regardless of AI.
-        var description = await GenerateArabicDescriptionAsync(stops, arabicItemsPerStop, Math.Round(totalKm, 3), cancellationToken)
-            ?? BuildArabicRouteDescription(stops, Math.Round(totalKm, 3));
+        // The patient-facing pickup route description only makes sense when the PATIENT is the one
+        // travelling to collect the order (Pickup). For Delivery a courier drives the route, so we skip
+        // the "go here first, then there" narration entirely and leave the description empty.
+        var description = string.Empty;
+        if (fulfillmentMode == FulfillmentMode.Pickup)
+        {
+            // Prefer a natural, patient-facing description written by the LLM; if the model is
+            // unavailable (quota / error / empty), fall back to the local Arabic template so a pickup
+            // order always ships a description regardless of AI.
+            description = await GeneratePickupRouteDescriptionAsync(stops, Math.Round(totalKm, 3), cancellationToken)
+                ?? BuildArabicRouteDescription(stops, Math.Round(totalKm, 3));
+        }
 
 
         return new RouteSummary
@@ -1193,14 +1174,16 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
     }
 
     /// <summary>
-    /// Asks the LLM to phrase the already-decided, ordered pickup route as a friendly ARABIC
-    /// sentence for the driver. The ORDER and distances are fixed here (by the AI plan or Held-Karp);
-    /// the model only turns them into nice Arabic prose — it never changes the route. Returns null on
-    /// any failure (quota / empty / exception) so the caller uses the local Arabic template instead.
+    /// Asks the LLM to phrase the already-decided, ordered PICKUP route as a short, friendly message
+    /// addressed directly to the PATIENT ("you go to … first, then …"). The visiting ORDER and the
+    /// distances are fixed upstream (AI plan or Held-Karp) — the model only turns them into nice prose
+    /// and never changes the route. The prompt is in English for maintainability but asks for Arabic
+    /// output (the patient-facing language). We deliberately do NOT cap max_tokens here so the sentence
+    /// is never cut off mid-word; brevity is enforced by the instructions instead. Returns null on any
+    /// failure (quota / empty / exception) so the caller uses the local Arabic template.
     /// </summary>
-    private async Task<string?> GenerateArabicDescriptionAsync(
+    private async Task<string?> GeneratePickupRouteDescriptionAsync(
         IReadOnlyList<RouteStop> stops,
-        IReadOnlyList<IReadOnlyList<string>> arabicItemsPerStop,
         double totalKm,
         CancellationToken cancellationToken)
     {
@@ -1212,59 +1195,68 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             var descKernel = _kernelProvider.GetKernel(ModelRole.Chat).Clone();
             descKernel.Plugins.Clear();
 
-            // Feed the model the ARABIC drug names (arabicItemsPerStop is aligned by index with stops)
-            // so it writes medicine names in Arabic, not the English brand names.
+            // Only the data the description needs: the ordered stop number, branch name, and how far
+            // that branch is from the previous point. No medicine names — the patient message stays lean.
             var stopsJson = JsonSerializer.Serialize(
-                stops.Select((s, i) => new
+                stops.Select(s => new
                 {
                     s.Order,
                     branchName = s.BranchName,
-                    distanceFromPreviousKm = s.DistanceFromPreviousKm,
-                    items = i < arabicItemsPerStop.Count ? arabicItemsPerStop[i] : s.ItemsToCollect
+                    distanceFromPreviousKm = s.DistanceFromPreviousKm
                 }), JsonOptions);
 
             var prompt =
                 $$"""
-                أنت مساعد لوجيستي. اكتب وصفًا قصيرًا وواضحًا باللغة العربية لمسار مندوب التوصيل،
-                يشرح الترتيب الذي يجب أن يمشي به: أين يذهب أولًا، ثم إلى أين، وماذا يستلم من كل فرع.
+                You are a friendly assistant in a pharmacy app, speaking DIRECTLY TO THE PATIENT who chose
+                to pick up their order themselves. Describe the shortest pickup route that our routing
+                algorithm already computed, so the patient knows where to go and in what order.
 
-                نقاط التوقف بالترتيب (JSON): {{stopsJson}}
-                إجمالي مسافة الرحلة: {{totalKm}} كم.
+                Ordered stops (JSON, already in the correct visiting order):
+                {{stopsJson}}
+                Total trip distance: {{totalKm}} km.
 
-                القواعد:
-                - لا تُغيّر الترتيب المُعطى إطلاقًا.
-                - اذكر اسم كل فرع، والمسافة من النقطة السابقة، والأصناف التي يستلمها.
-                - أسماء الأدوية في حقل "items" مكتوبة بالعربية؛ استخدمها كما هي بالعربية ولا تترجمها إلى الإنجليزية.
-                - اجعل الوصف جملة أو جملتين فقط، بأسلوب مباشر وودود.
-                - أعِد النص العربي فقط بدون أي تنسيق Markdown أو أقواس أو JSON.
+                Write the message in ARABIC and follow these rules exactly:
+                - Address the patient directly in the second person ("أنت"/"عليك"), in a warm, natural
+                  tone. Do NOT sound like a salesperson or a delivery driver.
+                - Describe the movements IN THE GIVEN ORDER: which pharmacy to go to first, then next, etc.
+                  Never change the order.
+                - For each pharmacy, mention its name and how far it is (use distanceFromPreviousKm, in km).
+                - Keep it short and organized — only where to go and each pharmacy's distance. Do NOT add
+                  extra details, and do NOT mention any medicines or quantities.
+                - You may end with the total trip distance in one short clause.
+                - Return ONLY the plain Arabic text — no Markdown, no quotes, no JSON.
+                - RESTRICTIONS:
+                1- Do NOT use any language other than Arabic.
+                2- Do NOT mention any medicines, prices, or quantities.
+                3- Do NOT add marketing fluff, extra tips, or unnecessary instructions.
+                - EXAMPLE OUTPUT STRUCTURE (for reference only):
+                  لتجميع طلبيتك، يمكنك البدء بالتوجه إلى فرع [Pharmacy Name] على بعد [Distance] كم،
+                  ثم التوجه إلى فرع [Pharmacy Name] على بعد [Distance] كم. إجمالي مسافة الرحلة هو [TotalKm] كم.
                 """;
-
 
             var chat = descKernel.GetRequiredService<IChatCompletionService>();
             var history = new ChatHistory();
             history.AddUserMessage(prompt);
 
-            var settings = new PromptExecutionSettings
-            {
-                ExtensionData = new Dictionary<string, object> { ["max_tokens"] = MAX_TOKENS }
-            };
-
+            // NOTE: no max_tokens on purpose — capping it previously truncated the sentence mid-word.
+            // Brevity is enforced by the prompt instructions, not by the output token budget.
             var response = await chat.GetChatMessageContentAsync(
-                history, settings, kernel: descKernel, cancellationToken: cancellationToken);
-
+                history, kernel: descKernel, cancellationToken: cancellationToken);
 
             var text = response.Content?.Trim();
             if (string.IsNullOrWhiteSpace(text))
             {
-                _logger.LogWarning("OrderRoutingOrchestrator — LLM returned empty Arabic description; using local template.");
+                _logger.LogWarning("OrderRoutingOrchestrator — LLM returned empty pickup description; using local template.");
                 return null;
             }
+
+            _logger.LogInformation($"OrderRoutingOrchestrator - LLM returned a complete description; {text}");
 
             return text;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "OrderRoutingOrchestrator — LLM Arabic description failed (quota/error); using local template.");
+            _logger.LogWarning(ex, "OrderRoutingOrchestrator — LLM pickup description failed (quota/error); using local template.");
             return null;
         }
     }
@@ -1400,29 +1392,6 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
         /// <summary>The branch "m" indices (into the distance matrix, 1-based) that make up this cluster.</summary>
         [JsonPropertyName("branches")] public List<int>? Branches { get; init; }
-    }
-
-
-
-    // --- Cart-to-Order pipeline decision shape (OptimizeSplitAsync) ---
-    private sealed record SplitDecision
-    {
-        [JsonPropertyName("assignments")] public List<SplitAssignment>? Assignments { get; init; }
-    }
-
-    private sealed record SplitAssignment
-    {
-        [JsonPropertyName("orderItemId")] public Guid OrderItemId { get; init; }
-        [JsonPropertyName("branchId")] public Guid BranchId { get; init; }
-    }
-
-    private sealed class RouterTerminationStrategy(Agent routerAgent) : TerminationStrategy
-    {
-        protected override Task<bool> ShouldAgentTerminateAsync(
-            Agent agent,
-            IReadOnlyList<ChatMessageContent> history,
-            CancellationToken cancellationToken)
-            => Task.FromResult(ReferenceEquals(agent, routerAgent));
     }
 }
 
