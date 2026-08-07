@@ -1,5 +1,6 @@
 using Application.DTOs.Order.Requests;
 using Application.DTOs.Order.Responses;
+using Application.DTOs.OrderRouting;
 using Application.Services.Order;
 using System.Text;
 using System.IO;
@@ -83,18 +84,97 @@ public class OrderService(
         // Invalidate the Redis cache so a subsequent GetCart doesn't serve stale, pre-checkout items.
         await cartCacheService.InvalidateAsync(patientUserId);
 
-        // Trigger automatic splitting inline. Result is observed but not propagated to caller —
-        // the 201 Created response represents the order being accepted, not fully split.
-        await orderSplittingService.SplitOrderAsync(order.OrderId);
+        // Trigger automatic splitting inline and capture the resulting fulfillment plan. The plan
+        // lets the 201 Created response surface — per pharmacy branch — the group of drugs that
+        // branch supplies (Arabic + English names) and its distance from the patient, plus any
+        // requested items no nearby branch could fulfill.
+        var splitResult = await orderSplittingService.SplitOrderAsync(order.OrderId);
+        var plan = splitResult.IsSuccess ? splitResult.Value : null;
 
-        var response = new OrderCreatedResponseDTO
-        {
-            OrderId = order.OrderId,
-            Status = order.OrderStatus,
-            Message = "Order created successfully and is awaiting fulfillment assignment."
-        };
+        // Read the persisted status back (the split advances it to Processing on success).
+        var finalStatus = await context.Orders
+            .AsNoTracking()
+            .Where(o => o.OrderId == order.OrderId)
+            .Select(o => o.OrderStatus)
+            .FirstOrDefaultAsync();
+
+        var response = BuildOrderCreatedResponse(order.OrderId, finalStatus, plan);
 
         return Result.Success<OrderCreatedResponseDTO>(response);
+    }
+
+    /// <summary>
+    /// Maps the fulfillment <see cref="OrderRoutingPlan"/> (or its absence) into the patient-facing
+    /// <see cref="OrderCreatedResponseDTO"/>: available drug groups per branch with distances and
+    /// bilingual drug names, plus the unavailable items.
+    /// </summary>
+    private static OrderCreatedResponseDTO BuildOrderCreatedResponse(
+        Guid orderId, OrderStatus status, OrderRoutingPlan? plan)
+    {
+        var groups = plan?.Legs.Select(leg => new OrderFulfillmentGroupDTO
+        {
+            PharmacyId = leg.PharmacyId,
+            BranchId = leg.BranchId,
+            BranchName = leg.BranchName,
+            DistanceKm = leg.DistanceKm,
+            Subtotal = leg.LegSubtotal,
+            Items = leg.Items.Select(i => new OrderItemLineDTO
+            {
+                DrugId = i.DrugId,
+                DrugName = i.DrugName,
+                DrugNameAr = i.DrugNameAr,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                LineTotal = i.LineTotal
+            }).ToList()
+        }).ToList() ?? [];
+
+        var unavailable = plan?.UnfulfillableItems.Select(m => new UnavailableItemDTO
+        {
+            DrugId = m.DrugId,
+            DrugName = m.DrugName,
+            DrugNameAr = m.DrugNameAr,
+            QuantityNeeded = m.QuantityNeeded,
+            QuantityAvailable = m.QuantityAvailable
+        }).ToList() ?? [];
+
+        var hasGroups = groups.Count > 0;
+        var hasUnavailable = unavailable.Count > 0;
+
+        string message;
+        bool isFullyFulfilled;
+        if (!hasGroups && !hasUnavailable)
+        {
+            message = "Order created successfully and is awaiting fulfillment assignment.";
+            isFullyFulfilled = false;
+        }
+        else if (hasGroups && !hasUnavailable)
+        {
+            message = "Order created successfully. All items are available and grouped by pharmacy branch.";
+            isFullyFulfilled = true;
+        }
+        else if (!hasGroups)
+        {
+            message = "Order created, but no items could be fulfilled by nearby pharmacies at the moment.";
+            isFullyFulfilled = false;
+        }
+        else
+        {
+            message = "Order created successfully. Some items are available and grouped by pharmacy branch; others are currently unavailable.";
+            isFullyFulfilled = false;
+        }
+
+        return new OrderCreatedResponseDTO
+        {
+            OrderId = orderId,
+            Status = status,
+            Message = message,
+            Strategy = plan?.Strategy ?? string.Empty,
+            IsFullyFulfilled = isFullyFulfilled,
+            TotalDistanceKm = plan?.TotalDistanceKm ?? 0,
+            FulfillmentGroups = groups,
+            UnavailableItems = unavailable
+        };
     }
 
     public async Task<Result<GetOrderDTO>> GetOrder(Guid orderId, Guid patientUserId)
@@ -452,4 +532,4 @@ public class OrderService(
             return Result.Success((data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"orders-export-{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx"));
         }
     }
-}
+}
