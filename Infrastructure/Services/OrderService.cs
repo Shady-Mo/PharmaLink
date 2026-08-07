@@ -91,12 +91,31 @@ public class OrderService(
         var splitResult = await orderSplittingService.SplitOrderAsync(order.OrderId);
         var plan = splitResult.IsSuccess ? splitResult.Value : null;
 
+        // Persist the AI routing explanation so the frontend can display it when fetching the order.
+        // Prefer the AI's rich, ordered route description; fall back to its short strategy reasoning.
+        // The split ran on its own DbContext, so re-fetch the (now tracked) order to update just this
+        // column without clobbering the status the split advanced to Processing.
+        var aiRoutingDescription = !string.IsNullOrWhiteSpace(plan?.RouteSummary?.Description)
+            ? plan!.RouteSummary!.Description
+            : plan?.Reasoning;
+
+        if (!string.IsNullOrWhiteSpace(aiRoutingDescription))
+        {
+            var persistedOrder = await context.Orders.FirstOrDefaultAsync(o => o.OrderId == order.OrderId);
+            if (persistedOrder is not null)
+            {
+                persistedOrder.AiRoutingDescription = aiRoutingDescription;
+                await context.SaveChangesAsync();
+            }
+        }
+
         // Read the persisted status back (the split advances it to Processing on success).
         var finalStatus = await context.Orders
             .AsNoTracking()
             .Where(o => o.OrderId == order.OrderId)
             .Select(o => o.OrderStatus)
             .FirstOrDefaultAsync();
+
 
         var response = BuildOrderCreatedResponse(order.OrderId, finalStatus, plan);
 
