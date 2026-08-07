@@ -126,6 +126,7 @@ public static class DependencyInjection
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
+            services.AddScoped<IDeliveryDriverService, DeliveryDriverService>();
 
 
             services.AddScoped<CartCacheService>();

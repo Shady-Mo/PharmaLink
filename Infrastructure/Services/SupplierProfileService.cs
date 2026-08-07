@@ -7,6 +7,8 @@ namespace Infrastructure.Services
     {
         public async Task<Result<SupplierProfileDto>> GetProfileAsync(Guid supplierId)
         {
+
+
             var supplier = await _context.Suppliers
                 .FirstOrDefaultAsync(s => s.Id == supplierId);
 

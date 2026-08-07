@@ -1,10 +1,10 @@
-using System.Security.Claims;
+using Application.DTOs.DeliveryDriver;
 using Application.DTOs.OrderFulfillmentLeg.Requests;
 using Application.DTOs.OrderFulfillmentLeg.Responses;
 
 namespace Infrastructure.Services;
 
-public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillmentLegService
+public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverService driverService, IDeliveryNotificationService notificationService) : IOrderFulfillmentLegService
 {
     public async Task<Result<OrderFulfillmentLegDto>> GetByIdAsync(
         Guid legId,
@@ -31,6 +31,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         CancellationToken cancellationToken = default)
     {
         var leg = await dbContext.OrderFulfillmentLegs
+            .Include(o => o.Branch)
             .Include(l => l.Order)
             .ThenInclude(o => o.FulfillmentLegs)
             .FirstOrDefaultAsync(l => l.LegId == legId, cancellationToken);
@@ -85,7 +86,48 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered))
             leg.Order.OrderStatus = OrderStatus.Completed;
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (request.Status == LegStatus.ReadyForPickup && leg.LegType == LegType.Delivery)
+        {
+            var deliveryJob = new DeliveryJob
+            {
+                JobId = Guid.NewGuid(),
+                LegId = leg.LegId,
+                Status = DeliveryJobStatus.Pending,
+                DeliveryFee = 30.0m
+            };
+
+            dbContext.DeliveryJobs.Add(deliveryJob);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            var nearbyDriversResult = await driverService.GetNearbyAvailableDriversAsync(leg.BranchId);
+
+            if (nearbyDriversResult.IsSuccess && nearbyDriversResult.Value.Any())
+            {
+                var address = leg.Order.DeliveryAddress;
+
+                var fullAddress = $"{address.BuildingNumber} عمارة, دور {address.FloorNumber}, {address.AddressLine}, {address.City}";
+
+                double distanceMeters = leg.Branch.GeoLocation?.Distance(address.GeoLocation) ?? 0;
+                double distanceKm = Math.Round(distanceMeters / 1000.0, 2);
+
+                var jobDetails = new DeliveryJobNotificationDto
+                {
+                    JobId = deliveryJob.JobId,
+                    PharmacyName = leg.Branch.BranchName,
+                    FullAddress = fullAddress,
+                    DeliveryFee = deliveryJob.DeliveryFee,
+                    DistanceKm = distanceKm
+                };
+
+                await notificationService.BroadcastNewDeliveryJobAsync(nearbyDriversResult.Value, jobDetails);
+            }
+        }
+        else
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
 
         return Result.Success(ToDto(leg));
     }

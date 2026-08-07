@@ -77,6 +77,8 @@ namespace Infrastructure.Services
 
             var notificationsToSend = new List<PoNotificationDto>();
 
+            var set = new HashSet<Guid>();
+
             foreach (var item in inventoryItems)
             {
                 int leadTimeDays = 3;
@@ -118,15 +120,17 @@ namespace Infrastructure.Services
                         _context.PurchaseOrders.Add(newPo);
                         actionTaken = "PO_Created";
 
-                        notificationsToSend.Add(new PoNotificationDto
+                        if (!set.Contains(item.BranchId))
                         {
-                            BranchId = item.BranchId,
-                            DrugName = item.Drug.GenericName,
-                            CurrentStock = item.StockQuantity,
-                            PredictedStockoutDate = depletionDate,
-                            RecommendedOrderQuantity = eoq > 0 ? eoq : 30,
-                            AiRationale = rationale + $"EOQ recommends ordering {eoq} units."
-                        });
+                            notificationsToSend.Add(new PoNotificationDto
+                            {
+                                BranchId = item.BranchId,
+                                BranchName = item.Branch.BranchName
+                            });
+                            set.Add(item.BranchId);
+                        }
+                        
+                        
                     }
                     else
                     {

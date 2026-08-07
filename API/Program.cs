@@ -1,7 +1,8 @@
-using Hangfire;
+using API.Hubs;
+using API.Notification;
 using Application.Hubs;
 using Application.Services.AI;
-using API.Notification;
+using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -14,6 +15,7 @@ builder.Services.AddHealthChecks();
 builder.Services.AddSignalR();
 
 builder.Services.AddScoped<INotificationService, NotificationService>();
+builder.Services.AddScoped<IDeliveryNotificationService, DeliveryNotificationService>();
 
 var app = builder.Build();
 
@@ -52,5 +54,6 @@ app.MapControllers();
 app.MapHealthChecks("/health");
 
 app.MapHub<InventoryHub>("/inventory-hub");
+app.MapHub<DeliveryHub>("/hubs/delivery");
 
 app.Run();
