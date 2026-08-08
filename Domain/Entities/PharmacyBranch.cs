@@ -9,7 +9,6 @@ public class PharmacyBranch
     public string Governorate { get; set; } = string.Empty;
     public string AddressLine { get; set; } = string.Empty;
     public string PhoneNumber { get; set; } = string.Empty;
-    public string WorkingHours { get; set; } = string.Empty;
     
     public Point? GeoLocation { get; set; }
     public decimal ServiceRadiusKm { get; set; }
@@ -21,5 +20,8 @@ public class PharmacyBranch
     public Pharmacy Pharmacy { get; set; } = null!;
     public ICollection<PharmacyInventory> Inventories { get; set; } = new HashSet<PharmacyInventory>();
     public ICollection<OrderItem> SuppliedOrderItems { get; set; } = new HashSet<OrderItem>();
+    public ICollection<PharmacistAssignment> PharmacistAssignments { get; set; } = new HashSet<PharmacistAssignment>();
     public ICollection<OrderFulfillmentLeg> FulfillmentLegs { get; set; } = new HashSet<OrderFulfillmentLeg>();
+    public ICollection<PharmacyBranchSchedule> WorkingSchedule { get; set; } = new HashSet<PharmacyBranchSchedule>();
+    public virtual ICollection<PurchaseOrder> PurchaseOrders { get; set; } = new List<PurchaseOrder>();
 }

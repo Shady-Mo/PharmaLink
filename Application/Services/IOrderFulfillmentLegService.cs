@@ -16,4 +16,15 @@ public interface IOrderFulfillmentLegService
         UpdateLegStatusRequest request,
         ClaimsPrincipal user,
         CancellationToken cancellationToken = default);
+
+    Task<Result<PaginatedList<BranchOrderRowDto>>> GetBranchOrdersAsync(
+        GetBranchOrdersRequest request,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken = default
+    );
+
+    Task<Result<PharmacistOrderDetailsDto>> GetPharmacistOrderDetailsAsync(
+        Guid orderId,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken = default);
 }

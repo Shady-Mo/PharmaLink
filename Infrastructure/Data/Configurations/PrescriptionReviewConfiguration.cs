@@ -21,6 +21,18 @@ public class PrescriptionReviewConfiguration : IEntityTypeConfiguration<Prescrip
         builder.Property(r => r.AIModel)
             .HasMaxLength(100);
 
+        builder.Property(r => r.ExtractedText);
+
+        builder.Property(r => r.AISummary)
+            .HasMaxLength(2000);
+
+        builder.Property(r => r.ProcessingStatus)
+            .HasConversion<string>()
+            .HasMaxLength(50)
+            .HasSentinel(PrescriptionProcessingStatus.Unknown)
+            .HasDefaultValue(PrescriptionProcessingStatus.PendingPharmacistReview)
+            .IsRequired();
+
         builder.Property(r => r.ReviewNotes)
             .HasMaxLength(2000);
 

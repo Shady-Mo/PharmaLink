@@ -12,7 +12,9 @@ public class PharmacyRecentOrderDTO
 
     public int OrderedMedicinesCount { get; set; }
 
-    public string Summary { get; set; } = string.Empty;
+    public string ArabicSummary { get; set; } = string.Empty;
+
+    public string BrandSummary { get; set; } = string.Empty;
 
     public decimal TotalAmount { get; set; }
 

@@ -1,18 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿namespace Application.DTOs.PharmacyInventory.Request;
 
-namespace Application.DTOs.PharmacyInventory.Request
+public class UpdatePharmacyInventoryDto
 {
-    public class UpdatePharmacyInventoryDto
-    {
-        public Guid BranchId { get; set; }
+    public int StockQuantity { get; set; }
 
-        public Guid DrugId { get; set; }
+    public decimal UnitPrice { get; set; }
 
-        public int StockQuantity { get; set; }
+    public DateOnly ExpiryDate { get; set; }
 
-        public decimal UnitPrice { get; set; }
-        public DateOnly ExpiryDate { get; set; }
-    }
+    public byte[]? RowVersion { get; set; }
 }

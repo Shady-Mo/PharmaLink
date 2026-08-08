@@ -27,7 +27,11 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Address> Addresses { get; set; }
     public DbSet<Pharmacy> Pharmacies { get; set; }
     public DbSet<PharmacyBranch> PharmacyBranches { get; set; }
+    public DbSet<PharmacyBranchSchedule> PharmacyBranchSchedules { get; set; }
     public DbSet<Drug> Drugs { get; set; }
+    public DbSet<DrugCategory> DrugCategories { get; set; }
+    public DbSet<DrugSupplier> DrugSuppliers { get; set; }
+    public DbSet<DrugLandingPage> DrugLandingPages { get; set; }
     public DbSet<PharmacyInventory> PharmacyInventories { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
@@ -38,6 +42,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<CartItem> CartItems { get; set; }
     public DbSet<PrescriptionReview> PrescriptionReviews { get; set; }
     public DbSet<PrescriptionReviewMedicine> PrescriptionReviewMedicines { get; set; }
+    public DbSet<MedicalInquiry> MedicalInquiries { get; set; }
     public DbSet<PharmacistAssignment> PharmacistAssignments { get; set; }
 
 

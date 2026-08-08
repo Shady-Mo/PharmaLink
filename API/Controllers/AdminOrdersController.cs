@@ -1,26 +1,43 @@
 namespace API.Controllers;
 
-[Authorize(Roles = AppRoles.Admin)]
+using Application.DTOs.Order.Requests;
+
+[Authorize(Roles = $"{AppRoles.Admin},{AppRoles.PrescriptionReviewTeam}")]
 public class AdminOrdersController(
     IOrderSplittingService orderSplittingService,
     IOrderService orderService) : BaseApiController
 {
     [HttpGet("")]
-    [ProducesResponseType(typeof(PaginatedList<GetOrderDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(PaginatedList<AdminOrderDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetOrders([FromQuery] GetOrdersRequest request)
+    public async Task<IActionResult> GetOrders([FromQuery] GetOrdersRequest request, CancellationToken cancellationToken)
     {
-        var result = await orderService.GetOrdersForAdmin(request);
+        var result = await orderService.GetAdminOrders(request, cancellationToken);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
-    [HttpGet("{orderId}")]
-    [ProducesResponseType(typeof(GetOrderDTO), StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    public async Task<IActionResult> GetOrder(Guid orderId)
+    [HttpGet("export")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ExportOrders([FromQuery] ExportOrdersRequest request, CancellationToken cancellationToken)
     {
-        var result = await orderService.GetOrderForAdmin(orderId);
+        var result = await orderService.ExportOrdersForAdmin(request, cancellationToken);
+        if (!result.IsSuccess)
+        {
+            return result.ToProblem();
+        }
+
+        var (data, contentType, fileName) = result.Value;
+        return File(data, contentType, fileName);
+    }
+
+    [HttpGet("{orderId}")]
+    [ProducesResponseType(typeof(AdminOrderDetailDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetOrder(Guid orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderService.GetAdminOrderDetail(orderId, cancellationToken);
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -36,5 +53,30 @@ public class AdminOrdersController(
         return result.IsSuccess
             ? Ok(new { message = "Order re-split completed successfully." })
             : result.ToProblem();
+    }
+
+    [HttpPost("{orderId}/approve-prescription")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ApprovePrescription(Guid orderId, CancellationToken cancellationToken)
+    {
+        var result = await orderService.ApproveOrderPrescription(orderId, cancellationToken);
+        return result.IsSuccess ? Ok(new { message = result.Value }) : result.ToProblem();
+    }
+
+    [HttpPost("{orderId}/reject-prescription")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RejectPrescription(Guid orderId, [FromBody] RejectOrderPrescriptionRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request?.Reason))
+        {
+            return BadRequest(new { message = "Rejection reason is required." });
+        }
+
+        var result = await orderService.RejectOrderPrescription(orderId, request.Reason, cancellationToken);
+        return result.IsSuccess ? Ok(new { message = result.Value }) : result.ToProblem();
     }
 }

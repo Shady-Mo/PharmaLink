@@ -67,12 +67,11 @@ public class CartService(AppDbContext dbContext, CartCacheService cartCache) : I
         {
             var newItem = new CartItem
             {
-                CartId = cart.CartId,
                 DrugId = request.DrugId,
                 Quantity = request.Quantity,
                 UnitPriceSnapshot = drug.Price
             };
-            dbContext.CartItems.Add(newItem);
+            cart.Items.Add(newItem);
         }
 
         cart.UpdatedAt = DateTime.UtcNow;

@@ -10,9 +10,15 @@ public class CartItemResponseDTO
 
     public string DrugGenericName { get; set; } = string.Empty;
 
+    public string DrugArabicName { get; set; } = string.Empty;
+
+    public string? DrugImageUrl { get; set; }
+
     public int Quantity { get; set; }
 
     public decimal UnitPriceSnapshot { get; set; }
+
+    public bool RequiresPrescription { get; set; }
 
     public decimal LineTotal => Quantity * UnitPriceSnapshot;
 }

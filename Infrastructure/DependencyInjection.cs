@@ -1,3 +1,6 @@
+using Hangfire;
+using Infrastructure.Services;
+
 namespace Infrastructure;
 
 public static class DependencyInjection
@@ -32,6 +35,8 @@ public static class DependencyInjection
 
             services.AddHttpContextAccessor();
 
+            services.AddHttpClient<IWebhookOtpDispatcher, WhapiWhatsAppOtpDispatcher>();
+
             services.AddScoped<IDrugService, DrugService>();
             services.AddScoped<IAuthService, AuthService>();
             services.AddScoped<IInventoryService, InventoryService>();
@@ -39,6 +44,9 @@ public static class DependencyInjection
             services.AddScoped<IAddressService, AddressService>();
 
             services.AddScoped<IOrderService, OrderService>();
+            services.AddScoped<IPharmacyOrderService, PharmacyOrderService>();
+            services.AddScoped<IOrderPrescriptionService, OrderPrescriptionService>();
+
             services.AddScoped<IGeoLookupService, GeoLookupService>();
             services.AddScoped<ILegGenerationService, LegGenerationService>();
             services.AddScoped<ILegStatusTransitionService, LegStatusTransitionService>();
@@ -46,24 +54,63 @@ public static class DependencyInjection
             services.AddScoped<IOrderSplittingAlgorithm, GreedyOrderSplittingAlgorithm>();
 
             services.AddScoped<IPrescriptionReviewService, PrescriptionReviewService>();
-            services.AddScoped<IAIExtractionService, GeminiExtractionService>();
+            services.AddScoped<IMedicalInquiryService, MedicalInquiryService>();
+            services.AddSingleton<IAgentProfileProvider, StaticAgentProfileProvider>();
+            services.AddScoped<IPromptRegistry, FileSystemPromptRegistry>();
+
+            services.AddScoped<IPromptExecutionService, SemanticKernelPromptExecutionService>();
+            services.AddScoped<IPrescriptionExtractionService, PrescriptionExtractionService>();
+            services.AddScoped<IMedicineImageExtractionService, MedicineImageExtractionService>();
+            services.AddScoped<IAIResponseValidator<AIExtractionResult>, PrescriptionExtractionBusinessValidator>();
+            services
+                .AddScoped<IAIResponseValidator<MedicineImageExtractionResponseDTO>,
+                    MedicineImageExtractionBusinessValidator>();
+            services.AddScoped<IDrugCatalogPlugin, DrugCatalogPlugin>();
+            services.AddScoped<IAlternativeSearchPlugin, AlternativeSearchPlugin>();
+            services.AddScoped<ICartBuilderPlugin, CartBuilderPlugin>();
+            services.AddScoped<IPrescriptionAuditAgent, PrescriptionAuditAgent>();
+            services.AddSingleton<IPrescriptionAuditJobQueue, PrescriptionAuditJobQueue>();
+            services.AddHostedService<PrescriptionAuditBackgroundService>();
+            services.AddHostedService<PrescriptionCleanupService>();
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
 
+            services.AddScoped<IPharmacyBranchService, PharmacyBranchService>();
             services.AddScoped<IPharmacyService, PharmacyService>();
+            services.AddScoped<IPharmacyProfileService, PharmacyProfileService>();
+
+            services.AddScoped<IAdminPharmacyService, AdminPharmacyService>();
+            services.AddScoped<IPharmacyOwnerService, PharmacyOwnerService>();
+
+            services.AddScoped<IAdminService, AdminService>();
+            services.AddScoped<IAdminUserService, AdminUserService>();
 
             services.AddScoped<IPharmacistManagementService, PharmacistManagementService>();
 
             services.AddScoped<IPatientService, PatientService>();
+            services.AddScoped<IPatientPharmacyService, PatientPharmacyService>();
+            services.AddScoped<IPharmacyBranchScheduleService, PharmacyBranchScheduleService>();
 
             services.AddScoped<IDashboardService, DashboardService>();
 
             services.AddScoped<IPharmacyDashboardService, PharmacyDashboardService>();
             services.AddScoped<IPreparationListService, PreparationListService>();
+            services.AddScoped<IOrderFulfillmentLegService, OrderFulfillmentLegService>();
 
+            services.AddScoped<IPharmacistDashboardService, PharmacistDashboardService>();
 
+            services.AddScoped<IAdminDashboardService, AdminDashboardService>();
+            services.AddScoped<IPharmacyAdminService, PharmacyAdminService>();
 
+            services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+            services.AddScoped<IInventoryReportService, InventoryReportService>();
+            services.AddScoped<ISupplierOrderService, SupplierOrderService>();
+
+            services.AddScoped<ISupplierDrugService, SupplierDrugService>();
+            services.AddScoped<ISupplierProfileService, SupplierProfileService>();
+
+            services.AddScoped<ISupplierOrderService, SupplierOrderService>();
             services.Configure<GeminiSettings>(
                 configuration.GetSection(GeminiSettings.SectionName));
 
@@ -82,6 +129,7 @@ public static class DependencyInjection
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();
+            services.AddScoped<IDeliveryDriverService, DeliveryDriverService>();
 
 
             services.AddScoped<CartCacheService>();
@@ -96,16 +144,43 @@ public static class DependencyInjection
 
             services.Configure<OrderFulfillmentSettings>(
                 configuration.GetSection(OrderFulfillmentSettings.SectionName));
+            //
+            // services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
+            //     client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
 
-            services.AddHttpClient(WebhookOtpDispatcher.HttpClientName,
-                client => { client.Timeout = TimeSpan.FromSeconds(webhookSettings.TimeoutSeconds); });
-
-            services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
+            //services.AddScoped<IWebhookOtpDispatcher, WebhookOtpDispatcher>();
             services.AddScoped<IOtpService, OtpService>();
+            services.AddScoped<IInventoryForecastingService, InventoryForecastingService>();
 
+            // OSRM Routing Service — sole source of truth for driving distance/duration calculation
+            services.AddHttpClient("OsrmClient", client =>
+            {
+                client.BaseAddress = new Uri("https://router.project-osrm.org/");
+                client.Timeout = TimeSpan.FromSeconds(10);
+            });
+            // Singleton: OsrmRoutingService is stateless (only depends on IHttpClientFactory + ILogger),
+            // and it is consumed by the singleton PharmacyInventoryPlugin, so it must not be scoped.
+            services.AddSingleton<IOsrmRoutingService, OsrmRoutingService>();
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
+
+            services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://meilisearch.chefaa.com/");
+            });
+            services.AddScoped<Infrastructure.Services.Chefaa.IChefaaImporterService, Infrastructure.Services.Chefaa.ChefaaImporterService>();
+
+            services.AddHangfire(config => config
+                .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+                .UseSimpleAssemblyNameTypeSerializer()
+                .UseRecommendedSerializerSettings()
+                .UseSqlServerStorage(configuration.GetConnectionString("DefaultConnection")));
+
+            services.AddHangfireServer();
+
+            services.AddAiInfrastructure(configuration);
+            services.AddSemanticKernelServices(configuration);
 
             return services;
         }

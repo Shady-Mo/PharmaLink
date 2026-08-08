@@ -8,9 +8,9 @@ namespace Application.Validators.PrescriptionReview;
 public class UploadPrescriptionValidator : AbstractValidator<UploadPrescriptionDTO>
 {
     private static readonly string[] AllowedExtensions =
-        [".jpg", ".jpeg", ".png", ".webp", ".heic"];
+        [".jpg", ".jpeg", ".png", ".webp", ".heic", ".pdf"];
 
-    private const long MaxFileSizeBytes = 10 * 1024 * 1024; // 10 MB
+    private const long MaxFileSizeBytes = 20 * 1024 * 1024; // 20 MB
 
     public UploadPrescriptionValidator()
     {
@@ -20,12 +20,12 @@ public class UploadPrescriptionValidator : AbstractValidator<UploadPrescriptionD
             .Must(f => f is not null && f.Length > 0)
                 .WithMessage("Uploaded file is empty.")
             .Must(f => f is not null && f.Length <= MaxFileSizeBytes)
-                .WithMessage("Image must not exceed 10 MB.")
+                .WithMessage("Prescription file must not exceed 20 MB.")
             .Must(f =>
             {
                 var ext = Path.GetExtension(f?.FileName ?? "").ToLowerInvariant();
                 return AllowedExtensions.Contains(ext);
             }).WithMessage(
-                $"Allowed image types: {string.Join(", ", AllowedExtensions)}.");
+                $"Allowed prescription file types: {string.Join(", ", AllowedExtensions)}.");
     }
 }

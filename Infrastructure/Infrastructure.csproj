@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
@@ -20,6 +20,14 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.10" />
+    <PackageReference Include="Microsoft.SemanticKernel" Version="1.78.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.78.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.Google" Version="1.78.0-alpha" />
+    <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.78.0" />
+
+
+    <PackageReference Include="Polly" Version="8.7.0" />
+    <PackageReference Include="Polly.Core" Version="8.7.0" />
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.2" />
     <PackageReference Include="Twilio" Version="7.5.1" />
   </ItemGroup>
@@ -27,6 +35,11 @@
   <ItemGroup>
     <ProjectReference Include="..\Application\Application.csproj" />
   <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="AI\PromptTemplates\*.prompty" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="AI\Prompts\*.prompty" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

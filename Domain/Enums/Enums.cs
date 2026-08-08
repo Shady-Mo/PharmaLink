@@ -11,7 +11,8 @@ public enum VerificationStatus : byte
 {
     Pending = 1,
     Verified = 2,
-    Rejected = 3
+    Rejected = 3,
+    Deleted = 4
 }
 
 public enum FulfillmentMode : byte
@@ -26,7 +27,9 @@ public enum OrderStatus : byte
     Processing = 2,
     Shipped = 3,
     Completed = 4,
-    Cancelled = 5
+    Cancelled = 5,
+    PendingPrescriptionReview = 6,
+    PrescriptionRejected = 7
 }
 
 public enum ItemStatus : byte
@@ -60,21 +63,59 @@ public enum PrescriptionReviewStatus : byte
     Approved = 2,
     Rejected = 3,
     OrderCreated = 4
-}public enum DrugCategory : byte
-{
-    PainRelievers = 1,
-    Antibiotics = 2,
-    DigestiveSystem = 3,
-    Diabetes = 4,
-    Cardiovascular = 5,
-    BloodPressure = 6,
-    AntiInflammatory = 7,
-    Other = 8
 }
+
+
 
 public enum DrugAvailabilityStatus : byte
 {
     OutOfStock = 1,
     LowStock = 2,
     InStock = 3
-}
+}
+
+public enum InventoryStockStatus : byte
+{
+    OutOfStock = 1,
+    LowStock = 2,
+    Available = 3
+}
+
+public enum InventoryStatusFilter : byte
+{
+    All = 0,
+    Available = 1,
+    LowStock = 2,
+    OutOfStock = 3
+}
+
+public enum PharmacyOrderSort : byte
+{
+    NewestFirst = 0,
+
+    OldestFirst = 1,
+
+    HighestAmount = 2,
+
+    LowestAmount = 3
+}
+
+public enum PrescriptionProcessingStatus : byte
+{
+    Unknown = 0,
+    Rejected = 1,
+    Completed = 2,
+    NeedsPatientApproval = 3,
+    PendingPharmacistReview = 4,
+    Processing = 5,
+    Failed = 6
+}
+
+public enum PrescriptionMedicineMatchStatus : byte
+{
+    NotFound = 0,
+    ExactMatch = 1,
+    FuzzyMatch = 2,
+    AlternativeSuggested = 3,
+    Unavailable = 4
+}

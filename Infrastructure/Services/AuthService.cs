@@ -36,7 +36,7 @@ public class AuthService(
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.PhoneAlreadyExists);
             }
         }
-
+            
         var patient = request.Adapt<Patient>();
 
         var createResult = await userManager.CreateAsync(patient, request.Password);
@@ -82,10 +82,10 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
         }
 
-        if (user.Status == UserStatus.Suspended)
+        if (user.Status != UserStatus.Active)
         {
-            logger.LogWarning("Login attempt on suspended account {UserId}", user.Id);
-            return Result.Failure<LoginResponseDTO>(AuthErrors.AccountSuspended);
+            logger.LogWarning("Login attempt on deactivated account {UserId}", user.Id);
+            return Result.Failure<LoginResponseDTO>(AuthErrors.AccountDeactivated);
         }
 
         var roles = await userManager.GetRolesAsync(user);
@@ -170,22 +170,15 @@ public class AuthService(
         List<Claim> claims,
         CancellationToken cancellationToken)
     {
-        var assignedPharmacies = await dbContext.PharmacistAssignments
-            .Where(pha => pha.PharmacistId == pharmacistId && pha.IsActive)
-            .Select(pha => new
-            {
-                pha.PharmacyId,
-                BranchIds = pha.Pharmacy.Branches.Select(b => b.BranchId)
-            })
+        var assignedPharmacy = await dbContext.PharmacistAssignments
             .AsNoTracking()
-            .ToListAsync(cancellationToken);
+            .FirstOrDefaultAsync(pha => pha.PharmacistId == pharmacistId && pha.IsActive, cancellationToken);
 
-        foreach (var pharmacy in assignedPharmacies)
+        if (assignedPharmacy is not null)
         {
-            claims.Add(new Claim(JwtClaimTypes.PharmacyId, pharmacy.PharmacyId.ToString()));
+            claims.Add(new Claim(JwtClaimTypes.PharmacyId, assignedPharmacy.PharmacyId.ToString()));
 
-            claims.AddRange(
-                pharmacy.BranchIds.Select(branchId => new Claim(JwtClaimTypes.BranchId, branchId.ToString())));
+            claims.Add(new Claim(JwtClaimTypes.BranchId, assignedPharmacy.BranchId.ToString()));
         }
     }
 
@@ -357,4 +350,6 @@ public class AuthService(
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
     }
+
+    
 }

@@ -11,6 +11,7 @@ public class PatientProfileDto
 	public string PhoneNumber { get; set; } = string.Empty;
 	public string Status { get; set; } = string.Empty;
 	public DateTime CreatedAt { get; set; }
+	public string? ProfilePictureUrl { get; set; }
 	public List<PatientAddressDto> Addresses { get; set; } = [];
 }
 
