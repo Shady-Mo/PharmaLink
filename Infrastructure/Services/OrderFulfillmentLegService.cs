@@ -87,7 +87,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             leg.Order.OrderStatus = OrderStatus.Completed;
 
 
-        if (request.Status == LegStatus.ReadyForPickup && leg.LegType == LegType.Delivery)
+        if (request.Status == LegStatus.OutForDelivery && leg.LegType == LegType.Delivery)
         {
             var deliveryJob = new DeliveryJob
             {

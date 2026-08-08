@@ -125,13 +125,9 @@ namespace Infrastructure.Services
 
             await context.SaveChangesAsync();
 
-            // 🚀 3. إرسال إشعارات الـ SignalR 🚀
-            // أ. إشعار للمريض (اختياري بس بيخلي الـ UX حلو)
             var patientUserId = job.FulfillmentLeg.Order.PatientUserId;
             await notificationService.NotifyPatientOrderDeliveredAsync(patientUserId, job.FulfillmentLeg.OrderId);
 
-            // ب. إشعار للصيدلي (عشان الطلب يتشال من شاشته أو حالته تتحدث)
-            // لاحظ: الصيدلي في السيستم عندك مربوط بـ BranchId
             await notificationService.NotifyPharmacyOrderDeliveredAsync(job.FulfillmentLeg.BranchId, job.FulfillmentLeg.OrderId);
 
             return Result.Success();

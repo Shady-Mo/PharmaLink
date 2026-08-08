@@ -109,6 +109,7 @@ public static class DependencyInjection
 
             services.AddScoped<ISupplierDrugService, SupplierDrugService>();
             services.AddScoped<ISupplierProfileService, SupplierProfileService>();
+            services.AddScoped<IDriverProfileService, DriverProfileService>();
 
             services.AddScoped<ISupplierOrderService, SupplierOrderService>();
             services.Configure<GeminiSettings>(
@@ -221,6 +222,24 @@ public static class DependencyInjection
 
                         RoleClaimType = JwtClaimTypes.RoleName,
                         NameClaimType = JwtClaimTypes.UserId
+                    };
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            var accessToken = context.Request.Query["access_token"];
+                            var path = context.HttpContext.Request.Path;
+
+                            if (!string.IsNullOrEmpty(accessToken) &&
+                                (path.StartsWithSegments("/hubs/delivery") ||
+                                 path.StartsWithSegments("/DeliveryHub") ||
+                                 path.StartsWithSegments("/hubs/Delivery")))
+                            {
+                                context.Token = accessToken;
+                            }
+                            return Task.CompletedTask;
+                        }
                     };
                 });
 

@@ -3,14 +3,12 @@ using Microsoft.AspNetCore.SignalR;
 
 namespace API.Hubs
 {
-    [Authorize]
     public class DeliveryHub(IDeliveryDriverService driverService) : Hub
     {
-        public async Task UpdateLocation(double longitude, double latitude)
+        public async Task UpdateLocation(string userIdStr, double longitude, double latitude)
         {
-            var userId = Context.User.GetUserId();
 
-            if (userId != null)
+            if (Guid.TryParse(userIdStr, out Guid userId))
             {
                 await driverService.UpdateLocationAsync(userId, longitude, latitude);
             }
