@@ -14,7 +14,7 @@ namespace Infrastructure.AI
     {
         private const string CollectionName = "patient_prescriptions";
         private readonly QdrantClient _client;
-        private readonly EmbeddingService _embeddingService; // Modified from IEmbeddingService to concrete EmbeddingService
+        private readonly EmbeddingService _embeddingService;
         private readonly ILogger<QdrantPatientPrescriptionVectorService> _logger;
 
         public QdrantPatientPrescriptionVectorService(
@@ -70,7 +70,6 @@ namespace Infrastructure.AI
         {
             var queryVector = await _embeddingService.GenerateEmbeddingAsync(query);
 
-            // *** الـ filter دا إجباري - مفيش نتيجة من غيره أبدًا ***
             var filter = new Filter
             {
                 Must =

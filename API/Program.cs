@@ -1,7 +1,8 @@
-using Hangfire;
+using API.Notification;
 using Application.Hubs;
 using Application.Services.AI;
-using API.Notification;
+using Hangfire;
+using Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -21,7 +22,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-
+    var initializer = scope.ServiceProvider.GetRequiredService<PatientPrescriptionCollectionInitializer>();
     recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
         "inventory-forecasting-daily-job",
         job => job.RunDailyForecastAsync(),

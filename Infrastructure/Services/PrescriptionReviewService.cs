@@ -2,6 +2,8 @@ using FluentValidation;
 using System.Security.Claims;
 namespace Infrastructure.Services;
 
+using Hangfire; 
+
 public class PrescriptionReviewService(
     AppDbContext context,
     IPrescriptionAuditJobQueue prescriptionAuditJobQueue,
@@ -9,6 +11,7 @@ public class PrescriptionReviewService(
     IHttpContextAccessor httpContextAccessor,
     IValidator<UploadPrescriptionDTO> uploadValidator,
     IValidator<UpdatePrescriptionReviewDTO> updateValidator,
+    IBackgroundTaskQueue taskQueue,
     ILogger<PrescriptionReviewService> logger)
     : IPrescriptionReviewService
 {
@@ -427,10 +430,36 @@ public class PrescriptionReviewService(
         return Result.Success(detailDto);
     }
 
+    //public async Task<Result> ApproveAsync(Guid prescriptionReviewId, Guid pharmacistUserId, ApproveRejectDTO dto)
+    //{
+    //    var review =
+    //        await context.PrescriptionReviews.FirstOrDefaultAsync(r => r.PrescriptionReviewId == prescriptionReviewId);
+    //    if (review == null)
+    //    {
+    //        return Result.Failure(PrescriptionReviewErrors.NotFound);
+    //    }
+
+    //    if (review.ReviewStatus != PrescriptionReviewStatus.PendingReview)
+    //    {
+    //        return Result.Failure(PrescriptionReviewErrors.AlreadyReviewed);
+    //    }
+
+    //    review.ReviewStatus = PrescriptionReviewStatus.Approved;
+    //    review.PharmacistUserId = pharmacistUserId;
+    //    review.ReviewedAt = DateTime.UtcNow;
+    //    review.ReviewNotes = dto.Notes;
+    //    review.UpdatedAt = DateTime.UtcNow;
+
+    //    await context.SaveChangesAsync();
+    //    return Result.Success();
+    //}
+
     public async Task<Result> ApproveAsync(Guid prescriptionReviewId, Guid pharmacistUserId, ApproveRejectDTO dto)
     {
-        var review =
-            await context.PrescriptionReviews.FirstOrDefaultAsync(r => r.PrescriptionReviewId == prescriptionReviewId);
+        var review = await context.PrescriptionReviews
+            .Include(r => r.Medicines)
+            .FirstOrDefaultAsync(r => r.PrescriptionReviewId == prescriptionReviewId);
+
         if (review == null)
         {
             return Result.Failure(PrescriptionReviewErrors.NotFound);
@@ -448,6 +477,13 @@ public class PrescriptionReviewService(
         review.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+
+        await taskQueue.QueueBackgroundWorkItemAsync(async (serviceProvider, cancellationToken) =>
+        {
+            var vectorService = serviceProvider.GetRequiredService<IPatientPrescriptionVectorService>();
+            await vectorService.IndexPrescriptionAsync(review.PrescriptionReviewId, cancellationToken);
+        });
+
         return Result.Success();
     }
 

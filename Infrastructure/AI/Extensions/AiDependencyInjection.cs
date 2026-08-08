@@ -1,3 +1,5 @@
+using DocumentFormat.OpenXml.Bibliography;
+using DocumentFormat.OpenXml.Spreadsheet;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Execution.Providers;
 using Infrastructure.AI.Execution.Resilience;
@@ -6,6 +8,9 @@ using Infrastructure.AI.Factories;
 using Infrastructure.AI.Options;
 using Infrastructure.AI.Providers;
 using Infrastructure.AI.Services;
+using Qdrant.Client;
+using Qdrant.Client.Grpc;
+using System.Runtime.InteropServices;
 
 namespace Infrastructure.AI.Extensions;
 
@@ -44,6 +49,17 @@ public static class AiDependencyInjection
 
         services.AddHttpClient<TranscriptionService>();
         services.AddScoped<AiHealthService>();
+
+        // for qdrant client
+        services.AddSingleton(sp =>
+        {
+            var options = sp.GetRequiredService<IOptions<QdrantOptions>>().Value;
+            return new QdrantClient(
+                host: options.Host,
+                port: options.Port,
+                https: options.UseTls,
+                apiKey: string.IsNullOrWhiteSpace(options.ApiKey) ? null : options.ApiKey);
+        });
 
         return services;
     }

@@ -134,6 +134,9 @@ public static class SemanticKernelDependencyInjection
                 new GeoDistancePlugin(osrmRoutingService, loggerFactory.CreateLogger<GeoDistancePlugin>()),
                 pluginName: "GeoDistance");
 
+            kernel.Plugins.AddFromObject(
+            new PatientPrescriptionSearchPlugin(scopeFactory),
+            pluginName: "PatientPrescriptionSearch");
             return kernel;
         }
     }
