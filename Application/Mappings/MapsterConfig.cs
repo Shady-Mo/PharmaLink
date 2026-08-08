@@ -112,7 +112,8 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.DrugBrandName, src => src.Drug != null ? src.Drug.BrandName : string.Empty)
             .Map(dest => dest.DrugGenericName, src => src.Drug != null ? src.Drug.GenericName : string.Empty)
             .Map(dest => dest.DrugArabicName, src => src.Drug != null ? src.Drug.ArabicName : string.Empty)
-            .Map(dest => dest.DrugImageUrl, src => src.Drug != null ? src.Drug.ImageUrl : null);
+            .Map(dest => dest.DrugImageUrl, src => src.Drug != null ? src.Drug.ImageUrl : null)
+            .Map(dest => dest.RequiresPrescription, src => src.Drug != null ? src.Drug.RequiresPrescription : false);
             
         // PrescriptionReview Mappings
         config.NewConfig<PrescriptionReview, PrescriptionReviewSummaryDTO>()

@@ -1,4 +1,5 @@
 using Hangfire;
+using Infrastructure.Services;
 
 namespace Infrastructure;
 
@@ -44,6 +45,7 @@ public static class DependencyInjection
 
             services.AddScoped<IOrderService, OrderService>();
             services.AddScoped<IPharmacyOrderService, PharmacyOrderService>();
+            services.AddScoped<IOrderPrescriptionService, OrderPrescriptionService>();
 
             services.AddScoped<IGeoLookupService, GeoLookupService>();
             services.AddScoped<ILegGenerationService, LegGenerationService>();
@@ -69,6 +71,7 @@ public static class DependencyInjection
             services.AddScoped<IPrescriptionAuditAgent, PrescriptionAuditAgent>();
             services.AddSingleton<IPrescriptionAuditJobQueue, PrescriptionAuditJobQueue>();
             services.AddHostedService<PrescriptionAuditBackgroundService>();
+            services.AddHostedService<PrescriptionCleanupService>();
 
             services.AddScoped<IEmailService, EmailService>();
             services.AddScoped<IPharmacistProfileService, PharmacistProfileService>();

@@ -1,9 +1,8 @@
+using Application.Services.OrderRouting;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
-using Infrastructure.AI.Providers;
-using Infrastructure.Logging;
-using Microsoft.Extensions.Options;
+using Infrastructure.AI.OrderRouting;
 using Microsoft.SemanticKernel;
 using Microsoft.SemanticKernel.ChatCompletion;
 
@@ -51,12 +50,12 @@ public static class SemanticKernelDependencyInjection
             }
 
             var providers = sp.GetServices<IKernelProvider>();
-            var provider = providers.FirstOrDefault(p => p.Provider == aiProvider) 
+            var provider = providers.FirstOrDefault(p => p.Provider == aiProvider)
                            ?? throw new InvalidOperationException($"No IKernelProvider found for {aiProvider}");
 
             // Resolve base kernel from the provider
             var baseKernel = provider.GetKernel(ModelRole.Chat);
-            
+
             // Clone the kernel to add plugins safely without mutating the shared provider cache
             var kernel = baseKernel.Clone();
 
@@ -91,8 +90,8 @@ public static class SemanticKernelDependencyInjection
             sp.GetRequiredService<IOsrmRoutingService>(),
             sp.GetRequiredService<ILoggerFactory>().CreateLogger<PharmacyInventoryPlugin>()));
 
-        services.AddScoped<Application.Services.OrderRouting.IOrderRoutingOrchestrator,
-            Infrastructure.AI.OrderRouting.OrderRoutingOrchestrator>();
+        services.AddScoped<IOrderRoutingOrchestrator,
+            OrderRoutingOrchestrator>();
 
         return services;
     }
@@ -127,7 +126,8 @@ public static class SemanticKernelDependencyInjection
                 pluginName: "CartOrderPlugin");
 
             kernel.Plugins.AddFromObject(
-                new PharmacyInventoryPlugin(scopeFactory, osrmRoutingService, loggerFactory.CreateLogger<PharmacyInventoryPlugin>()),
+                new PharmacyInventoryPlugin(scopeFactory, osrmRoutingService,
+                    loggerFactory.CreateLogger<PharmacyInventoryPlugin>()),
                 pluginName: "PharmacyInventory");
 
             kernel.Plugins.AddFromObject(

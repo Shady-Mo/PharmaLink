@@ -14,6 +14,10 @@ public class PharmacyOrderDetailDTO
 
     public DateTime? DeliveryDate { get; set; }
 
+    public bool HasPrescription { get; set; }
+
+    public Guid? PrescriptionId { get; set; }
+
     public decimal TotalAmount { get; set; }
 
     public PharmacyOrderPatientDTO Patient { get; set; } = new();

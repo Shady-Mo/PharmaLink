@@ -1,7 +1,3 @@
-using Application.DTOs.AI;
-using Application.Services.AI.Models;
-using Infrastructure.AI.Validation;
-
 namespace Infrastructure.AI.Extraction;
 
 public class MedicineImageExtractionService(
@@ -35,7 +31,7 @@ public class MedicineImageExtractionService(
         {
             response = JsonSerializer.Deserialize<MedicineImageExtractionResponseDTO>(json, JsonOptions);
         }
-        catch (System.Text.Json.JsonException ex)
+        catch (JsonException ex)
         {
             logger.LogWarning(ex, "Failed to parse AI response as JSON: {RawResponse}", execution.RawResponse);
         }

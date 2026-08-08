@@ -27,7 +27,9 @@ public enum OrderStatus : byte
     Processing = 2,
     Shipped = 3,
     Completed = 4,
-    Cancelled = 5
+    Cancelled = 5,
+    PendingPrescriptionReview = 6,
+    PrescriptionRejected = 7
 }
 
 public enum ItemStatus : byte

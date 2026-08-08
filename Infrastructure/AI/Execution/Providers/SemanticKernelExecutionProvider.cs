@@ -42,10 +42,13 @@ public class SemanticKernelExecutionProvider : IAIExecutionProvider
         };
 
         var kernel = _kernelFactory.GetKernel(providerEnum, role, target.ModelId);
+        
         kernel.AddPharmacyPlugins(_serviceProvider);
+        
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
 
         var history = BuildChatHistory(request, renderedPrompt);
+        
         var settings = BuildExecutionSettings(providerEnum);
 
         var response = await chatService.GetChatMessageContentAsync(
@@ -85,7 +88,9 @@ public class SemanticKernelExecutionProvider : IAIExecutionProvider
         };
 
         var kernel = _kernelFactory.GetKernel(providerEnum, role, target.ModelId);
+        
         kernel.AddPharmacyPlugins(_serviceProvider);
+        
         var chatService = kernel.GetRequiredService<IChatCompletionService>();
 
         var history = BuildChatHistory(request, renderedPrompt);

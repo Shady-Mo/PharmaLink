@@ -28,6 +28,7 @@ public class Order
     public Patient Patient { get; set; } = null!;
     public Address DeliveryAddress { get; set; } = null!;
     public PrescriptionReview? PrescriptionReview { get; set; }
+    public Prescription? Prescription { get; set; }
     public ICollection<OrderItem> Items { get; set; } = new HashSet<OrderItem>();
     public ICollection<OrderFulfillmentLeg> FulfillmentLegs { get; set; } = new HashSet<OrderFulfillmentLeg>();
 }
