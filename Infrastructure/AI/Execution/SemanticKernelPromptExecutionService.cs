@@ -57,10 +57,9 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
                 continue;
             }
 
-            if (!_providerRegistry.TryGetProvider(target.ProviderName, out var executionProvider) || 
-                (target.ProviderName == "Gemini" && request.TaskType != AITaskType.Vision))
+            if (!_providerRegistry.TryGetProvider(target.ProviderName, out var executionProvider))
             {
-                // Fallback to the generic SK provider if specific one isn't found, or if it is Gemini for Chat/Agent tasks
+                // Provider not registered — fall back to the generic SemanticKernel provider
                 executionProvider = _providerRegistry.GetProvider("SemanticKernel");
             }
 

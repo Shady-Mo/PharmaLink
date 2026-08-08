@@ -215,3 +215,102 @@ BEGIN CATCH
     PRINT '❌ خطأ: ' + ERROR_MESSAGE();
     THROW;
 END CATCH;
+
+
+
+
+-- ================================================================
+-- أقرب 5 فروع من الإحداثيات المستهدفة
+-- lat=30.1291533065186  lng=31.2771244765832
+-- ================================================================
+
+DECLARE @MyLocation geography = geography::STPointFromText(
+    'POINT(31.2771244765832 30.1291533065186)', 4326
+);
+
+SELECT TOP 5
+    pb.BranchId,
+    pb.BranchName,
+    pb.AddressLine,
+    pb.City,
+    pb.Governorate,
+    pb.PhoneNumber,
+    p.LegalName                              AS PharmacyName,
+    CAST(
+        pb.GeoLocation.STDistance(@MyLocation)
+    AS DECIMAL(10,2))                        AS DistanceMeters,
+    CAST(
+        pb.GeoLocation.STDistance(@MyLocation) / 1000.0
+    AS DECIMAL(10,3))                        AS DistanceKm,
+    pb.SupportsDelivery,
+    pb.SupportsPickup
+FROM  [PharmacyBranches]  pb
+JOIN  [Pharmacies]        p  ON p.PharmacyId = pb.PharmacyId
+WHERE pb.GeoLocation IS NOT NULL
+ORDER BY pb.GeoLocation.STDistance(@MyLocation) ASC;
+
+
+
+
+-- ================================================================
+-- UPDATE إحداثيات فرعين محددين
+--
+-- Target المرجعي: lat=30.1291533  lng=31.2771244
+--
+-- Branch 91206A27 → 320m road distance من Target
+--   straight-line: ~245m شمال شرق (على شارع الهرم)
+--   lat: +0.0022 → +244m شمال
+--   lng: +0.0008 → +77m شرق
+--   → المسار على الخريطة = ~320m
+--
+-- Branch 6A28D71E → يمين 91206A27 بـ 30m (شرق)
+--   نفس lat، lng + 30/96000
+-- ================================================================
+
+BEGIN TRANSACTION;
+BEGIN TRY
+
+-- ── Branch 91206A27 → 320m (road) من المركز ─────────────────────
+UPDATE [PharmacyBranches]
+SET [GeoLocation] = geography::STPointFromText(
+    'POINT(31.2779244 30.1313533)', 4326
+)
+WHERE [BranchId] = '91206A27-3A2E-4494-A1CF-6CADECA5CBE5';
+
+-- ── Branch 6A28D71E → يمين (شرق) 91206A27 بـ 30m ───────────────
+-- 30m شرق = +0.0003125 درجة طول (30 ÷ 96,000 م/درجة)
+UPDATE [PharmacyBranches]
+SET [GeoLocation] = geography::STPointFromText(
+    'POINT(31.2782369 30.1313533)', 4326
+)
+WHERE [BranchId] = '6A28D71E-5A9C-4B84-91BC-16EFDBCC0DF6';
+
+COMMIT TRANSACTION;
+PRINT '✅ تم تحديث الإحداثيات بنجاح';
+
+-- ── تحقق فوري من المسافات ──────────────────────────────────────
+DECLARE @Target    geography = geography::STPointFromText('POINT(31.2771244765832 30.1291533065186)', 4326);
+DECLARE @B91206A27 geography = geography::STPointFromText('POINT(31.2779244 30.1313533)', 4326);
+DECLARE @B6A28D71E geography = geography::STPointFromText('POINT(31.2782369 30.1313533)', 4326);
+
+SELECT
+    '91206A27 ← → Target'            AS Label,
+    CAST(@B91206A27.STDistance(@Target)           AS DECIMAL(8,1)) AS StraightLine_m,
+    CAST(@B91206A27.STDistance(@Target) * 1.31    AS DECIMAL(8,1)) AS EstRoadDist_m
+
+UNION ALL SELECT
+    '6A28D71E ← → Target'            AS Label,
+    CAST(@B6A28D71E.STDistance(@Target)           AS DECIMAL(8,1)),
+    CAST(@B6A28D71E.STDistance(@Target) * 1.31    AS DECIMAL(8,1))
+
+UNION ALL SELECT
+    '6A28D71E ← → 91206A27 (يمين)'  AS Label,
+    CAST(@B6A28D71E.STDistance(@B91206A27)        AS DECIMAL(8,1)),
+    CAST(@B6A28D71E.STDistance(@B91206A27) * 1.00 AS DECIMAL(8,1)); -- مسافة مستقيمة (نفس الشارع)
+
+END TRY
+BEGIN CATCH
+    ROLLBACK TRANSACTION;
+    PRINT '❌ خطأ: ' + ERROR_MESSAGE();
+    THROW;
+END CATCH;
