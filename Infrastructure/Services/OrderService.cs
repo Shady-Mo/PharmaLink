@@ -579,22 +579,22 @@ public class OrderService(
         }
     }
 
-    public async Task<Result<Unit>> ApproveOrderPrescription(Guid orderId, CancellationToken ct = default)
+    public async Task<Result<string>> ApproveOrderPrescription(Guid orderId, CancellationToken ct = default)
     {
         var order = await context.Orders
             .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
 
         if (order == null)
-            return Result.Failure<Unit>(OrderErrors.OrderNotFound);
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
 
         var prescription = await context.Prescriptions
             .FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
 
         if (prescription == null)
-            return Result.Failure<Unit>(OrderErrors.PrescriptionRequired);
+            return Result.Failure<string>(OrderErrors.PrescriptionRequired);
 
         if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
-            return Result.Failure<Unit>(OrderErrors.OrderCannotBeModified);
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
 
         prescription.Status = PrescriptionStatus.Approved;
         context.Prescriptions.Update(prescription);
@@ -602,25 +602,25 @@ public class OrderService(
         order.OrderStatus = OrderStatus.Pending; // Return it to normal pending state so it can be fulfilled
         
         await context.SaveChangesAsync(ct);
-        return Result.Success(Unit.Value);
+        return Result.Success("Success");
     }
 
-    public async Task<Result<Unit>> RejectOrderPrescription(Guid orderId, string reason, CancellationToken ct = default)
+    public async Task<Result<string>> RejectOrderPrescription(Guid orderId, string reason, CancellationToken ct = default)
     {
         var order = await context.Orders
             .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
 
         if (order == null)
-            return Result.Failure<Unit>(OrderErrors.OrderNotFound);
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
 
         var prescription = await context.Prescriptions
             .FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
 
         if (prescription == null)
-            return Result.Failure<Unit>(OrderErrors.PrescriptionRequired);
+            return Result.Failure<string>(OrderErrors.PrescriptionRequired);
 
         if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
-            return Result.Failure<Unit>(OrderErrors.OrderCannotBeModified);
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
 
         prescription.Status = PrescriptionStatus.Rejected;
         prescription.RejectionReason = reason;
@@ -629,6 +629,7 @@ public class OrderService(
         order.OrderStatus = OrderStatus.Cancelled;
         
         await context.SaveChangesAsync(ct);
-        return Result.Success(Unit.Value);
+        return Result.Success("Success");
     }
 }
+
