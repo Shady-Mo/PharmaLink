@@ -1,3 +1,5 @@
+using DocumentFormat.OpenXml.Drawing;
+
 namespace Infrastructure.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options)
@@ -37,4 +39,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<PrescriptionReview> PrescriptionReviews { get; set; }
     public DbSet<PrescriptionReviewMedicine> PrescriptionReviewMedicines { get; set; }
     public DbSet<PharmacistAssignment> PharmacistAssignments { get; set; }
+
+
+    public DbSet<PharmacyMissingStockLog> PharmacyMissingStockLog { get; set; }
+
+    public DbSet<PharmacyReport> PharmacyReport {  get; set; }
 }
