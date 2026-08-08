@@ -14,7 +14,8 @@ namespace Infrastructure.Services;
 public class OrderService(
     AppDbContext context,
     IOrderSplittingService orderSplittingService,
-    CartCacheService cartCacheService) : IOrderService
+    CartCacheService cartCacheService,
+    IInventoryService inventoryService) : IOrderService
 {
     public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId,
         CreateOrderDTO createOrderDTO)
@@ -630,6 +631,53 @@ public class OrderService(
         
         await context.SaveChangesAsync(ct);
         return Result.Success("Success");
+    }
+
+    public async Task<Result<string>> CancelOrder(Guid orderId, Guid patientUserId, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.OrderId == orderId && o.PatientUserId == patientUserId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        if (order.OrderStatus != OrderStatus.Pending && 
+            order.OrderStatus != OrderStatus.Processing &&
+            order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+        {
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
+        }
+
+        var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue).ToList();
+        var releases = awardedItems
+            .GroupBy(i => new { i.BranchId, i.DrugId })
+            .Select(g => (g.Key.BranchId!.Value, g.Key.DrugId, g.Sum(x => x.QuantityNeeded)))
+            .ToList();
+
+        if (releases.Any())
+        {
+            var releaseResult = await inventoryService.ReleaseReservationBatchAsync(releases, ct);
+        }
+
+        foreach (var item in order.Items)
+        {
+            item.ItemStatus = ItemStatus.Cancelled;
+        }
+        
+        order.OrderStatus = OrderStatus.Cancelled;
+
+        var prescription = await context.Prescriptions
+            .FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
+        if (prescription != null)
+        {
+            prescription.Status = PrescriptionStatus.Rejected;
+            prescription.RejectionReason = "Cancelled by patient";
+            context.Prescriptions.Update(prescription);
+        }
+
+        await context.SaveChangesAsync(ct);
+        return Result.Success("Order cancelled successfully");
     }
 }
 

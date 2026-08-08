@@ -5,6 +5,7 @@ namespace Application.Services.Order
         Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId, CreateOrderDTO createOrderDTO);
         Task<Result<GetOrderDTO>> GetOrder(Guid orderId, Guid patientUserId);
         Task<Result<PaginatedList<GetOrderDTO>>> GetOrders(Guid patientUserId, GetOrdersRequest request);
+        Task<Result<string>> CancelOrder(Guid orderId, Guid patientUserId, CancellationToken ct = default);
 
         // ── Admin-only ──────────────────────────────────────────────────────
         Task<Result<GetOrderDTO>> GetOrderForAdmin(Guid orderId);

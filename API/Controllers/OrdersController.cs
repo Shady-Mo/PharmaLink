@@ -107,4 +107,31 @@ public class OrdersController(IOrderService orderService) : BaseApiController
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
+
+    /// <summary>
+    /// Cancels a specific order by its ID for the authenticated patient.
+    /// </summary>
+    /// <remarks>
+    /// **Security guarantees:**
+    /// - Patients can only cancel their own orders.
+    /// - Order must be in a cancellable state (Pending, Processing, PendingPrescriptionReview).
+    /// </remarks>
+    /// <param name="id">The unique identifier of the order.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>
+    /// **200 OK** if successfully cancelled.
+    /// **400 Bad Request** if the order cannot be cancelled.
+    /// **404 Not Found** if the order does not exist or does not belong to the patient.
+    /// </returns>
+    [HttpPost("{id}/cancel")]
+    [Authorize(Roles = AppRoles.Patient)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> CancelOrder(Guid id, CancellationToken cancellationToken)
+    {
+        var result = await orderService.CancelOrder(id, User.GetUserId(), cancellationToken);
+
+        return result.IsSuccess ? Ok(new { message = result.Value }) : result.ToProblem();
+    }
 }

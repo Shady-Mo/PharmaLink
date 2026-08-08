@@ -209,8 +209,23 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
             if (summary is not null)
             {
-                plan = plan! with
+                // Update each leg's DistanceKm to the ACTUAL HOP distance from the route summary
+                // (distance from the previous stop, not the direct patient→branch distance).
+                // WHY: leg.DistanceKm was set to eval.DistanceKm (patient→branch direct) during
+                // BuildLegsForBranches, but TotalDistanceKm is the real multi-stop Held-Karp trip.
+                // Without this fix the UI shows e.g. 0.25 km + 0.31 km but a total of 0.30 km,
+                // which looks wrong. After the fix: branch1=0.25 km (patient→branch1),
+                // branch2=0.05 km (branch1→branch2), total=0.30 km — everything adds up.
+                var hopByBranch = summary.Stops.ToDictionary(s => s.BranchId, s => s.DistanceFromPreviousKm);
+                var updatedLegs = plan!.Legs
+                    .Select(leg => hopByBranch.TryGetValue(leg.BranchId, out var hopKm)
+                        ? leg with { DistanceKm = hopKm }
+                        : leg)
+                    .ToList();
+
+                plan = plan with
                 {
+                    Legs = updatedLegs,
                     RouteSummary = summary,
                     // Held-Karp's exact OSRM trip distance is now the authoritative metric for BOTH paths:
                     // the AI only CHOOSES the branches (it no longer computes trip distance via a tool), so
@@ -219,6 +234,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 };
 
             }
+
         }
         catch (Exception ex)
         {
@@ -287,87 +303,102 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             cartItems.Select(c => new { c.DrugId, c.Quantity }), JsonOptions);
         var branchesJson = JsonSerializer.Serialize(slimBranches, JsonOptions);
 
-        // Compact the matrix for the prompt: round to 2 dp and map unreachable (OSRM MaxValue) hops to -1
-        // so the model treats them as "never use" instead of parsing an astronomically large number. If
-        // OSRM failed entirely, degrade gracefully to patient->branch distances only.
-        string matrixJson;
+        // Format the distance matrix as human-readable named statements instead of a 2D JSON array.
+        // Rationale: LLMs are poor at exact 2D array indexing ("count to row i, then column j"), which
+        // causes the high hallucination rate we observed. Named statements like "m1 → m3: 0.41 km" are
+        // self-contained and scannable — the model just looks for a branch label, no counting needed.
+        string distanceText;
         if (haveMatrix)
         {
-            var cleaned = matrix.DistancesKm
-                .Select(row => row.Select(v => v >= double.MaxValue / 2 ? -1d : Math.Round(v, 2)).ToArray())
-                .ToArray();
-            matrixJson = JsonSerializer.Serialize(cleaned, JsonOptions);
+            distanceText = FormatDistancesForPrompt(matrix.DistancesKm, evaluations);
         }
         else
         {
             _logger.LogWarning(
                 "OrderRoutingOrchestrator — OSRM distance matrix unavailable ({Msg}); the router will optimize " +
                 "on patient->branch distances only (no branch<->branch data).", matrix.Message);
-            matrixJson = JsonSerializer.Serialize(
-                evaluations.Select(e => Math.Round(e.DistanceKm, 2)).ToArray(), JsonOptions);
+            // Fallback: only patient→branch distances, still as named statements.
+            var sb2 = new StringBuilder();
+            sb2.AppendLine("Patient → branches (nearest first):");
+            var sorted = evaluations
+                .Select((e, i) => (m: i + 1, km: Math.Round(e.DistanceKm, 2)))
+                .OrderBy(x => x.km);
+            foreach (var (m, km) in sorted)
+                sb2.AppendLine($"  patient→m{m}: {km} km");
+            sb2.AppendLine("(Branch↔branch distances unavailable — OSRM offline.)");
+            distanceText = sb2.ToString();
         }
+
 
         var prompt =
             $$"""
             You are a pharmacy order-routing optimizer. PROPOSE several candidate CLUSTERS of branches that
-            can each fulfil the WHOLE cart with the SHORTEST possible pickup trip. USE the distance matrix
-            below to ESTIMATE and COMPARE each cluster's trip yourself, then propose the most promising ones.
-            The backend re-verifies every cluster's exact trip with an optimal TSP solver and picks the winner.
+            can each fulfil the WHOLE cart. The backend will measure every cluster's EXACT driving trip with
+            an optimal TSP solver (Held-Karp) and pick the winner — so DO NOT compute trip distances yourself.
+            Your ONLY job is to propose GOOD GROUPINGS based on coverage and relative proximity from the matrix.
 
 
 
             Cart items (JSON — each drugId with the quantity needed): {{cartJson}}
 
-
-            Candidate branches (JSON). "m" is the branch's index in the distance matrix below;
+            Candidate branches. "m" is a branch label used in the distances section below;
             "coversEntireCart"=true means that single branch stocks every cart drug; "available" lists the
-            DrugIds it can supply with the available quantity (qty):
+            DrugIds it can supply:
             {{branchesJson}}
 
-            Distance matrix (kilometres). Index 0 = the patient; index i = the branch whose "m" equals i.
-            M[a][b] = driving distance from point a to point b. A value of -1 means that pair is unreachable —
-            never use such a hop.
-            {{(haveMatrix ? "M = " : "Patient->branch distances only (branch<->branch unavailable) = ")}}{{matrixJson}}
+            Driving distances (kilometres). Read these as plain statements — no indexing needed.
+            UNREACHABLE pairs are omitted. Branch-to-branch pairs further than the median are also omitted
+            (they are too far apart to be in the same cluster anyway).
+            {{distanceText}}
 
             HOW TO BUILD GOOD CLUSTERS:
             - RULE 1 — COVERAGE (mandatory): the branches in a cluster must TOGETHER stock EVERY cart drug.
               Check this against each branch's "available" list. A cluster that misses any cart drug is invalid.
-            - RULE 2 — SHORT TRIP (use the matrix!): estimate a cluster's trip as the walk
-              patient -> nearest branch -> next-nearest branch -> ..., adding M[0][m] for the patient->first
-              hop and M[a][b] for each branch->branch hop. PREFER clusters with the SMALLEST estimated trip,
-              and put that number in "estimatedTripKm".
-            - RULE 3 — NO POINTLESS DETOURS: NEVER add a FAR branch (large M[0][m]) to a cluster when nearer
-              branches already cover the same drugs. If two branches sit close to each other (small M[a][b])
-              AND close to the patient (small M[0][m]), grouping THEM together is almost always best — do not
-              pair one of them with a distant branch instead.
-            - RULE 4 — MINIMALITY (NO REDUNDANT BRANCHES): 
-              * Every branch in a cluster MUST contribute AT LEAST ONE UNIQUE DRUG that is not already provided by the other branches in that same cluster.
-              * Never add extra branches to a cluster if the cart is already 100% covered by a smaller subset of those branches.
-              * EXAMPLE A: If the patient requests Drug A, Pharmacy 1 (stocks A) and Pharmacy 2 (stocks A) must be returned as SEPARATE clusters:
-                              `[1]` and `[2]`. NEVER combine them into `[1, 2]`.
-              * EXAMPLE B: If the patient requests Drug B and Drug D, and Pharmacy 1 stocks (A, B) while Pharmacy 2 stocks (A, D),
-                              combine them into ONE cluster `[1, 2]` because BOTH are required to complete the cart.
-            - Prefer FEWER branches per cluster. If a branch has coversEntireCart=true, a single-branch
-              cluster with just it is valid and is often the shortest. Never add extra branches to a cluster
-              if the cart is already 100% covered by a smaller subset of those branches.
-            - Propose 4 to 6 clusters ORDERED BEST-FIRST (smallest estimatedTripKm first). Make them
-              genuinely different so the backend has real choices. Each cluster may contain at most
-              {{MAX_CLUSTER_BRANCHES}} branches. Use ONLY the "m" indices shown above; never invent indices.
+
+            - RULE 2 — GEOGRAPHIC COHESION (the most important rule for multi-branch clusters):
+              When a cluster contains more than one branch, those branches MUST be geographically close to
+              EACH OTHER AND close to the patient — read this directly from the distance statements above.
+              * The trip visits: patient → branch_1 → branch_2 → ...
+                A large branch↔branch distance makes that cluster BAD even if both branches are near the patient.
+              * GOOD cluster: patient→m2: 2.1 km, m2↔m3: 0.8 km → m2 and m3 are close to each other ✅
+              * BAD cluster:  patient→m1: 1.5 km, patient→m3: 1.8 km, m1↔m3: 13.0 km → m1 and m3 are
+                              far apart even though both are individually close to the patient — AVOID ❌
+              * To find the best partner for branch mX: look at all "mX↔mY" lines, pick the mY with the
+                SMALLEST distance that also stocks the missing drug. That mY is the nearest neighbor of mX.
+
+            - RULE 3 — NO POINTLESS DETOURS: NEVER add a branch with a large M[0][m] OR a large
+              inter-branch M[a][b] to a cluster when a nearer alternative covers the same drug.
+
+            - RULE 4 — MINIMALITY (NO REDUNDANT BRANCHES):
+              * Every branch in a cluster MUST contribute AT LEAST ONE UNIQUE DRUG that is not already provided
+                by the other branches in that same cluster.
+              * Never add extra branches to a cluster if the cart is already 100% covered by a smaller subset.
+              * EXAMPLE A: If the patient requests Drug A, Pharmacy 1 (stocks A) and Pharmacy 2 (stocks A) must
+                              be returned as SEPARATE clusters: `[1]` and `[2]`. NEVER combine them into `[1, 2]`.
+              * EXAMPLE B: If the patient requests Drug B and Drug D, and Pharmacy 1 stocks (A, B) while
+                              Pharmacy 2 stocks (A, D), combine them into ONE cluster `[1, 2]` because BOTH are
+                              required to complete the cart.
+            - Prefer FEWER branches per cluster. If a branch has coversEntireCart=true, a single-branch cluster
+              with just it is often the best choice. Never add extra branches when a smaller subset covers all.
+            - Propose 4 to 6 GENUINELY DIFFERENT clusters so the backend has real choices to measure.
+              Each cluster may contain at most {{MAX_CLUSTER_BRANCHES}} branches.
+              Use ONLY the "m" indices shown above; never invent indices.
 
             KEEP THE OUTPUT SHORT so it is NEVER cut off by the token limit:
-            - "reasoning" must be AT MOST 8 words and must NOT list DrugIds or repeat the matrix numbers.
-            - Put "branches" FIRST in every cluster object, then "estimatedTripKm", then "reasoning".
+            - "reasoning" must be AT MOST 8 words. Do NOT include matrix numbers or DrugIds in reasoning.
+            - Put "branches" FIRST in every cluster object, then "reasoning".
 
             Respond with ONLY this JSON (no prose, no markdown, no code fences). "branches" is the list of
-            branch "m" indices that form the cluster; "estimatedTripKm" is YOUR computed trip estimate:
+            branch "m" indices that form the cluster:
             {
               "clusters": [
-                { "branches": [<m>, ...], "estimatedTripKm": <number>, "reasoning": "<=8 words, no DrugIds>" }
+                { "branches": [<m>, ...], "estimatedTripKm": <number>, "reasoning": "<=8 words, no DrugIds or numbers" }
               ]
             }
-
-
             """;
+
+
+
 
 
 
@@ -508,6 +539,56 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         }
         if (nearestPerDrug.Count > 0)
             TryAddCluster(nearestPerDrug, "Baseline:NearestPerDrug");
+
+        // (4) GUARANTEED baseline #3 (proximity-based pairs & triples): for every branch, find its
+        //     K nearest NEIGHBOR branches from the global matrix (small M[a][b]) and test all nearby
+        //     pairs and triples for cart coverage. This is the safety net for the case the AI and
+        //     baselines #1&#2 miss: two branches that are very close to EACH OTHER (small M[a][b])
+        //     and together cover the cart — e.g. 0.4 km apart — but neither alone covers the cart
+        //     (so baseline #1 misses them) and they aren't each the nearest-to-patient branch for
+        //     their respective drugs (so baseline #2 misses them too).
+        //     We cap at the 4 nearest neighbors per branch so the combinatorial explosion stays tiny
+        //     (4 neighbors × 20 branches = 80 pairs to test, each in O(drugs) time).
+
+        /* Truthy Deterministic Calculation
+        if (globalDist is not null) {
+            const int KNearestNeighbors = 4;
+            int branchCount = evaluations.Count;
+
+            for (int a = 0; a < branchCount; a++) {
+                // The K branches closest to branch `a` (by driving distance, excluding patient at 0).
+                // globalDist indices: 0=patient, 1..n=branches (1-based "m" = index+1).
+                var nearestToA = Enumerable.Range(0, branchCount)
+                    .Where(b => b != a && globalDist[a + 1][b + 1] >= 0) // skip unreachable (-1)
+                    .OrderBy(b => globalDist[a + 1][b + 1])
+                    .Take(KNearestNeighbors)
+                    .ToList();
+
+                foreach (var b in nearestToA) {
+                    // --- Pair [a+1, b+1] ---
+                    TryAddCluster(new[] { a + 1, b + 1 }, "Baseline:ProximityPair");
+
+                    // If the pair doesn't cover the cart, try extending it with a third branch
+                    // that is close to EITHER a or b (take the closer hop for each candidate).
+                    var pairCovered = evaluations[a].AvailableItems.Select(x => x.DrugId)
+                        .Union(evaluations[b].AvailableItems.Select(x => x.DrugId))
+                        .ToHashSet();
+
+                    if (!cartDrugs.All(pairCovered.Contains)) {
+                        var nearestToAorB = Enumerable.Range(0, branchCount)
+                            .Where(c => c != a && c != b
+                                && globalDist[a + 1][c + 1] >= 0
+                                && globalDist[b + 1][c + 1] >= 0)
+                            .OrderBy(c => Math.Min(globalDist[a + 1][c + 1], globalDist[b + 1][c + 1]))
+                            .Take(KNearestNeighbors);
+
+                        foreach (var c in nearestToAorB)
+                            TryAddCluster(new[] { a + 1, b + 1, c + 1 }, "Baseline:ProximityTriple");
+                    }
+                }
+            }
+        }
+        */
 
         // DIAGNOSTIC: dump every cluster that SURVIVED TryAddCluster's filter (in-range + full coverage +
         // de-duplicated), tagged by where it came from (AI proposal vs the two deterministic baselines),
@@ -962,6 +1043,69 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
     }
 
 
+    /// <summary>
+    /// Converts the raw OSRM distance matrix into human-readable named statements for the LLM prompt.
+    ///
+    /// WHY: LLMs are poor at 2D array indexing ("find row i, count to column j") — this is the root
+    /// cause of the high hallucination rate observed when sending M[][] as a JSON array. Labeled
+    /// statements like "m1↔m3: 0.41 km" are self-contained and scannable; the model just looks for
+    /// a branch label without needing to count positions.
+    ///
+    /// FORMAT:
+    ///   Patient → branches (nearest first):
+    ///     patient→m3: 0.41 km
+    ///     patient→m1: 1.50 km
+    ///     ...
+    ///   Branch↔branch pairs (nearest first, far pairs omitted):
+    ///     m3↔m4: 0.30 km
+    ///     m1↔m2: 0.80 km
+    ///     ...
+    ///
+    /// FILTERING: branch↔branch pairs above the median inter-branch distance are omitted.
+    /// They are too far apart to ever make a good cluster, and omitting them reduces prompt noise.
+    /// </summary>
+    private static string FormatDistancesForPrompt(
+        double[][] dist,
+        IReadOnlyList<BranchFulfillmentEvaluation> evaluations)
+    {
+        int n = evaluations.Count; // number of branches; dist[0] = patient row, dist[i] = branch i-1
+        var sb = new System.Text.StringBuilder();
+
+        // --- Patient → branch distances (sorted nearest-first) ---
+        sb.AppendLine("Patient → branches (nearest first):");
+        var patientDists = Enumerable.Range(0, n)
+            .Select(i => (m: i + 1, km: dist[0][i + 1]))
+            .Where(x => x.km >= 0 && x.km < double.MaxValue / 2)
+            .OrderBy(x => x.km);
+        foreach (var (m, km) in patientDists)
+            sb.AppendLine($"  patient→m{m}: {Math.Round(km, 2)} km");
+
+        // --- Branch↔branch pairs (upper triangle, filtered by median, sorted nearest-first) ---
+        var pairs = new List<(int A, int B, double Km)>();
+        for (int a = 0; a < n; a++)
+        for (int b = a + 1; b < n; b++)
+        {
+            var d = dist[a + 1][b + 1];
+            if (d >= 0 && d < double.MaxValue / 2)
+                pairs.Add((a + 1, b + 1, Math.Round(d, 2)));
+        }
+
+        if (pairs.Count > 0)
+        {
+            // Filter to pairs at or below the median distance — far pairs are useless noise.
+            var sorted = pairs.OrderBy(p => p.Km).ToList();
+            var medianKm = sorted[sorted.Count / 2].Km;
+            var nearby = sorted.Where(p => p.Km <= medianKm).ToList();
+
+            sb.AppendLine("Branch↔branch pairs (nearest first; pairs above median omitted as too far):");
+            foreach (var (a, b, km) in nearby)
+                sb.AppendLine($"  m{a}↔m{b}: {km} km");
+        }
+
+        return sb.ToString();
+    }
+
+
     private static IReadOnlyList<MissingItem> BuildUnfulfillable(
         IReadOnlyList<CartItemDto> cartItems,
         HashSet<Guid> assignedDrugs,
@@ -1221,6 +1365,8 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 - Describe the movements IN THE GIVEN ORDER: which pharmacy to go to first, then next, etc.
                   Never change the order.
                 - For each pharmacy, mention its name and how far it is (use distanceFromPreviousKm, in km).
+                - STRICT RULE 1: Print the 'branchName' EXACTLY as it appears in the JSON. Do NOT alter the spelling, do NOT try to correct grammar, and do NOT change letters like (ه) to (ة).
+                - STRICT RULE 2: Do NOT add the word "فرع" before the branchName. Use the branchName directly to avoid repetition like "فرع فرع".
                 - Keep it short and organized — only where to go and each pharmacy's distance. Do NOT add
                   extra details, and do NOT mention any medicines or quantities.
                 - You may end with the total trip distance in one short clause.
@@ -1230,18 +1376,24 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 2- Do NOT mention any medicines, prices, or quantities.
                 3- Do NOT add marketing fluff, extra tips, or unnecessary instructions.
                 - EXAMPLE OUTPUT STRUCTURE (for reference only):
-                  لتجميع طلبيتك، يمكنك البدء بالتوجه إلى فرع [Pharmacy Name] على بعد [Distance] كم،
-                  ثم التوجه إلى فرع [Pharmacy Name] على بعد [Distance] كم. إجمالي مسافة الرحلة هو [TotalKm] كم.
+                  لتجميع طلبيتك، يمكنك البدء بالتوجه إلى [Pharmacy Name] على بعد [Distance] كم،
+                  ثم التوجه إلى [Pharmacy Name] على بعد [Distance] كم. إجمالي مسافة الرحلة هو [TotalKm] كم.
                 """;
 
             var chat = descKernel.GetRequiredService<IChatCompletionService>();
             var history = new ChatHistory();
             history.AddUserMessage(prompt);
 
+            var settings = new PromptExecutionSettings {
+                ExtensionData = new Dictionary<string, object> {
+                    ["temperature"] = 0.2,
+                }
+            };
+
             // NOTE: no max_tokens on purpose — capping it previously truncated the sentence mid-word.
             // Brevity is enforced by the prompt instructions, not by the output token budget.
             var response = await chat.GetChatMessageContentAsync(
-                history, kernel: descKernel, cancellationToken: cancellationToken);
+                history, settings, kernel: descKernel, cancellationToken: cancellationToken);
 
             var text = response.Content?.Trim();
             if (string.IsNullOrWhiteSpace(text))
@@ -1378,17 +1530,19 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
     /// <summary>
     /// One candidate cluster the AI proposes: a small group of branch matrix indices ("m") that TOGETHER
-    /// cover the whole cart. The model now ESTIMATES the trip distance from the matrix and orders clusters
-    /// best-first. The backend (<see cref="FindBestCluster"/>) re-verifies with exact Held-Karp and picks
-    /// the shortest.
+    /// cover the whole cart. The AI focuses ONLY on coverage-aware grouping and relative proximity;
+    /// it does NOT compute trip distances (LLMs hallucinate exact arithmetic on large matrices).
+    /// The backend (<see cref="FindBestCluster"/>) measures every cluster's EXACT open-tour trip with
+    /// Held-Karp on the shared OSRM global matrix and picks the shortest — that is the only number that counts.
     /// </summary>
     private sealed record RouterCluster
     {
         /// <summary>One short model-written sentence explaining why this cluster is a tight, covering group.</summary>
         [JsonPropertyName("reasoning")] public string? Reasoning { get; init; }
 
-        /// <summary>The AI's estimated trip distance (patient → branches) in km, computed from the matrix.</summary>
-        [JsonPropertyName("estimatedTripKm")] public double? EstimatedTripKm { get; init; }
+        // NOTE: estimatedTripKm intentionally removed. The AI was hallucinating distances
+        // (e.g. 0.51 km when the real OSRM trip is 13.36 km) because LLMs cannot reliably
+        // sum rows of a large JSON matrix. All distance computation is owned by Held-Karp.
 
         /// <summary>The branch "m" indices (into the distance matrix, 1-based) that make up this cluster.</summary>
         [JsonPropertyName("branches")] public List<int>? Branches { get; init; }

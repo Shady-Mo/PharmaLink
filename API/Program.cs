@@ -20,16 +20,16 @@ builder.Services.AddScoped<IDeliveryNotificationService, DeliveryNotificationSer
 var app = builder.Build();
 
 
-using (var scope = app.Services.CreateScope())
-{
-    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
+//using (var scope = app.Services.CreateScope())
+//{
+//    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
 
-    recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
-        "inventory-forecasting-daily-job",
-        job => job.RunDailyForecastAsync(),
-        Cron.Daily
-    );
-}
+//    recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
+//        "inventory-forecasting-daily-job",
+//        job => job.RunDailyForecastAsync(),
+//        Cron.Daily
+//    );
+//}
 
 app.UseSwaggerDocs();
 
