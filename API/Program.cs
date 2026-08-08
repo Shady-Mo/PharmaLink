@@ -23,6 +23,7 @@ using (var scope = app.Services.CreateScope())
 {
     var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
     var initializer = scope.ServiceProvider.GetRequiredService<PatientPrescriptionCollectionInitializer>();
+    await initializer.InitializeAsync();
     recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
         "inventory-forecasting-daily-job",
         job => job.RunDailyForecastAsync(),

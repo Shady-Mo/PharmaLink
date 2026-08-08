@@ -116,13 +116,13 @@ public static class DependencyInjection
             services.AddTransient<GeminiRetryHandler>();
 
             services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
-                {
-                    var settings = configuration
-                        .GetSection(GeminiSettings.SectionName)
-                        .Get<GeminiSettings>() ?? new GeminiSettings();
+            {
+                var settings = configuration
+                    .GetSection(GeminiSettings.SectionName)
+                    .Get<GeminiSettings>() ?? new GeminiSettings();
 
-                    client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
-                })
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            })
                 .AddHttpMessageHandler<GeminiRetryHandler>();
 
 
@@ -165,10 +165,10 @@ public static class DependencyInjection
 
 
             // Program.cs / DependencyInjection.cs
-            services.AddSingleton<IBackgroundTaskQueue, BackgroundTaskQueue>();
-            services.AddHostedService<PrescriptionEmbeddingHostedService>();
             services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
             services.AddScoped<PatientPrescriptionSearchPlugin>();
+            services.AddScoped<IPrescriptionEmbeddingJob, PrescriptionEmbeddingJob>();
+            services.AddScoped<PatientPrescriptionCollectionInitializer>();
 
 
             services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
@@ -207,10 +207,10 @@ public static class DependencyInjection
 
 
             services.AddAuthentication(options =>
-                {
-                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                })
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
                 .AddJwtBearer(options =>
                 {
                     options.TokenValidationParameters = new TokenValidationParameters

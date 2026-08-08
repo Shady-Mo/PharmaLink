@@ -1,8 +1,7 @@
 using FluentValidation;
 using System.Security.Claims;
+using Hangfire;
 namespace Infrastructure.Services;
-
-using Hangfire; 
 
 public class PrescriptionReviewService(
     AppDbContext context,
@@ -11,7 +10,7 @@ public class PrescriptionReviewService(
     IHttpContextAccessor httpContextAccessor,
     IValidator<UploadPrescriptionDTO> uploadValidator,
     IValidator<UpdatePrescriptionReviewDTO> updateValidator,
-    IBackgroundTaskQueue taskQueue,
+    IBackgroundJobClient backgroundJobClient,
     ILogger<PrescriptionReviewService> logger)
     : IPrescriptionReviewService
 {
@@ -478,11 +477,8 @@ public class PrescriptionReviewService(
 
         await context.SaveChangesAsync();
 
-        await taskQueue.QueueBackgroundWorkItemAsync(async (serviceProvider, cancellationToken) =>
-        {
-            var vectorService = serviceProvider.GetRequiredService<IPatientPrescriptionVectorService>();
-            await vectorService.IndexPrescriptionAsync(review.PrescriptionReviewId, cancellationToken);
-        });
+        backgroundJobClient.Enqueue<IPrescriptionEmbeddingJob>(
+            job => job.ProcessAsync(review.PrescriptionReviewId, CancellationToken.None));
 
         return Result.Success();
     }
