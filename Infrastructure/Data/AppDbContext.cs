@@ -48,6 +48,10 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<InventoryForecastLog> InventoryForecastLogs { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
     public DbSet<SupplierDrug> SupplierDrugs { get; set; }
+    public DbSet<Prescription> Prescriptions { get; set; }
+    public DbSet<DeliveryJob> DeliveryJobs { get; set; }
+    public DbSet<DeliveryDriver> DeliveryDrivers { get; set; }
     public DbSet<PrescriptionVectorIndex> PrescriptionVectorIndices { get; set; }
 
 }
+

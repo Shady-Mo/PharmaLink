@@ -1,6 +1,3 @@
-using Application.Services.AI.Models;
-using Infrastructure.AI.Validation;
-
 namespace Infrastructure.AI.Extraction;
 
 public class PrescriptionExtractionService(
@@ -34,7 +31,7 @@ public class PrescriptionExtractionService(
         {
             response = JsonSerializer.Deserialize<AIExtractionResult>(json, JsonOptions);
         }
-        catch (System.Text.Json.JsonException ex)
+        catch (JsonException ex)
         {
             logger.LogWarning(ex, "Failed to parse AI response as JSON: {RawResponse}", execution.RawResponse);
         }
@@ -52,15 +49,15 @@ public class PrescriptionExtractionService(
         response.RawResponse = execution.RawResponse;
 
         var validation = businessValidator.Validate(response);
-        if (!validation.IsValid)
-        {
-            logger.LogWarning(
-                "Prescription extraction business validation failed: {Errors}",
-                string.Join("; ", validation.Errors));
 
-            response.IsValidPrescription = false;
-            response.ValidationMessage = string.Join(" ", validation.Errors);
-        }
+        if (validation.IsValid) return response;
+        
+        logger.LogWarning(
+            "Prescription extraction business validation failed: {Errors}",
+            string.Join("; ", validation.Errors));
+
+        response.IsValidPrescription = false;
+        response.ValidationMessage = string.Join(" ", validation.Errors);
 
         return response;
     }

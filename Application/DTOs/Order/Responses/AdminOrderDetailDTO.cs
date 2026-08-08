@@ -15,6 +15,8 @@ public class AdminOrderDetailDTO
     public FulfillmentMode FulfillmentMode { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? DeliveredAt { get; set; }
+    public bool HasPrescription { get; set; }
+    public Guid? PrescriptionId { get; set; }
 
     /// <summary>Delivery address summary.</summary>
     public string DeliveryAddress { get; set; } = string.Empty;

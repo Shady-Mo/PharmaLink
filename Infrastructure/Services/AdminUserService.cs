@@ -23,7 +23,8 @@ public class AdminUserService : IAdminUserService
         AppRoles.PrescriptionReviewTeam,
         AppRoles.PharmacyAdmin,
         AppRoles.Admin,
-        AppRoles.Supplier
+        AppRoles.Supplier,
+        AppRoles.DeliveryDriver
     ];
 
     public AdminUserService(UserManager<AppUser> userManager, RoleManager<IdentityRole<Guid>> roleManager)

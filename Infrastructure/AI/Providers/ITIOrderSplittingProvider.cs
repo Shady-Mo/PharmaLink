@@ -3,7 +3,6 @@ using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Models;
 using Infrastructure.AI.Options;
 using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.Connectors.Google;
 
 namespace Infrastructure.AI.Providers;
 
@@ -21,7 +20,7 @@ public sealed class ITIOrderSplittingProvider(IOptions<AiOptions> options) : IKe
         {
             throw new InvalidOperationException(
                 $"No models configured for role '{roleName}' under AI:Providers:ITIOrderSplitting:Models. " +
-                $"Add at least one model ID (e.g., 'anthropic.[REDACTED]v1:0').");
+                $"Add at least one model ID (e.g., 'llama-3.3-70b-versatile').");
         }
 
         var selectedModelId = modelId ?? configuredModels[0];
@@ -38,7 +37,6 @@ public sealed class ITIOrderSplittingProvider(IOptions<AiOptions> options) : IKe
 
     private Kernel CreateKernel(string modelId)
     {
-#pragma warning disable SKEXP0070
         var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey)
             ? Environment.GetEnvironmentVariable(_options.ApiKeyEnvironmentVariable)
             : _options.ApiKey;
@@ -46,20 +44,24 @@ public sealed class ITIOrderSplittingProvider(IOptions<AiOptions> options) : IKe
         if (string.IsNullOrWhiteSpace(apiKey))
         {
             throw new InvalidOperationException(
-                $"Missing ITI API key for ITIOrderSplitting. " +
+                $"Missing API key for ITIOrderSplitting. " +
                 $"Set environment variable '{_options.ApiKeyEnvironmentVariable}' or populate " +
                 $"'AI:Providers:ITIOrderSplitting:ApiKey' in appsettings.json.");
         }
 
-        var builder = Kernel.CreateBuilder();
+        if (string.IsNullOrWhiteSpace(_options.BaseUrl))
+        {
+            throw new InvalidOperationException(
+                "Missing BaseUrl for ITIOrderSplitting. Set 'AI:Providers:ITIOrderSplitting:BaseUrl' " +
+                "to an OpenAI-compatible endpoint (e.g. 'https://api.groq.com/openai/v1/').");
+        }
 
-        builder.AddGoogleAIGeminiChatCompletion(
+        var builder = Kernel.CreateBuilder();
+        builder.AddOpenAIChatCompletion(
             modelId: modelId,
             apiKey: apiKey,
-            apiVersion: GoogleAIVersion.V1_Beta
-        );
+            endpoint: new Uri(_options.BaseUrl));
 
         return builder.Build();
-#pragma warning restore SKEXP0070
     }
 }

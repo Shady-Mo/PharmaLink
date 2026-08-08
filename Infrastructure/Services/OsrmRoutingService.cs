@@ -153,6 +153,17 @@ public sealed class OsrmRoutingService(
         if (coordinates.Count == 0)
             return MatrixFailure("No coordinates supplied");
 
+        if (coordinates.Count == 1)
+        {
+            return new OsrmMatrixResultDto
+            {
+                DistancesKm = new[] { new[] { 0.0 } },
+                DurationsMinutes = new[] { new[] { 0.0 } },
+                IsSuccess = true,
+                Message = "Single coordinate supplied, distance is 0."
+            };
+        }
+
         try
         {
             // OSRM /table returns an N×N matrix in ONE request. Coordinates are ';'-separated and,

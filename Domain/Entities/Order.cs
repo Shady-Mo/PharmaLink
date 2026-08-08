@@ -18,9 +18,17 @@ public class Order
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? DeliveredAt { get; set; }
 
+    /// <summary>
+    /// Natural-language description from the AI routing system explaining the fulfillment plan
+    /// (e.g., "ابدأ بصيدلية النهضة، ثم اتجه إلى فرع الجيزة..." or the short strategy reasoning).
+    /// Populated from plan.RouteSummary.Description or plan.Reasoning at order creation.
+    /// </summary>
+    public string? AiRoutingDescription { get; set; }
+
     public Patient Patient { get; set; } = null!;
     public Address DeliveryAddress { get; set; } = null!;
     public PrescriptionReview? PrescriptionReview { get; set; }
+    public Prescription? Prescription { get; set; }
     public ICollection<OrderItem> Items { get; set; } = new HashSet<OrderItem>();
     public ICollection<OrderFulfillmentLeg> FulfillmentLegs { get; set; } = new HashSet<OrderFulfillmentLeg>();
 }

@@ -77,7 +77,7 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.IsOpenNow, src => true) // Default mock for now
             .Map(dest => dest.Latitude, src => src.Branch.GeoLocation != null ? src.Branch.GeoLocation.Y : 0)
             .Map(dest => dest.Longitude, src => src.Branch.GeoLocation != null ? src.Branch.GeoLocation.X : 0)
-            .Map(dest => dest.GoogleMapsUrl, src => src.Branch.GeoLocation != null ? "https://www.google.com/maps/dir/?api=1&destination=" + src.Branch.GeoLocation.Y + "," + src.Branch.GeoLocation.X : string.Empty)
+            .Map(dest => dest.GoogleMapsUrl, src => src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null ? $"https://www.google.com/maps/dir/?api=1&origin={src.Order.DeliveryAddress.GeoLocation.Y},{src.Order.DeliveryAddress.GeoLocation.X}&destination={src.Branch.GeoLocation.Y},{src.Branch.GeoLocation.X}" : src.Branch.GeoLocation != null ? $"https://www.google.com/maps/dir/?api=1&destination={src.Branch.GeoLocation.Y},{src.Branch.GeoLocation.X}" : string.Empty)
             .Map(dest => dest.SupportsDelivery, src => src.Branch.SupportsDelivery)
             .Map(dest => dest.SupportsPickup, src => src.Branch.SupportsPickup)
             // Prefer the OSRM driving distance captured on the leg at split time (same value the
@@ -112,7 +112,8 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.DrugBrandName, src => src.Drug != null ? src.Drug.BrandName : string.Empty)
             .Map(dest => dest.DrugGenericName, src => src.Drug != null ? src.Drug.GenericName : string.Empty)
             .Map(dest => dest.DrugArabicName, src => src.Drug != null ? src.Drug.ArabicName : string.Empty)
-            .Map(dest => dest.DrugImageUrl, src => src.Drug != null ? src.Drug.ImageUrl : null);
+            .Map(dest => dest.DrugImageUrl, src => src.Drug != null ? src.Drug.ImageUrl : null)
+            .Map(dest => dest.RequiresPrescription, src => src.Drug != null ? src.Drug.RequiresPrescription : false);
             
         // PrescriptionReview Mappings
         config.NewConfig<PrescriptionReview, PrescriptionReviewSummaryDTO>()

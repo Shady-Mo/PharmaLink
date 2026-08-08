@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using Infrastructure.AI.Execution.Routing;
 using Infrastructure.AI.Options;
-using Microsoft.Extensions.Options;
 using Polly;
 using Polly.CircuitBreaker;
 using Polly.Retry;
@@ -28,7 +27,7 @@ public class AIResiliencePipelineProvider : IAIResiliencePipelineProvider
     public ResiliencePipeline GetPipeline(ProviderModelTarget target)
     {
         var key = $"{target.ProviderName}:{target.ModelId}";
-        
+
         return _pipelines.GetOrAdd(key, _ =>
         {
             var cbStateProvider = new CircuitBreakerStateProvider();

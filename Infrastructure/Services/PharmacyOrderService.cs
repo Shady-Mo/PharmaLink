@@ -86,6 +86,8 @@ public class PharmacyOrderService(
                 FulfillmentMode = l.Order.FulfillmentMode,
                 OrderDate = l.Order.CreatedAt,
                 DeliveryDate = l.CompletedAt,
+                HasPrescription = l.Order.Prescription != null,
+                PrescriptionId = l.Order.Prescription != null ? l.Order.Prescription.Id : null,
                 TotalAmount = l.Order.TotalAmount,
 
                 Patient = new PharmacyOrderPatientDTO

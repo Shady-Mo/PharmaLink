@@ -5,6 +5,7 @@ namespace Application.Services.Order
         Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId, CreateOrderDTO createOrderDTO);
         Task<Result<GetOrderDTO>> GetOrder(Guid orderId, Guid patientUserId);
         Task<Result<PaginatedList<GetOrderDTO>>> GetOrders(Guid patientUserId, GetOrdersRequest request);
+        Task<Result<string>> CancelOrder(Guid orderId, Guid patientUserId, CancellationToken ct = default);
 
         // ── Admin-only ──────────────────────────────────────────────────────
         Task<Result<GetOrderDTO>> GetOrderForAdmin(Guid orderId);
@@ -15,6 +16,9 @@ namespace Application.Services.Order
 
         /// <summary>Returns the full order detail for the admin detail page.</summary>
         Task<Result<AdminOrderDetailDTO>> GetAdminOrderDetail(Guid orderId, CancellationToken ct = default);
+
+        Task<Result<string>> ApproveOrderPrescription(Guid orderId, CancellationToken ct = default);
+        Task<Result<string>> RejectOrderPrescription(Guid orderId, string reason, CancellationToken ct = default);
 
         /// <summary>Exports filtered orders as xlsx or csv bytes.</summary>
         Task<Result<(byte[] Data, string ContentType, string FileName)>> ExportOrdersForAdmin(

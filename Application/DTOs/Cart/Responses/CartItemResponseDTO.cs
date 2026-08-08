@@ -18,5 +18,7 @@ public class CartItemResponseDTO
 
     public decimal UnitPriceSnapshot { get; set; }
 
+    public bool RequiresPrescription { get; set; }
+
     public decimal LineTotal => Quantity * UnitPriceSnapshot;
 }

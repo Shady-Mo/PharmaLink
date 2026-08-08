@@ -1,5 +1,4 @@
 using Application.DTOs.OrderRouting;
-using Application.Services.OrderSplitting.Models;
 
 namespace Application.Services.OrderRouting;
 
@@ -29,24 +28,5 @@ public interface IOrderRoutingOrchestrator
         GeoLocation patientLocation,
         IReadOnlyList<CartItemDto> cartItems,
         FulfillmentMode fulfillmentMode,
-        CancellationToken cancellationToken = default);
-
-
-    /// <summary>
-    /// Pipeline integration entry point used during Cart-to-Order conversion.
-    ///
-    /// Consumes the <see cref="SplittingContext"/> already assembled by the
-    /// <c>OrderSplittingService</c> (candidate branches filtered by geo-radius + fulfillment
-    /// mode, inventory snapshot filtered by expiry) and lets the multi-agent engine decide
-    /// the item→branch allocation. Returning the same <see cref="SplittingResult"/> shape as
-    /// the deterministic algorithm keeps all downstream reservation/leg-generation logic
-    /// untouched.
-    /// </summary>
-    /// <returns>
-    /// The agent-decided assignments, or <c>null</c> if the engine could not produce a usable
-    /// decision (the caller should then fall back to the deterministic algorithm).
-    /// </returns>
-    Task<SplittingResult?> OptimizeSplitAsync(
-        SplittingContext context,
         CancellationToken cancellationToken = default);
 }
