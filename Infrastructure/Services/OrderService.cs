@@ -41,13 +41,31 @@ public class OrderService(
         var drugIds = cartItems.Select(item => item.DrugId).Distinct().ToList();
         var existingDrugs = await context.Drugs
             .Where(d => drugIds.Contains(d.DrugId))
-            .Select(d => d.DrugId)
+            .Select(d => new { d.DrugId, d.RequiresPrescription })
             .ToListAsync();
 
-        var invalidDrugIds = drugIds.Except(existingDrugs).ToList();
+        var invalidDrugIds = drugIds.Except(existingDrugs.Select(d => d.DrugId)).ToList();
         if (invalidDrugIds.Count > 0)
             return Result.Failure<OrderCreatedResponseDTO>(
                 OrderErrors.CreateInvalidDrugIdsError(invalidDrugIds));
+
+        bool requiresPrescription = existingDrugs.Any(d => d.RequiresPrescription);
+        Prescription? prescription = null;
+
+        if (createOrderDTO.TemporaryPrescriptionId != null)
+        {
+            prescription = await context.Prescriptions
+                .FirstOrDefaultAsync(p => p.Id == createOrderDTO.TemporaryPrescriptionId);
+
+            if (prescription == null || prescription.PatientId != patientUserId || prescription.Status != Domain.Enums.PrescriptionStatus.Pending)
+            {
+                return Result.Failure<OrderCreatedResponseDTO>(new Error("Order.InvalidPrescription", "The provided prescription is invalid, expired, or already used.", StatusCodes.Status400BadRequest));
+            }
+        }
+        else if (requiresPrescription)
+        {
+            return Result.Failure<OrderCreatedResponseDTO>(new Error("Order.PrescriptionRequired", "This order contains products that require a valid prescription.", StatusCodes.Status422UnprocessableEntity));
+        }
 
         var totalAmount = await CalculateTotalAmount(cartItems);
 
@@ -57,9 +75,16 @@ public class OrderService(
             PatientUserId = patientUserId,
             DeliveryAddressId = createOrderDTO.DeliveryAddressId,
             FulfillmentMode = createOrderDTO.FulfillmentMode,
-            OrderStatus = OrderStatus.Pending,
+            OrderStatus = prescription != null ? OrderStatus.PendingPrescriptionReview : OrderStatus.Pending,
             TotalAmount = totalAmount
         };
+
+        if (prescription != null)
+        {
+            prescription.OrderId = order.OrderId;
+            prescription.Status = Domain.Enums.PrescriptionStatus.AttachedToOrder;
+            prescription.ConsumedAt = DateTime.UtcNow;
+        }
 
         context.Orders.Add(order);
 
@@ -83,9 +108,11 @@ public class OrderService(
         // Invalidate the Redis cache so a subsequent GetCart doesn't serve stale, pre-checkout items.
         await cartCacheService.InvalidateAsync(patientUserId);
 
-        // Trigger automatic splitting inline. Result is observed but not propagated to caller —
-        // the 201 Created response represents the order being accepted, not fully split.
-        await orderSplittingService.SplitOrderAsync(order.OrderId);
+        // Trigger automatic splitting inline only if the order does NOT require manual prescription review.
+        if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+        {
+            await orderSplittingService.SplitOrderAsync(order.OrderId);
+        }
 
         var response = new OrderCreatedResponseDTO
         {
@@ -272,6 +299,7 @@ public class OrderService(
     {
         var order = await context.Orders
             .Include(o => o.Patient)
+            .Include(o => o.Prescription)
             .Include(o => o.DeliveryAddress)
             .Include(o => o.Items)
                 .ThenInclude(i => i.Drug)
@@ -297,6 +325,8 @@ public class OrderService(
             FulfillmentMode = order.FulfillmentMode,
             CreatedAt = order.CreatedAt,
             DeliveredAt = order.DeliveredAt,
+            HasPrescription = order.Prescription != null,
+            PrescriptionId = order.Prescription?.Id,
             DeliveryAddress = order.DeliveryAddress != null
                 ? $"{order.DeliveryAddress.Governorate}، {order.DeliveryAddress.City}، {order.DeliveryAddress.AddressLine}"
                 : "No Address",
@@ -451,5 +481,50 @@ public class OrderService(
             var data = stream.ToArray();
             return Result.Success((data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"orders-export-{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx"));
         }
+    }
+
+    public async Task<Result<string>> ApproveOrderPrescription(Guid orderId, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+            return Result.Failure<string>(new Error("Order.InvalidStatus", "Order is not pending prescription review.", StatusCodes.Status400BadRequest));
+
+        order.OrderStatus = OrderStatus.Pending;
+        await context.SaveChangesAsync(ct);
+
+        // Trigger automatic splitting now that the prescription is approved
+        await orderSplittingService.SplitOrderAsync(order.OrderId);
+
+        return Result.Success("Prescription approved and order splitting initiated.");
+    }
+
+    public async Task<Result<string>> RejectOrderPrescription(Guid orderId, string reason, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .Include(o => o.Prescription)
+            .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+            return Result.Failure<string>(new Error("Order.InvalidStatus", "Order is not pending prescription review.", StatusCodes.Status400BadRequest));
+
+        order.OrderStatus = OrderStatus.PrescriptionRejected;
+
+        if (order.Prescription != null)
+        {
+            order.Prescription.RejectionReason = reason;
+            order.Prescription.Status = Domain.Enums.PrescriptionStatus.Deleted; // Or create a Rejected status in PrescriptionStatus
+        }
+
+        await context.SaveChangesAsync(ct);
+
+        return Result.Success("Prescription rejected successfully.");
     }
 }
