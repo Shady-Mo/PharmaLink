@@ -9,9 +9,9 @@ namespace API.Notification
     {
         public async Task BroadcastNewDeliveryJobAsync(List<Guid> driverIds, DeliveryJobNotificationDto jobDetails)
         {
-            var userIds = driverIds.Select(id => id.ToString()).ToList();
+            var groupNames = driverIds.Select(id => id.ToString()).ToList();
 
-            await hubContext.Clients.Users(userIds).SendAsync("NewDeliveryJob", jobDetails);
+            await hubContext.Clients.Groups(groupNames).SendAsync("NewDeliveryJob", jobDetails);
         }
 
         public async Task BroadcastJobClaimedAsync(Guid jobId)
