@@ -38,5 +38,14 @@ namespace API.Controllers
 
             return result.IsSuccess ? Ok(new { Message = "تم إنهاء الطلب والتسليم بنجاح." }) : result.ToProblem();
         }
+
+        [HttpGet("available-jobs")]
+        [Authorize(Roles = AppRoles.DeliveryDriver)]
+
+        public async Task<IActionResult> GetAvailableJobs([FromQuery] double? lat, [FromQuery] double? lng)
+        {
+            var result = await driverService.GetAvailableJobsAsync(lat, lng);
+            return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+        }
     }
 }

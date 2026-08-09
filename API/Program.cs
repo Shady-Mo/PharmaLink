@@ -2,7 +2,9 @@ using API.Hubs;
 using API.Notification;
 using Application.Hubs;
 using Application.Services.AI;
+using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using Hangfire;
+using Microsoft.AspNetCore.SignalR;
 
 var builder = WebApplication.CreateBuilder(args);
 
