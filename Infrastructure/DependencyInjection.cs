@@ -166,6 +166,7 @@ public static class DependencyInjection
 
             // Program.cs / DependencyInjection.cs
             services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
+            services.AddScoped<IPrescriptionHistoryRagService, AI.Services.PrescriptionHistoryRagService>();
             services.AddScoped<PatientPrescriptionSearchPlugin>();
             services.AddScoped<IPrescriptionEmbeddingJob, PrescriptionEmbeddingJob>();
             services.AddScoped<PatientPrescriptionCollectionInitializer>();

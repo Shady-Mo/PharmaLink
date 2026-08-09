@@ -13,7 +13,7 @@ namespace Infrastructure.AI
 {
     public class QdrantPatientPrescriptionVectorService : IPatientPrescriptionVectorService
     {
-        private const string CollectionName = "patient_prescriptions";
+        private const string CollectionName = PatientPrescriptionCollectionInitializer.CollectionName;
         private readonly QdrantClient _client;
         private readonly EmbeddingService _embeddingService;
         private readonly ILogger<QdrantPatientPrescriptionVectorService> _logger;
@@ -33,7 +33,7 @@ namespace Infrastructure.AI
             CancellationToken cancellationToken = default)
         {
             var sourceText = record.BuildEmbeddingSourceText();
-            var vector = await _embeddingService.GenerateEmbeddingAsync(sourceText);
+            var vector = await _embeddingService.GenerateEmbeddingAsync(sourceText, AIProvider.Gemini);
 
             var point = new PointStruct
             {
@@ -69,7 +69,7 @@ namespace Infrastructure.AI
             int topK = 5,
             CancellationToken cancellationToken = default)
         {
-            var queryVector = await _embeddingService.GenerateEmbeddingAsync(query);
+            var queryVector = await _embeddingService.GenerateEmbeddingAsync(query, AIProvider.Gemini);
 
             var filter = new Filter
             {

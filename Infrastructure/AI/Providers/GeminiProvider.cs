@@ -30,21 +30,34 @@ public class GeminiProvider(IOptions<AiOptions> options) : IKernelProvider
                 $"Model {selectedModelId} is not configured for role {roleName} in {Provider}.");
         }
 
-        return _kernels.GetOrAdd(selectedModelId, CreateKernel);
+        return _kernels.GetOrAdd($"{roleName}_{selectedModelId}", _ => CreateKernel(selectedModelId, role));
     }
 
-    private Kernel CreateKernel(string modelId)
+    private Kernel CreateKernel(string modelId, ModelRole role)
     {
 #pragma warning disable SKEXP0070
         var apiKey = ResolveApiKey();
 
         var builder = Kernel.CreateBuilder();
-        builder.AddGoogleAIGeminiChatCompletion(
-            modelId: modelId,
-            apiKey: apiKey,
-            apiVersion: GoogleAIVersion.V1_Beta
-        );
+
+        if (role == ModelRole.Embedding)
+        {
+            builder.AddGoogleAIEmbeddingGeneration(
+                modelId: modelId,
+                apiKey: apiKey
+            );
+        }
+        else
+        {
+            builder.AddGoogleAIGeminiChatCompletion(
+                modelId: modelId,
+                apiKey: apiKey,
+                apiVersion: GoogleAIVersion.V1_Beta
+            );
+        }
+
         return builder.Build();
+#pragma warning restore SKEXP0070
     }
 
     private string ResolveApiKey()
@@ -52,6 +65,8 @@ public class GeminiProvider(IOptions<AiOptions> options) : IKernelProvider
         var apiKey = string.IsNullOrWhiteSpace(_options.ApiKey)
             ? Environment.GetEnvironmentVariable(_options.ApiKeyEnvironmentVariable)
             : _options.ApiKey;
+
+        apiKey = apiKey?.Trim();
 
         if (string.IsNullOrWhiteSpace(apiKey))
         {
