@@ -39,4 +39,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<PrescriptionReviewMedicine> PrescriptionReviewMedicines { get; set; }
     public DbSet<MedicalInquiry> MedicalInquiries { get; set; }
     public DbSet<PharmacistAssignment> PharmacistAssignments { get; set; }
+
+    public DbSet<PharmacyMissingStockLog> PharmacyMissingStockLog { get;    set; }  
+
+    public DbSet<PharmacyReport> PharmacyReport     { get; set; }   
+
 }
