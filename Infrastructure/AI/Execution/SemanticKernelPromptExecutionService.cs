@@ -83,12 +83,21 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
                     return execResult.Value!;
                 }, cancellationToken);
 
-                stopwatch.Stop();
-                _logger.LogInformation(
-                    "Successfully executed Prompt={PromptName} via {Provider}:{Model} in {ElapsedMs}ms",
-                    prompt.Name, target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
-
                 result.LatencyMs = stopwatch.ElapsedMilliseconds;
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("\n=========================================================");
+                Console.WriteLine($"🤖 [AI MODEL REQUEST SUCCESS]");
+                Console.WriteLine($"🔹 Provider : {target.ProviderName}");
+                Console.WriteLine($"🔹 Model    : {target.ModelId}");
+                Console.WriteLine($"🔹 Prompt   : {prompt.Name}");
+                Console.WriteLine($"🔹 Latency  : {stopwatch.ElapsedMilliseconds} ms");
+                Console.WriteLine("---------------------------------------------------------");
+                Console.WriteLine("📄 [REQUEST RESULT]:");
+                Console.WriteLine(result.RawResponse);
+                Console.WriteLine("=========================================================\n");
+                Console.ResetColor();
+
                 return result;
             }
             catch (Exception ex) when (AIFallbackPolicy.IsTransient(ex))
