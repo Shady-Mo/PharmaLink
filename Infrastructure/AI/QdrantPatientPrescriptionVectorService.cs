@@ -1,12 +1,13 @@
 using Application.Abstractions;
+using Infrastructure.AI.Models;
 using Infrastructure.AI.Services;
+using Qdrant.Client;
+using Qdrant.Client.Grpc;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using Qdrant.Client;
-using Qdrant.Client.Grpc;
 
 namespace Infrastructure.AI
 {

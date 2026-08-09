@@ -16,6 +16,12 @@ public class PrescriptionReview
 
     public string? AISummary { get; set; }
 
+    public string? DoctorName { get; set; }
+
+    public string? Specialty { get; set; }
+
+    public string? ClinicOrHospital { get; set; }
+
     public double? ExtractionConfidence { get; set; }
 
     public PrescriptionProcessingStatus ProcessingStatus { get; set; } =

@@ -50,10 +50,19 @@ public static class AiDependencyInjection
         services.AddHttpClient<TranscriptionService>();
         services.AddScoped<AiHealthService>();
 
+        
         // for qdrant client
+        
+        services.Configure<QdrantOptions>(configuration.GetSection(QdrantOptions.SectionName));
+        
         services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<QdrantOptions>>().Value;
+            var tempLogger = sp.GetRequiredService<ILoggerFactory>().CreateLogger("QdrantClientSetup");
+            tempLogger.LogWarning(
+                "Qdrant connecting to Host={Host} Port={Port} UseTls={UseTls} ApiKeySet={ApiKeySet}",
+                options.Host, options.Port, options.UseTls, !string.IsNullOrWhiteSpace(options.ApiKey));
+
             return new QdrantClient(
                 host: options.Host,
                 port: options.Port,

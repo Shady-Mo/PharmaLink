@@ -22,8 +22,21 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
-    var initializer = scope.ServiceProvider.GetRequiredService<PatientPrescriptionCollectionInitializer>();
-    await initializer.InitializeAsync();
+
+    try
+    {
+        var initializer = scope.ServiceProvider.GetRequiredService<PatientPrescriptionCollectionInitializer>();
+        await initializer.InitializeAsync();
+    }
+    catch (Exception ex)
+    {
+        var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+            .CreateLogger("Startup");
+        startupLogger.LogError(ex,
+            "Failed to initialize Qdrant 'patient_prescriptions' collection. " +
+            "Prescription search will be degraded until Qdrant is reachable.");
+    }
+
     recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
         "inventory-forecasting-daily-job",
         job => job.RunDailyForecastAsync(),
