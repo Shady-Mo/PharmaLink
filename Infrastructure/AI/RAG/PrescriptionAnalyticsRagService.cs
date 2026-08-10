@@ -79,7 +79,9 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
             RestrictedBranchId = restrictedBranchId,
             City = request.City,
             Governorate = request.Governorate,
-            IsPediatric = isPediatricQuery ? true : null
+            IsPediatric = isPediatricQuery ? true : null,
+            StartDate = request.StartDate,
+            EndDate = request.EndDate
         };
 
         var searchResults = await _vectorStore.SearchAsync(

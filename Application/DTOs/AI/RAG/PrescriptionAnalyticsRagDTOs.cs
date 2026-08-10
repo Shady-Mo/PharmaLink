@@ -149,4 +149,10 @@ public class PrescriptionMetadataFilter
 
     /// <summary>When true, restricts to pediatric prescriptions only.</summary>
     public bool? IsPediatric { get; set; }
+
+    /// <summary>Filter by prescription creation date (start range).</summary>
+    public DateTime? StartDate { get; set; }
+
+    /// <summary>Filter by prescription creation date (end range).</summary>
+    public DateTime? EndDate { get; set; }
 }

@@ -120,6 +120,19 @@ public class PrescriptionVectorStore : IRagVectorStore<PrescriptionVectorIndex, 
             query = query.Where(x => x.IsPediatric);
         }
 
+        // 4. Date range filter
+        if (metadataFilter.StartDate.HasValue)
+        {
+            var startUtc = metadataFilter.StartDate.Value.Date;
+            query = query.Where(x => x.CreatedAt >= startUtc);
+        }
+
+        if (metadataFilter.EndDate.HasValue)
+        {
+            var endUtc = metadataFilter.EndDate.Value.Date.AddDays(1).AddTicks(-1);
+            query = query.Where(x => x.CreatedAt <= endUtc);
+        }
+
         var candidates = await query
             .OrderByDescending(x => x.CreatedAt)
             .Take(300)
