@@ -8,10 +8,13 @@ namespace Domain.Entities
     {
         public int Id { get; set; }
         public int PharmacyId { get; set; }
+
+
         public int DrugId { get; set; }
         public int QuantityRequested { get; set; }
         public DateTime LoggedAt { get; set; } = DateTime.UtcNow;
-        public bool IsProcessed { get; set; } = false; 
+        public bool IsProcessed { get; set; } = false;
+
 
         // Navigation Properties
         public virtual Pharmacy Pharmacy { get; set; } = null!;
