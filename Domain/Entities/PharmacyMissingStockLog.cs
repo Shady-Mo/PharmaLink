@@ -8,6 +8,8 @@ namespace Domain.Entities
     {
         public int Id { get; set; }
         public int PharmacyId { get; set; }
+
+
         public int DrugId { get; set; }
         public int QuantityRequested { get; set; }
         public DateTime LoggedAt { get; set; } = DateTime.UtcNow;
