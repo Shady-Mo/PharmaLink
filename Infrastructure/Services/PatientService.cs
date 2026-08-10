@@ -1,4 +1,4 @@
-﻿namespace Infrastructure.Services;
+namespace Infrastructure.Services;
 
 public class PatientService(
     AppDbContext context,
@@ -90,19 +90,84 @@ public class PatientService(
             PhoneNumber = patient.PhoneNumber ?? string.Empty,
             Status = patient.Status.ToString(),
             CreatedAt = patient.CreatedAt,
-
-            //Addresses = patient.Addresses.Select(a => new PatientAddressDto
-            //{
-            //    AddressId = a.AddressId,
-            //    AddressLine = a.AddressLine,
-            //    City = a.City,
-            //    Governorate = a.Governorate,
-            //    IsDefault = a.IsDefault,
-            //    Latitude = a.GeoLocation?.Y,
-            //    Longitude = a.GeoLocation?.X
-            //}).ToList()
+            ProfilePictureUrl = patient.ProfilePictureUrl,
         };
     }
 
 
+    public async Task<Result> UploadProfilePictureAsync(Guid patientId, UploadProfilePictureDto dto, string baseUrl, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var patient = await context.Patients.FirstOrDefaultAsync(p => p.Id == patientId, cancellationToken);
+        if (patient is null)
+        {
+            logger.LogWarning("Upload profile picture failed: Patient with ID {PatientId} was not found.", patientId);
+            return Result.Failure<string>(PatientErrors.PatientNotFound);
+        }
+
+        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
+        if (!Directory.Exists(uploadsFolder))
+        {
+            Directory.CreateDirectory(uploadsFolder);
+        }
+
+        var fileExtension = Path.GetExtension(dto.Image.FileName).ToLowerInvariant();
+        var uniqueFileName = $"{Guid.NewGuid()}{fileExtension}";
+        var absolutePath = Path.Combine(uploadsFolder, uniqueFileName);
+
+        using (var stream = new FileStream(absolutePath, FileMode.Create))
+        {
+            await dto.Image.CopyToAsync(stream, cancellationToken);
+        }
+
+        var relativePath = $"uploads/profiles/{uniqueFileName}";
+        var fullUrl = $"{baseUrl.TrimEnd('/')}/{relativePath}";
+        
+        // Delete old picture if it exists
+        if (!string.IsNullOrEmpty(patient.ProfilePictureUrl))
+        {
+            try
+            {
+                var oldRelativePath = patient.ProfilePictureUrl;
+                if (Uri.TryCreate(patient.ProfilePictureUrl, UriKind.Absolute, out var uri))
+                {
+                    oldRelativePath = uri.AbsolutePath.TrimStart('/');
+                }
+                
+                var oldAbsolutePath = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", oldRelativePath);
+                if (File.Exists(oldAbsolutePath))
+                {
+                    File.Delete(oldAbsolutePath);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogWarning(ex, "Failed to delete old profile picture.");
+            }
+        }
+
+        patient.ProfilePictureUrl = fullUrl;
+        await context.SaveChangesAsync(cancellationToken);
+
+        logger.LogInformation("Profile picture uploaded successfully for patient ID {PatientId}.", patientId);
+        return Result.Success();
+    }
+
+    public async Task<Result<string>> GetProfilePictureUrlAsync(Guid patientId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+
+        var patient = await context.Patients
+            .AsNoTracking()
+            .FirstOrDefaultAsync(p => p.Id == patientId, cancellationToken);
+
+        if (patient is null)
+        {
+            logger.LogWarning("Get profile picture failed: Patient with ID {PatientId} was not found.", patientId);
+            return Result.Failure<string>(PatientErrors.PatientNotFound);
+        }
+
+        return Result.Success(patient.ProfilePictureUrl ?? string.Empty);
+    }
 }

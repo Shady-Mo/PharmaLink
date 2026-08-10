@@ -37,6 +37,15 @@ public class PharmacistManagementService(
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PhoneAlreadyExists);
         }
 
+        var existingBranch = await context.PharmacyBranches
+            .FirstOrDefaultAsync(b => b.BranchId == request.BranchId && b.PharmacyId == admin.PharmacyId.Value, cancellationToken);
+
+        if (existingBranch is null)
+        {
+            logger.LogWarning("Pharmacy admin tried to assign branch that was not found or does not belong to his pharmacy");
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.BranchNotFound);
+        }
+
         if (existingByEmail is not null && existingByEmail.Status == UserStatus.Inactive)
         {
             existingByEmail.Status = UserStatus.Active;
@@ -54,6 +63,7 @@ public class PharmacistManagementService(
             {
                 PharmacistId = existingByEmail.Id,
                 PharmacyId = admin.PharmacyId.Value,
+                BranchId = existingBranch.BranchId,
                 AssignedByPharmacyAdminId = adminId,
                 AssignedAt = DateTime.UtcNow,
                 IsActive = true
@@ -67,10 +77,15 @@ public class PharmacistManagementService(
                 PharmacistId = existingByEmail.Id,
                 FullName = existingByEmail.FullName,
                 Email = existingByEmail.Email!,
-                PhoneNumber = existingByEmail.PhoneNumber,
+                PhoneNumber = existingByEmail.PhoneNumber!,
                 CreatedAt = existingByEmail.CreatedAt,
                 Status = existingByEmail.Status.ToString(),
-                PharmacyLegalName = admin.Pharmacy!.LegalName
+                PharmacyLegalName = admin.Pharmacy!.LegalName,
+                BranchId = existingBranch.BranchId,
+                BranchName = existingBranch.BranchName,
+                BranchCity = existingBranch.City,
+                BranchAddress = $"{existingBranch.Governorate}، {existingBranch.City}، {existingBranch.AddressLine}",
+                BranchPhone = existingBranch.PhoneNumber
             };
 
             return Result.Success(pharmacistResponseDTO);
@@ -95,6 +110,7 @@ public class PharmacistManagementService(
                 PharmacistId = existingByPhone.Id,
                 PharmacyId = admin.PharmacyId.Value,
                 AssignedByPharmacyAdminId = adminId,
+                BranchId = existingBranch.BranchId,
                 AssignedAt = DateTime.UtcNow,
                 IsActive = true
             };
@@ -106,16 +122,20 @@ public class PharmacistManagementService(
             {
                 PharmacistId = existingByPhone.Id,
                 FullName = existingByPhone.FullName,
-                Email = existingByPhone.Email,
+                Email = existingByPhone.Email!,
                 PhoneNumber = existingByPhone.PhoneNumber!,
                 CreatedAt = existingByPhone.CreatedAt,
                 Status = existingByPhone.Status.ToString(),
-                PharmacyLegalName = admin.Pharmacy!.LegalName
+                PharmacyLegalName = admin.Pharmacy!.LegalName,
+                BranchId = existingBranch.BranchId,
+                BranchName = existingBranch.BranchName,
+                BranchCity = existingBranch.City,
+                BranchAddress = $"{existingBranch.Governorate}، {existingBranch.City}، {existingBranch.AddressLine}",
+                BranchPhone = existingBranch.PhoneNumber
             };
 
             return Result.Success(pharmacistResponseDTO);
         }
-
         else
         {
             var pharmacist = request.Adapt<Domain.Entities.Pharmacist>();
@@ -146,6 +166,7 @@ public class PharmacistManagementService(
                 PharmacyId = admin.PharmacyId.Value,
                 AssignedByPharmacyAdminId = adminId,
                 AssignedAt = DateTime.UtcNow,
+                BranchId = existingBranch.BranchId,
                 IsActive = true
             };
             await context.PharmacistAssignments.AddAsync(assignment, cancellationToken);
@@ -158,11 +179,16 @@ public class PharmacistManagementService(
             {
                 PharmacistId = pharmacist.Id,
                 FullName = pharmacist.FullName,
-                Email = pharmacist.Email,
+                Email = pharmacist.Email!,
                 PhoneNumber = pharmacist.PhoneNumber!,
                 CreatedAt = pharmacist.CreatedAt,
                 Status = pharmacist.Status.ToString(),
-                PharmacyLegalName = admin.Pharmacy!.LegalName
+                PharmacyLegalName = admin.Pharmacy!.LegalName,
+                BranchId = existingBranch.BranchId,
+                BranchName = existingBranch.BranchName,
+                BranchCity = existingBranch.City,
+                BranchAddress = $"{existingBranch.Governorate}، {existingBranch.City}، {existingBranch.AddressLine}",
+                BranchPhone = existingBranch.PhoneNumber
             };
 
             return Result.Success(pharmacistResponseDTO);
@@ -171,7 +197,7 @@ public class PharmacistManagementService(
 
     public async Task<Result<PaginatedList<PharmacistSummaryDTO>>> GetAllPharmacistsAsync(
         Guid adminId,
-        PaginatedRequest request,
+        GetAllPharmacistsRequestDTO request,
         CancellationToken cancellationToken = default)
     {
         var admin = await context.PharmacyAdmins.FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
@@ -180,15 +206,48 @@ public class PharmacistManagementService(
 
         var query = context.Pharmacists
             .AsNoTracking()
-            .Where(p => context.PharmacistAssignments.Any(a =>
-                a.PharmacistId == p.Id && a.PharmacyId == admin.PharmacyId))
+            .Where(p => context.PharmacistAssignments.Any(a => a.PharmacistId == p.Id && a.PharmacyId == admin.PharmacyId))
             .Select(p => new PharmacistSummaryDTO
             {
                 PharmacistId = p.Id,
                 FullName = p.FullName,
                 Email = p.Email ?? string.Empty,
                 PhoneNumber = p.PhoneNumber ?? string.Empty,
+                Status = p.Status,
+                ActiveBranchName = context.PharmacistAssignments
+                    .Where(a => a.PharmacistId == p.Id && a.IsActive && a.PharmacyId == admin.PharmacyId)
+                    .Select(a => a.Branch.BranchName)
+                    .FirstOrDefault(),
+
+                Assignments = context.PharmacistAssignments
+                    .Where(a => a.PharmacistId == p.Id && a.PharmacyId == admin.PharmacyId)
+                    .Select(a => new AssignmentDTO
+                    {
+                        PharmacistId = a.PharmacistId,
+                        PharmacyId = a.PharmacyId,
+                        BranchId = a.BranchId,
+                        AssignedAt = a.AssignedAt,
+                        EndedAt = a.EndedAt,
+                        AssignedByPharmacyAdminId = a.AssignedByPharmacyAdminId,
+                        IsActive = a.IsActive
+                    })
+                    .ToList()
             });
+
+        if (!string.IsNullOrWhiteSpace(request.Search))
+        {
+            var term = request.Search.Trim().ToLower();
+            query = query.Where(p => p.FullName.ToLower().Contains(term) || p.Email.ToLower().Contains(term));
+        }
+
+        if (request.BranchId.HasValue)
+        {
+            query = query.Where(p => p.Assignments.Count() != 0 && p.Assignments.Any(a => a.BranchId == request.BranchId && a.IsActive));
+        }
+        if (request.userStatus.HasValue)
+        {
+            query = query.Where(p => p.Status == request.userStatus);
+        }
 
         var paginated = await query
             .ToPaginatedListAsync(request.PageNumber, request.PageSize, cancellationToken);
@@ -207,24 +266,45 @@ public class PharmacistManagementService(
         if (admin?.PharmacyId is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
 
-        var pharmacist = await context.Pharmacists
+        var hasAssignment = await context.PharmacistAssignments
+            .AnyAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId, cancellationToken);
+        if (!hasAssignment)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
+
+        var pharmacist = await context.AppUsers
             .AsNoTracking()
-            .Where(p => context.PharmacistAssignments.Any(a =>
-                a.PharmacistId == p.Id && a.PharmacyId == admin.PharmacyId && a.IsActive))
             .FirstOrDefaultAsync(p => p.Id == pharmacistId, cancellationToken);
 
         if (pharmacist is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
 
+        var activeBranchInfo = await context.PharmacistAssignments
+            .AsNoTracking()
+            .Where(a => a.PharmacistId == pharmacist.Id && a.PharmacyId == admin.PharmacyId && a.IsActive)
+            .Select(a => new
+            {
+                a.BranchId,
+                BranchName = a.Branch != null ? a.Branch.BranchName : null,
+                City = a.Branch != null ? a.Branch.City : null,
+                Address = a.Branch != null ? (a.Branch.Governorate + "، " + a.Branch.City + "، " + a.Branch.AddressLine) : null,
+                Phone = a.Branch != null ? a.Branch.PhoneNumber : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         var pharmacistResponseDTO = new PharmacistResponseDTO
         {
             PharmacistId = pharmacist.Id,
             FullName = pharmacist.FullName,
-            Email = pharmacist.Email,
+            Email = pharmacist.Email!,
             PhoneNumber = pharmacist.PhoneNumber!,
             CreatedAt = pharmacist.CreatedAt,
             Status = pharmacist.Status.ToString(),
-            PharmacyLegalName = admin.Pharmacy!.LegalName
+            PharmacyLegalName = admin.Pharmacy!.LegalName,
+            BranchId = activeBranchInfo?.BranchId ?? Guid.Empty,
+            BranchName = activeBranchInfo?.BranchName,
+            BranchCity = activeBranchInfo?.City,
+            BranchAddress = activeBranchInfo?.Address,
+            BranchPhone = activeBranchInfo?.Phone
         };
 
         return Result.Success(pharmacistResponseDTO);
@@ -242,22 +322,28 @@ public class PharmacistManagementService(
         if (admin?.PharmacyId is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
 
-        var existingByPhone = await context.AppUsers
-            .FirstOrDefaultAsync(p => p.PhoneNumber == request.PhoneNumber, cancellationToken);
-        if (existingByPhone is not null)
-        {
-            logger.LogWarning("Pharmacy admin tried to create pharmacist with existing phone: {Phone}",
-                request.PhoneNumber);
-            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PhoneAlreadyExists);
-        }
+        var hasAssignment = await context.PharmacistAssignments
+            .AnyAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId, cancellationToken);
+        if (!hasAssignment)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
 
-        var pharmacist = await context.Pharmacists
-            .Where(p => context.PharmacistAssignments.Any(a =>
-                a.PharmacistId == p.Id && a.PharmacyId == admin.PharmacyId && a.IsActive))
+        var pharmacist = await context.AppUsers
             .FirstOrDefaultAsync(p => p.Id == pharmacistId, cancellationToken);
 
         if (pharmacist is null)
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
+
+        if (pharmacist.PhoneNumber != request.PhoneNumber)
+        {
+            var existingByPhone = await context.AppUsers
+                .FirstOrDefaultAsync(p => p.PhoneNumber == request.PhoneNumber && p.Id != pharmacistId, cancellationToken);
+            if (existingByPhone is not null)
+            {
+                logger.LogWarning("Pharmacy admin tried to update pharmacist with existing phone: {Phone}",
+                    request.PhoneNumber);
+                return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PhoneAlreadyExists);
+            }
+        }
 
         pharmacist.FullName = request.FullName;
         pharmacist.PhoneNumber = request.PhoneNumber;
@@ -270,18 +356,157 @@ public class PharmacistManagementService(
             return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
         }
 
+        if (!string.IsNullOrWhiteSpace(request.Password))
+        {
+            var token = await userManager.GeneratePasswordResetTokenAsync(pharmacist);
+            var resetResult = await userManager.ResetPasswordAsync(pharmacist, token, request.Password);
+            if (!resetResult.Succeeded)
+            {
+                var errors = string.Join("; ", resetResult.Errors.Select(e => e.Description));
+                logger.LogError("Failed to reset password for pharmacist {Id}. Errors: {Errors}", pharmacistId, errors);
+                return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.RegistrationFailed);
+            }
+        }
+
+        var activeBranchInfo = await context.PharmacistAssignments
+            .AsNoTracking()
+            .Where(a => a.PharmacistId == pharmacist.Id && a.PharmacyId == admin.PharmacyId && a.IsActive)
+            .Select(a => new
+            {
+                a.BranchId,
+                BranchName = a.Branch != null ? a.Branch.BranchName : null,
+                City = a.Branch != null ? a.Branch.City : null,
+                Address = a.Branch != null ? (a.Branch.Governorate + "، " + a.Branch.City + "، " + a.Branch.AddressLine) : null,
+                Phone = a.Branch != null ? a.Branch.PhoneNumber : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
         var pharmacistResponseDTO = new PharmacistResponseDTO
         {
             PharmacistId = pharmacist.Id,
             FullName = pharmacist.FullName,
-            Email = pharmacist.Email,
+            Email = pharmacist.Email!,
             PhoneNumber = pharmacist.PhoneNumber!,
             CreatedAt = pharmacist.CreatedAt,
             Status = pharmacist.Status.ToString(),
-            PharmacyLegalName = admin.Pharmacy!.LegalName
+            PharmacyLegalName = admin.Pharmacy!.LegalName,
+            BranchId = activeBranchInfo?.BranchId ?? Guid.Empty,
+            BranchName = activeBranchInfo?.BranchName,
+            BranchCity = activeBranchInfo?.City,
+            BranchAddress = activeBranchInfo?.Address,
+            BranchPhone = activeBranchInfo?.Phone
         };
 
         return Result.Success(pharmacistResponseDTO);
+    }
+
+    public async Task<Result<PharmacistResponseDTO>> UpdatePharmacistStatusAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        UserStatus status,
+        CancellationToken cancellationToken = default)
+    {
+        var admin = await context.PharmacyAdmins
+            .Include(x => x.Pharmacy)
+            .FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        if (admin?.PharmacyId is null)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
+
+        var hasAssignment = await context.PharmacistAssignments
+            .AnyAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId, cancellationToken);
+        if (!hasAssignment)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
+
+        var pharmacist = await context.AppUsers
+            .FirstOrDefaultAsync(p => p.Id == pharmacistId, cancellationToken);
+
+        if (pharmacist is null)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
+
+        pharmacist.Status = status;
+        await context.SaveChangesAsync(cancellationToken);
+
+        var activeBranchInfo = await context.PharmacistAssignments
+            .AsNoTracking()
+            .Where(a => a.PharmacistId == pharmacist.Id && a.PharmacyId == admin.PharmacyId && a.IsActive)
+            .Select(a => new
+            {
+                a.BranchId,
+                BranchName = a.Branch != null ? a.Branch.BranchName : null,
+                City = a.Branch != null ? a.Branch.City : null,
+                Address = a.Branch != null ? (a.Branch.Governorate + "، " + a.Branch.City + "، " + a.Branch.AddressLine) : null,
+                Phone = a.Branch != null ? a.Branch.PhoneNumber : null
+            })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        var pharmacistResponseDTO = new PharmacistResponseDTO
+        {
+            PharmacistId = pharmacist.Id,
+            FullName = pharmacist.FullName,
+            Email = pharmacist.Email!,
+            PhoneNumber = pharmacist.PhoneNumber!,
+            CreatedAt = pharmacist.CreatedAt,
+            Status = pharmacist.Status.ToString(),
+            PharmacyLegalName = admin.Pharmacy!.LegalName,
+            BranchId = activeBranchInfo?.BranchId ?? Guid.Empty,
+            BranchName = activeBranchInfo?.BranchName,
+            BranchCity = activeBranchInfo?.City,
+            BranchAddress = activeBranchInfo?.Address,
+            BranchPhone = activeBranchInfo?.Phone
+        };
+
+        return Result.Success(pharmacistResponseDTO);
+    }
+
+    public async Task<Result<PharmacistResponseDTO>> AssignBranchAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        Guid branchId,
+        CancellationToken cancellationToken = default)
+    {
+        var admin = await context.PharmacyAdmins
+            .Include(x => x.Pharmacy)
+            .FirstOrDefaultAsync(a => a.Id == adminId, cancellationToken);
+        if (admin?.PharmacyId is null)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AdminNotAssignedToPharmacy);
+
+        var hasAssignment = await context.PharmacistAssignments
+            .AnyAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId, cancellationToken);
+        if (!hasAssignment)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.PharmacistNotFound);
+
+        var targetBranch = await context.PharmacyBranches
+            .FirstOrDefaultAsync(b => b.BranchId == branchId && b.PharmacyId == admin.PharmacyId.Value, cancellationToken);
+        if (targetBranch is null)
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.BranchNotFound);
+
+        var activeAssignment = await context.PharmacistAssignments
+            .FirstOrDefaultAsync(a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId && a.IsActive, cancellationToken);
+
+        if (activeAssignment is not null && activeAssignment.BranchId == branchId)
+        {
+            return Result.Failure<PharmacistResponseDTO>(PharmacistErrors.AlreadyAssignedToBranch);
+        }
+
+        if (activeAssignment is not null)
+        {
+            activeAssignment.IsActive = false;
+            activeAssignment.EndedAt = DateTime.UtcNow;
+        }
+
+        var newAssignment = new PharmacistAssignment
+        {
+            PharmacistId = pharmacistId,
+            PharmacyId = admin.PharmacyId.Value,
+            BranchId = branchId,
+            AssignedByPharmacyAdminId = adminId,
+            AssignedAt = DateTime.UtcNow,
+            IsActive = true
+        };
+        await context.PharmacistAssignments.AddAsync(newAssignment, cancellationToken);
+        await context.SaveChangesAsync(cancellationToken);
+
+        return await GetPharmacistByIdAsync(adminId, pharmacistId, cancellationToken);
     }
 
     public async Task<Result> DeletePharmacistAsync(
@@ -328,9 +553,9 @@ public class PharmacistManagementService(
         if (admin?.PharmacyId is null)
             return Result.Failure<IReadOnlyList<AssignmentHistoryItemDTO>>(PharmacistErrors.AdminNotAssignedToPharmacy);
 
-        var isEmployed = await context.PharmacistAssignments.AnyAsync(
-            a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId && a.IsActive, cancellationToken);
-        if (!isEmployed)
+        var hasAnyAssignment = await context.PharmacistAssignments.AnyAsync(
+            a => a.PharmacistId == pharmacistId && a.PharmacyId == admin.PharmacyId, cancellationToken);
+        if (!hasAnyAssignment)
             return Result.Failure<IReadOnlyList<AssignmentHistoryItemDTO>>(PharmacistErrors.PharmacistNotFound);
 
         var history = await LoadHistoryAsync(pharmacistId, cancellationToken);
@@ -342,13 +567,24 @@ public class PharmacistManagementService(
         Guid pharmacistId,
         CancellationToken cancellationToken)
     {
-        var assignments = await context.PharmacistAssignments
+        return await context.PharmacistAssignments
             .AsNoTracking()
-            .Include(a => a.Pharmacy)
             .Where(a => a.PharmacistId == pharmacistId)
             .OrderByDescending(a => a.AssignedAt)
+            .Select(a => new AssignmentHistoryItemDTO
+            {
+                AssignmentId = a.Id,
+                PharmacistId = a.PharmacistId,
+                PharmacyId = a.PharmacyId,
+                PharmacyLegalName = a.Pharmacy != null ? a.Pharmacy.LegalName : string.Empty,
+                BranchId = a.BranchId,
+                BranchName = a.Branch != null ? a.Branch.BranchName : string.Empty,
+                AssignedAt = a.AssignedAt,
+                EndedAt = a.EndedAt,
+                AssignedByAdminId = a.AssignedByPharmacyAdminId,
+                AssignedByAdminFullName = a.AssignedByPharmacyAdmin != null ? a.AssignedByPharmacyAdmin.FullName : "أدمن الصيدلية",
+                IsActive = a.IsActive
+            })
             .ToListAsync(cancellationToken);
-
-        return assignments.Adapt<List<AssignmentHistoryItemDTO>>();
     }
 }

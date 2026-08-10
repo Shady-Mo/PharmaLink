@@ -8,16 +8,38 @@ namespace API.Controllers;
 public class PrescriptionReviewsController(
     IPrescriptionReviewService service) : BaseApiController
 {
+
+
+
+    [HttpGet("GetAllPrescriptionsforPatient")]
+    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
+    [ProducesResponseType(typeof(PaginatedList<PrescriptionReviewSummaryDTO>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> GetPrescriptionReviewsForPatien(
+        [FromQuery] GetPrescriptionReviewsRequest request)
+    {
+        // استخراج هوية ودور المستخدم الحالي
+        var userId = User.GetUserId();
+        var role = User.GetRoleName() ?? string.Empty;
+
+        // تمريرها للـ Service لتطبيق التصفية بناءً على الدور
+        var result = await service.GetAllAsync(request,userId,role);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
+
     /// <summary>
     /// Uploads a prescription image and performs AI extraction on the medicines.
     /// </summary>
     /// <param name="dto">The multipart form data request containing the image file.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>201 Created response containing the initial AI extraction details.</returns>
+    /// <returns>202 Accepted response containing the review id while AI processing continues in the background.</returns>
     [HttpPost("")]
+    [HttpPost("/api/v1/prescriptions/upload-and-audit")]
     [Authorize(Roles = AppRoles.Patient)]
     [Consumes("multipart/form-data")]
-    [ProducesResponseType(typeof(PrescriptionReviewUploadResponseDTO), StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(PrescriptionReviewUploadResponseDTO), StatusCodes.Status202Accepted)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
     public async Task<IActionResult> UploadAndExtract(
@@ -27,7 +49,7 @@ public class PrescriptionReviewsController(
         var result = await service.UploadAndExtractAsync(User.GetUserId(), dto, cancellationToken);
 
         return result.IsSuccess
-            ? CreatedAtAction(
+            ? AcceptedAtAction(
                 actionName: nameof(GetPrescriptionReview),
                 routeValues: new { id = result.Value?.ReviewId },
                 value: result.Value)
@@ -37,15 +59,15 @@ public class PrescriptionReviewsController(
     /// <summary>
     /// Retrieves a paginated list of prescription reviews. Only accessible by Pharmacists and Admins.
     /// </summary>
-    [HttpGet("")]
-    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [HttpGet(" ")]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(PaginatedList<PrescriptionReviewSummaryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> GetPrescriptionReviews(
         [FromQuery] GetPrescriptionReviewsRequest request)
     {
-        var result = await service.GetAllAsync(request);
+        var result = await service.GetAllAsync(request, User.GetUserId(), User.GetRoleName() ?? string.Empty);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
@@ -54,7 +76,7 @@ public class PrescriptionReviewsController(
     /// Retrieves a specific prescription review by ID. Accessible by both the Patient (owner only) and Pharmacist.
     /// </summary>
     [HttpGet("{id:guid}")]
-    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam},{AppRoles.Admin}")]
     [ProducesResponseType(typeof(PrescriptionReviewDetailDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -67,10 +89,10 @@ public class PrescriptionReviewsController(
     }
 
     /// <summary>
-    /// Updates the extracted medicines list for a pending review. Only accessible by Pharmacists.
+    /// Updates the extracted medicines list for a pending review. Only accessible by Pharmacists and the prescription review team.
     /// </summary>
     [HttpPut("{id:guid}")]
-    [Authorize(Roles = AppRoles.Pharmacist)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam}")]
     [ProducesResponseType(typeof(PrescriptionReviewDetailDTO), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -84,10 +106,10 @@ public class PrescriptionReviewsController(
     }
 
     /// <summary>
-    /// Approves a prescription review. Only accessible by Pharmacists.
+    /// Approves a prescription review. Only accessible by Pharmacists and the prescription review team.
     /// </summary>
     [HttpPut("{id:guid}/approve")]
-    [Authorize(Roles = AppRoles.Pharmacist)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -100,10 +122,10 @@ public class PrescriptionReviewsController(
     }
 
     /// <summary>
-    /// Rejects a prescription review. Only accessible by Pharmacists.
+    /// Rejects a prescription review. Only accessible by Pharmacists and the prescription review team.
     /// </summary>
     [HttpPut("{id:guid}/reject")]
-    [Authorize(Roles = AppRoles.Pharmacist)]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PrescriptionReviewTeam}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]
@@ -115,11 +137,23 @@ public class PrescriptionReviewsController(
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 
-    [HttpGet("search")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    public async Task<IActionResult> SearchMedicines([FromQuery] string term)
+    [HttpPost("{id:guid}/add-selected-medicines-to-cart")]
+    [Authorize(Roles = AppRoles.Patient)]
+    [ProducesResponseType(typeof(CartResponseDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status422UnprocessableEntity)]
+    public async Task<IActionResult> AddSelectedMedicinesToCart(
+        Guid id,
+        [FromBody] AddPrescriptionReviewMedicinesToCartDTO dto,
+        CancellationToken cancellationToken)
     {
-        var result = await service.SearchMedicinesAsync(term);
+        var result = await service.AddMedicinesToCartAsync(
+            id,
+            User.GetUserId(),
+            dto,
+            cancellationToken);
 
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }

@@ -1,8 +1,5 @@
 ﻿using Application.DTOs.PreparationList.Request;
 using Application.DTOs.PreparationList.Response;
-using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Infrastructure.Services
 {
@@ -14,7 +11,11 @@ namespace Infrastructure.Services
 
             var query = context.OrderFulfillmentLegs
                 .AsNoTracking()
-                .Where(p => p.Branch.Pharmacy.PharmacistAssignments.Any(pa => pa.PharmacistId == id))
+                .Where(p => p.Branch.Pharmacy.PharmacistAssignments
+                .Any(pa => pa.PharmacistId == id && pa.IsActive) 
+                && p.LegStatus != LegStatus.Delivered
+                && p.LegStatus != LegStatus.OutForDelivery
+                && p.LegStatus != LegStatus.Cancelled)
                 .AsQueryable();
 
             if (parameters.Status.HasValue)
@@ -42,6 +43,7 @@ namespace Infrastructure.Services
                     OrderNumber = p.OrderId,
                     PatientName = p.Order.Patient.FullName,
                     Status = p.LegStatus,
+                    LegType = (byte)p.LegType,
                     MedcineDTOs = p.Branch.SuppliedOrderItems
                         .Where(oi => oi.OrderId == p.OrderId && oi.BranchId == p.BranchId)
                         .Select(oi => new MedcineDTO

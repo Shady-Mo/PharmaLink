@@ -16,5 +16,12 @@ public class MedicineDetailDTO
     public int Quantity { get; set; }
     public string? Route { get; set; }
     public double? Confidence { get; set; }
+    public Guid? MatchedDrugId { get; set; }
+    public Guid? SuggestedAlternativeDrugId { get; set; }
+    public string MatchStatus { get; set; } = "NotFound";
+    public string? MatchReason { get; set; }
+    public double? MatchScore { get; set; }
+    public bool RequiresPatientApproval { get; set; }
+    public DateTime? PatientApprovedAt { get; set; }
     public bool IsEdited { get; set; }
 }

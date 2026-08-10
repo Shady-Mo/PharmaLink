@@ -22,12 +22,26 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     }
 
     /// <summary>
+    /// Triggers the background import process for Chefaa catalog.
+    /// </summary>
+    [HttpPost("import-chefaa")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    //[Authorize(Roles = AppRoles.Admin)]
+    public async Task<IActionResult> ImportChefaa([FromServices] Infrastructure.Services.Chefaa.IChefaaImporterService importerService, CancellationToken cancellationToken)
+    {
+        // Fire and forget or background job would be better, but we can start it here
+        _ = Task.Run(() => importerService.StartImportAsync(CancellationToken.None));
+        return Ok(new { message = "Chefaa import started in the background. Check logs for details." });
+    }
+
+    /// <summary>
     /// Retrieves a paginated list of drugs from the catalog with optional filtering and sorting.
     /// </summary>
     [HttpGet("")]
     [ProducesResponseType(typeof(PaginatedList<DrugDto>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Authorize(Roles = $"{AppRoles.Patient},{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetDrugs([FromQuery] DrugSearchRequest filters,
         CancellationToken cancellationToken)
     {
@@ -42,7 +56,7 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [HttpGet("{id}")]
     [ProducesResponseType(typeof(DrugDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.Admin}")]
+    [AllowAnonymous]
     public async Task<IActionResult> GetDrugById(Guid id, CancellationToken cancellationToken)
     {
         var result = await drugService.GetByIdAsync(id, cancellationToken);
@@ -96,16 +110,16 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 
-    // run for one time this for add category to all drugs that have null category, this is for backfilling the data
-    //[HttpPost("backfill-categories")]
-    //[ProducesResponseType(StatusCodes.Status200OK)]
-    //[Authorize(Roles = AppRoles.Patient)]
-    //public async Task<IActionResult> BackfillCategories(CancellationToken cancellationToken)
-    //{
-    //    var result = await drugService.BackfillCategoriesAsync(cancellationToken);
+    [HttpGet("search")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SearchMedicines([FromQuery] string? term,
+        CancellationToken cancellationToken = default)
+    {
+        if (string.IsNullOrWhiteSpace(term))
+            return Ok(new List<MedicineSearchDTO>());
 
-    //    return result.IsSuccess
-    //        ? Ok(new { message = $"Backfilled Category for {result.Value} drug(s)." })
-    //        : result.ToProblem();
-    //}
+        var result = await drugService.SearchMedicinesAsync(term.Trim(), cancellationToken);
+
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
+    }
 }

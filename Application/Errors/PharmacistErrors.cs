@@ -27,6 +27,11 @@ public static class PharmacistErrors
             "This pharmacist already has an active assignment. Use the reassign endpoint to change their pharmacy.",
             StatusCodes.Status409Conflict);
 
+    public static readonly Error AlreadyAssignedToBranch =
+        new("Pharmacist.AlreadyAssignedToBranch",
+            "الصيدلي مسند بالفعل إلى هذا الفرع.",
+            StatusCodes.Status409Conflict);
+
     public static readonly Error NoActiveAssignment =
         new("Pharmacist.NoActiveAssignment",
             "This pharmacist does not have an active assignment to terminate.",
@@ -35,6 +40,11 @@ public static class PharmacistErrors
     public static readonly Error PharmacyNotFound =
         new("Pharmacist.PharmacyNotFound",
             "The target pharmacy was not found.",
+            StatusCodes.Status404NotFound);
+
+    public static readonly Error BranchNotFound =
+        new("Pharmacist.BranchNotFound",
+            "الفرع المحدد غير موجود أو لا ينتمي إلى هذه الصيدلية.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error AdminNotFound =

@@ -1,5 +1,4 @@
-﻿using Application.DTOs.Pharmacy.Request;
-using Application.DTOs.Pharmacy.Responses;
+﻿using Application.DTOs.Pharmacy.Responses;
 using System;
 using System.Collections.Generic;
 using System.Text;

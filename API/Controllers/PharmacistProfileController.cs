@@ -8,11 +8,12 @@
         [HttpGet("")]
         [ProducesResponseType(typeof(GetPharmacyProfileResponseDTO), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status404NotFound)]
-        [Authorize(Roles = $"{AppRoles.Pharmacist}")]
+        [Authorize(Roles = $"{AppRoles.Pharmacist}, {AppRoles.PharmacyAdmin}")]
         public async Task<IActionResult> GetProfile(CancellationToken cancellationToken)
         {
             var id = User.FindFirst(JwtClaimTypes.UserId)?.Value;
             Guid.TryParse(id, out Guid userId);
+
 
             var result = await PharmacistProfileService.GetByIdAsync(userId, cancellationToken);
 

@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Application.DTOs.Pharmacy.Responses
+﻿namespace Application.DTOs.Pharmacy.Responses
 {
     public class UpdatePharmacyProfileResponseDTO
     {

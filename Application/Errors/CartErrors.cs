@@ -12,6 +12,11 @@ public static class CartErrors
             "The cart item was not found or does not belong to this patient's cart.",
             StatusCodes.Status404NotFound);
 
+    public static readonly Error CartNotFound =
+        new("Cart.NotFound",
+            "Cart not found.",
+            StatusCodes.Status404NotFound);
+
     public static readonly Error InvalidQuantity =
         new("Cart.InvalidQuantity",
             "Quantity must be greater than 0.",

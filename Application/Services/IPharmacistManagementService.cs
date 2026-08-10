@@ -9,7 +9,7 @@ public interface IPharmacistManagementService
 
     Task<Result<PaginatedList<PharmacistSummaryDTO>>> GetAllPharmacistsAsync(
         Guid adminId,
-        PaginatedRequest request,
+        GetAllPharmacistsRequestDTO request,
         CancellationToken cancellationToken = default);
 
     Task<Result<PharmacistResponseDTO>> GetPharmacistByIdAsync(
@@ -21,6 +21,18 @@ public interface IPharmacistManagementService
         Guid adminId,
         Guid pharmacistId,
         UpdatePharmacistRequestDTO request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<PharmacistResponseDTO>> UpdatePharmacistStatusAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        Domain.Enums.UserStatus status,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<PharmacistResponseDTO>> AssignBranchAsync(
+        Guid adminId,
+        Guid pharmacistId,
+        Guid branchId,
         CancellationToken cancellationToken = default);
 
     Task<Result<IReadOnlyList<AssignmentHistoryItemDTO>>> GetPharmacistHistoryAsync(

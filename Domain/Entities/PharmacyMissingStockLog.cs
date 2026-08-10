@@ -13,7 +13,8 @@ namespace Domain.Entities
         public int DrugId { get; set; }
         public int QuantityRequested { get; set; }
         public DateTime LoggedAt { get; set; } = DateTime.UtcNow;
-        public bool IsProcessed { get; set; } = false; // يتحول إلى true بعد المعالجة في التقرير
+        public bool IsProcessed { get; set; } = false;
+
 
         // Navigation Properties
         public virtual Pharmacy Pharmacy { get; set; } = null!;

@@ -13,7 +13,7 @@ public interface IInventoryService
         CancellationToken cancellationToken = default);
 
     Result ReserveStockBatch(
-        IEnumerable<Domain.Entities.PharmacyInventory> inventories,
+        IEnumerable<PharmacyInventory> inventories,
         IEnumerable<(Guid BranchId, Guid DrugId, int Quantity)> reservations);
 
     Task<Result> ReleaseReservationAsync(Guid branchId, Guid drugId, int quantity,
@@ -23,8 +23,23 @@ public interface IInventoryService
         IEnumerable<(Guid BranchId, Guid DrugId, int Quantity)> releases,
         CancellationToken cancellationToken = default);
 
-    Task<Result<PharmacyInventoryDto>> CreateAsync(AddPharmacyInventoryDto dto, CancellationToken cancellationToken = default);
-    Task<Result<PharmacyInventoryDto>> UpdateAsync(UpdatePharmacyInventoryDto dto, CancellationToken cancellationToken = default);
-    Task<Result<PaginatedList<GetPharmacyInventoryDTO>>> GetInventoryAsync(GetPharmacyInventoryParamRequest parameters, CancellationToken cancellationToken = default);
+    Task<Result<GetPharmacyInventoryDTO>> CreateAsync(
+        AddPharmacyInventoryDto dto, 
+        CancellationToken cancellationToken = default);
 
+    Task<Result<GetPharmacyInventoryDTO>> UpdateAsync(Guid inventoryId, 
+        UpdatePharmacyInventoryDto dto, CancellationToken cancellationToken = default);
+
+    Task<Result> DeleteAsync(Guid inventoryId, CancellationToken cancellationToken = default);
+
+    Task<Result<PharmacyInventoryDto>> GetByIdAsync(Guid inventoryId,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<PaginatedList<GetPharmacyInventoryDTO>>> GetInventoryAsync(
+        GetPharmacyInventoryParamRequest parameters, 
+        CancellationToken cancellationToken = default);
+
+    Task<Result> AdjustStock(Guid id, AdjustStockDTO adjustStockDTO, CancellationToken cancellationToken = default);
 }
+
+

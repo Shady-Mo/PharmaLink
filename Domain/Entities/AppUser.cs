@@ -8,5 +8,7 @@ public class AppUser : IdentityUser<Guid>
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
+    public string? ProfilePictureUrl { get; set; }
+
     public List<RefreshToken> RefreshTokens { get; set; } = new();
 }
