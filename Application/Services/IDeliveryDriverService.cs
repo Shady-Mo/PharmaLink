@@ -16,5 +16,6 @@ namespace Application.Services
         Task<Result> SetStatustToOnline(Guid userId);
         Task<Result> SetStatustToOffline(Guid userId);
         Task<Result<List<DeliveryJobNotificationDto>>> GetAvailableJobsAsync(double? driverLat, double? driverLng);
+        Task<Result<PaginatedList<DeliveryJobHistoryDto>>> GetDriverHistoryAsync(Guid driverId, int pageNumber, int pageSize);
     }
 }

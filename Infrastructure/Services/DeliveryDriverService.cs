@@ -213,6 +213,33 @@ namespace Infrastructure.Services
             return Result.Success(availableJobs);
         }
 
+        public async Task<Result<PaginatedList<DeliveryJobHistoryDto>>> GetDriverHistoryAsync(Guid driverId, int pageNumber, int pageSize)
+        {
+            var query = context.DeliveryJobs
+                .Where(j => j.DriverId == driverId && j.Status == DeliveryJobStatus.Delivered);
+
+            var totalCount = await query.CountAsync();
+
+            var history = await query
+                .OrderByDescending(j => j.CompletedAtUtc)
+                .Skip((pageNumber - 1) * pageSize)
+                .Take(pageSize)
+                .Select(j => new DeliveryJobHistoryDto
+                {
+                    JobId = j.JobId,
+                    PharmacyName = j.FulfillmentLeg.Branch.BranchName,
+                    DeliveryAddress = $"{j.FulfillmentLeg.Order.DeliveryAddress.BuildingNumber} عمارة, دور {j.FulfillmentLeg.Order.DeliveryAddress.FloorNumber}, {j.FulfillmentLeg.Order.DeliveryAddress.AddressLine}, {j.FulfillmentLeg.Order.DeliveryAddress.City}",
+                    DeliveryFee = j.DeliveryFee,
+                    CompletedAtUtc = j.CompletedAtUtc,
+                    Status = j.Status.ToString()
+                })
+                .ToListAsync();
+
+            var paginatedList = new PaginatedList<DeliveryJobHistoryDto>(history, pageNumber, totalCount, pageSize);
+
+            return Result.Success(paginatedList);
+        }
+
         private static double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
         {
             var r = 6371;
