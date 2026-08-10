@@ -1,12 +1,10 @@
-using Application.Services.AI.Models;
-
 namespace Infrastructure.AI.Validation;
 
 public class PrescriptionExtractionBusinessValidator : IAIResponseValidator<AIExtractionResult>
 {
-    public Application.Services.AI.Models.ValidationResult Validate(AIExtractionResult response)
+    public ValidationResult Validate(AIExtractionResult response)
     {
-        var result = new Application.Services.AI.Models.ValidationResult();
+        var result = new ValidationResult();
 
         if (!response.IsValidPrescription)
         {

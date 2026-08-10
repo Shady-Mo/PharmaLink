@@ -242,7 +242,7 @@ public class PharmacistManagementService(
 
         if (request.BranchId.HasValue)
         {
-            query = query.Where(p => p.Assignments.Any(a => a.BranchId == request.BranchId));
+            query = query.Where(p => p.Assignments.Count() != 0 && p.Assignments.Any(a => a.BranchId == request.BranchId && a.IsActive));
         }
         if (request.userStatus.HasValue)
         {

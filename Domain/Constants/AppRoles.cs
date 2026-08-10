@@ -6,4 +6,6 @@ public static class AppRoles {
     public const string PrescriptionReviewTeam = "PrescriptionReviewTeam";
     public const string Admin = "Admin";
     public const string PharmacyAdmin = "PharmacyAdmin";
+    public const string Supplier = "Supplier";
+    public const string DeliveryDriver = "DeliveryDriver";
 }

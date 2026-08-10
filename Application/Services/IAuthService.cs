@@ -60,4 +60,5 @@ public interface IAuthService
         Guid userId,
         ChangePasswordRequestDTO request,
         CancellationToken cancellationToken = default);
+
 }

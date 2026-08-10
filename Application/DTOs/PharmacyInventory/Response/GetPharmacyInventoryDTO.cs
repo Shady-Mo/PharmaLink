@@ -1,10 +1,12 @@
-﻿namespace Application.DTOs.PharmacyInventory.Response;
+namespace Application.DTOs.PharmacyInventory.Response;
 
 public class GetPharmacyInventoryDTO
 {
     public Guid InventoryId { get; set; }
 
     public Guid BranchId { get; set; }
+
+    public string BranchName { get; set; } = string.Empty;
 
     public Guid DrugId { get; set; }
 

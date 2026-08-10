@@ -27,6 +27,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<PharmacyBranch> PharmacyBranches { get; set; }
     public DbSet<PharmacyBranchSchedule> PharmacyBranchSchedules { get; set; }
     public DbSet<Drug> Drugs { get; set; }
+    public DbSet<DrugCategory> DrugCategories { get; set; }
+    public DbSet<DrugSupplier> DrugSuppliers { get; set; }
+    public DbSet<DrugLandingPage> DrugLandingPages { get; set; }
     public DbSet<PharmacyInventory> PharmacyInventories { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
@@ -43,5 +46,14 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<PharmacyMissingStockLog> PharmacyMissingStockLog { get;    set; }  
 
     public DbSet<PharmacyReport> PharmacyReport     { get; set; }   
+    public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
+    public DbSet<InventoryForecastLog> InventoryForecastLogs { get; set; }
+    public DbSet<Supplier> Suppliers { get; set; }
+    public DbSet<SupplierDrug> SupplierDrugs { get; set; }
+    public DbSet<Prescription> Prescriptions { get; set; }
+    public DbSet<DeliveryJob> DeliveryJobs { get; set; }
+    public DbSet<DeliveryDriver> DeliveryDrivers { get; set; }
+
 
 }
+

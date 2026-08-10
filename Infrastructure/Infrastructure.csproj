@@ -21,8 +21,14 @@
     </PackageReference>
     <PackageReference Include="Microsoft.Extensions.Caching.StackExchangeRedis" Version="10.0.10" />
     <PackageReference Include="Microsoft.SemanticKernel" Version="1.78.0" />
+    <PackageReference Include="Microsoft.SemanticKernel.Agents.Core" Version="1.78.0" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.Google" Version="1.78.0-alpha" />
     <PackageReference Include="Microsoft.SemanticKernel.Connectors.OpenAI" Version="1.78.0" />
+
+
+    <PackageReference Include="Polly" Version="8.7.0" />
+    <PackageReference Include="Polly.Core" Version="8.7.0" />
+    <PackageReference Include="Qdrant.Client" Version="1.19.0" />
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.2" />
     <PackageReference Include="Twilio" Version="7.5.1" />
   </ItemGroup>
@@ -34,6 +40,7 @@
 
   <ItemGroup>
     <None Include="AI\PromptTemplates\*.prompty" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="AI\Prompts\*.prompty" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

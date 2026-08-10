@@ -1,21 +1,17 @@
-﻿namespace API.Controllers;
+namespace API.Controllers;
 
 [ApiController]
 [Route("api/v1/patients")]
 [Authorize(Roles = AppRoles.Patient)]
 public class PatientsController(
     IPatientService patientService,
-    ILogger<PatientsController> logger) : ControllerBase
+    ILogger<PatientsController> logger) : BaseApiController
 {
     [HttpGet("profile")]
     public async Task<IActionResult> GetProfile(CancellationToken cancellationToken = default)
     {
-        var userIdStr = User.FindFirst("UserID")?.Value          
-                        ?? User.FindFirst("userId")?.Value
-                        ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value
-                        ?? User.FindFirst("sub")?.Value;
-
-        if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var patientId))
+        var patientId = User.GetUserId();
+        if (patientId == Guid.Empty)
         {
             logger.LogWarning("Unauthorized profile access attempt: Patient Claim 'UserID' not found or invalid.");
             return Unauthorized();
@@ -25,12 +21,7 @@ public class PatientsController(
 
         var result = await patientService.GetProfileAsync(patientId, cancellationToken);
 
-        if (!result.IsSuccess)
-        {
-            return BadRequest(result);
-        }
-
-        return Ok(result);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
 
@@ -39,16 +30,9 @@ public class PatientsController(
     [HttpPut("profile")]
     public async Task<IActionResult> UpdateProfile([FromBody] UpdatePatientProfileDto updateDto, CancellationToken cancellationToken = default)
     {
-        if (!ModelState.IsValid)
-        {
-            return BadRequest(ModelState);
-        }
 
-        var userIdStr = User.FindFirst("UserID")?.Value
-                        ?? User.FindFirst("userId")?.Value
-                        ?? User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-
-        if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var patientId))
+        var patientId = User.GetUserId();
+        if (patientId == Guid.Empty)
         {
             logger.LogWarning("Unauthorized profile update attempt: Invalid token claims.");
             return Unauthorized();
@@ -58,14 +42,39 @@ public class PatientsController(
 
         var result = await patientService.UpdateProfileAsync(patientId, updateDto, cancellationToken);
 
-        if (!result.IsSuccess)
-        {
-            return BadRequest(result);
-        }
-
-        return Ok(result);
+        return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
+    [HttpPut("profile/picture")]
+    [Consumes("multipart/form-data")]
+    public async Task<IActionResult> UploadProfilePicture([FromForm] UploadProfilePictureDto uploadDto, CancellationToken cancellationToken = default)
+    {
 
+        var patientId = User.GetUserId();
+        if (patientId == Guid.Empty)
+        {
+            logger.LogWarning("Unauthorized profile picture upload attempt: Invalid token claims.");
+            return Unauthorized();
+        }
 
+        var baseUrl = $"{Request.Scheme}://{Request.Host.Value}/";
+        var result = await patientService.UploadProfilePictureAsync(patientId, uploadDto, baseUrl, cancellationToken);
+
+        return result.IsSuccess ? NoContent() : result.ToProblem();
+    }
+
+    [HttpGet("profile/picture")]
+    public async Task<IActionResult> GetProfilePicture(CancellationToken cancellationToken = default)
+    {
+        var patientId = User.GetUserId();
+        if (patientId == Guid.Empty)
+        {
+            logger.LogWarning("Unauthorized profile picture access attempt: Invalid token claims.");
+            return Unauthorized();
+        }
+
+        var result = await patientService.GetProfilePictureUrlAsync(patientId, cancellationToken);
+
+        return result.IsSuccess ? Ok(new { url = result.Value }) : result.ToProblem();
+    }
 }

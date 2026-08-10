@@ -124,7 +124,8 @@ public sealed class AssistantController(
                                ct))
             {
                 // SSE format: "data: <content>\n\n"
-                var sseData = $"data: {EscapeForSse(chunk)}\n\n";
+                // Using JSON serialization to safely encode newlines and spaces.
+                var sseData = $"data: {System.Text.Json.JsonSerializer.Serialize(chunk)}\n\n";
                 await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(sseData), ct);
                 await Response.Body.FlushAsync(ct);
             }
@@ -239,9 +240,7 @@ public sealed class AssistantController(
     //  Private helpers
     // -------------------------------------------------------------------------
 
-    private static string EscapeForSse(string text) =>
-        // SSE data must not contain unescaped newlines — replace with spaces.
-        text.Replace("\n", " ").Replace("\r", "");
+    // EscapeForSse removed because we now use JsonSerializer.Serialize for robust escaping.
 }
 
 // ─── Request / Response DTOs ───────────────────────────────────────────────────

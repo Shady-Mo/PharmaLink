@@ -1,6 +1,3 @@
-using Application.Services.AI.Models;
-using Infrastructure.AI.Validation;
-
 namespace Infrastructure.AI.Extraction;
 
 public class PrescriptionExtractionService(
@@ -29,12 +26,22 @@ public class PrescriptionExtractionService(
             cancellationToken);
 
         var json = AIJson.ExtractJsonObject(execution.RawResponse);
-        var response = JsonSerializer.Deserialize<AIExtractionResult>(json, JsonOptions)
-            ?? new AIExtractionResult
-            {
-                IsValidPrescription = false,
-                ValidationMessage = "AI returned an empty response."
-            };
+        AIExtractionResult? response = null;
+        try
+        {
+            response = JsonSerializer.Deserialize<AIExtractionResult>(json, JsonOptions);
+        }
+        catch (JsonException ex)
+        {
+            logger.LogWarning(ex, "Failed to parse AI response as JSON: {RawResponse}", execution.RawResponse);
+        }
+
+        response ??= new AIExtractionResult
+        {
+            IsValidPrescription = false,
+            ValidationMessage = "AI returned an invalid or empty response.",
+            ExtractedText = execution.RawResponse
+        };
 
         response.ModelUsed = string.IsNullOrWhiteSpace(execution.ModelId)
             ? execution.Provider
@@ -42,15 +49,15 @@ public class PrescriptionExtractionService(
         response.RawResponse = execution.RawResponse;
 
         var validation = businessValidator.Validate(response);
-        if (!validation.IsValid)
-        {
-            logger.LogWarning(
-                "Prescription extraction business validation failed: {Errors}",
-                string.Join("; ", validation.Errors));
 
-            response.IsValidPrescription = false;
-            response.ValidationMessage = string.Join(" ", validation.Errors);
-        }
+        if (validation.IsValid) return response;
+        
+        logger.LogWarning(
+            "Prescription extraction business validation failed: {Errors}",
+            string.Join("; ", validation.Errors));
+
+        response.IsValidPrescription = false;
+        response.ValidationMessage = string.Join(" ", validation.Errors);
 
         return response;
     }

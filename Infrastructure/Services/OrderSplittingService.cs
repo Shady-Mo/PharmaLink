@@ -1,18 +1,29 @@
+using Application.DTOs.OrderRouting;
+using Application.Services.OrderRouting;
 using Application.Services.OrderSplitting.Models;
 using System.Diagnostics;
 
 namespace Infrastructure.Services;
 
+/// <summary>
+/// Splits an order across pharmacy branches using ONLY the AI Order Fulfillment Optimization
+/// Engine (<see cref="IOrderRoutingOrchestrator.OptimizeOrderFulfillmentAsync"/>) — the exact
+/// same entry point the <c>OrderRoutingController</c> preview uses.
+///
+/// The engine owns everything decision-related: it queries live inventory, computes real-world
+/// OSRM driving distances per branch, and decides the item→branch allocation (minimizing the
+/// number of fulfilling branches first, distance second). This service no longer performs any
+/// geo lookup, candidate-branch distance math, or deterministic fallback algorithm — it simply
+/// translates the engine's plan into item assignments, reserves stock, and generates legs.
+/// </summary>
 public class OrderSplittingService(
     AppDbContext context,
-    IGeoLookupService geoLookupService,
     IInventoryService inventoryService,
     ILegGenerationService legGenerationService,
-    IOrderSplittingAlgorithm
-    splittingAlgorithm,
+    IOrderRoutingOrchestrator orderRoutingOrchestrator,
     ILogger<OrderSplittingService> logger) : IOrderSplittingService
 {
-    public async Task<Result> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
+    public async Task<Result<OrderRoutingPlan>> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         logger.LogInformation("[OrderId={OrderId}] Starting split process.", orderId);
@@ -69,7 +80,7 @@ public class OrderSplittingService(
         }, cancellationToken);
     }
 
-    private async Task<Result> ExecuteWithRetryAsync(Guid orderId, Func<Order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction, CancellationToken, Task<Result>> action, CancellationToken cancellationToken)
+    private async Task<Result<T>> ExecuteWithRetryAsync<T>(Guid orderId, Func<Order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction, CancellationToken, Task<Result<T>>> action, CancellationToken cancellationToken)
     {
         const int maxRetries = 3;
         var totalSw = Stopwatch.StartNew();
@@ -84,7 +95,7 @@ public class OrderSplittingService(
                 if (order is null)
                 {
                     logger.LogWarning("[OrderId={OrderId}] Order not found.", orderId);
-                    return Result.Failure(OrderSplittingErrors.OrderNotFound);
+                    return Result.Failure<T>(OrderSplittingErrors.OrderNotFound);
                 }
                 loadSw.Stop();
                 logger.LogInformation("[OrderId={OrderId}] Order loaded in {ElapsedMs}ms. Status={Status}, Items={Count}", orderId, loadSw.ElapsedMilliseconds, order.OrderStatus, order.Items.Count);
@@ -93,7 +104,7 @@ public class OrderSplittingService(
                 if (validationResult.IsFailure)
                 {
                     logger.LogWarning("[OrderId={OrderId}] Order validation failed: {Error}. Marking as failed without modifying items.", orderId, validationResult.Error.Description);
-                    return validationResult;
+                    return Result.Failure<T>(validationResult.Error);
                 }
 
                 var result = await action(order, transaction, cancellationToken);
@@ -119,7 +130,7 @@ public class OrderSplittingService(
                 if (attempt == maxRetries)
                 {
                     logger.LogError("[OrderId={OrderId}] Max retries reached. Failing split.", orderId);
-                    return Result.Failure(OrderSplittingErrors.TransactionFailed);
+                    return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
                 }
 
                 // Clear the change tracker so the next attempt loads fresh data and re-evaluates all business rules.
@@ -131,52 +142,84 @@ public class OrderSplittingService(
             {
                 logger.LogError(ex, "[OrderId={OrderId}] Split failed due to an unexpected error. Rolling back.", orderId);
                 await transaction.RollbackAsync(cancellationToken);
-                return Result.Failure(OrderSplittingErrors.TransactionFailed);
+                return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
             }
         }
 
-        return Result.Failure(OrderSplittingErrors.TransactionFailed);
+        return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
     }
 
-    private async Task<Result> ExecuteSplitInternalAsync(Order order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
+    private async Task<Result<OrderRoutingPlan>> ExecuteSplitInternalAsync(Order order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
     {
         order.OrderStatus = OrderStatus.Processing;
 
         var pendingItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Pending).ToList();
         var drugIds = pendingItems.Select(i => i.DrugId).ToHashSet();
 
-        var geoSw = Stopwatch.StartNew();
-        var nearbyBranches = await LoadNearbyBranchesAsync(order, cancellationToken);
-        geoSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Geo lookup completed in {ElapsedMs}ms. Found {Count} eligible branches.", order.OrderId, geoSw.ElapsedMilliseconds, nearbyBranches.Count);
+        // Drug names give the fulfillment engine richer context for its reasoning; mapping the
+        // resulting plan back to items is always done by DrugId, so a missing name is harmless.
+        var nameByDrug = await context.Drugs
+            .Where(d => drugIds.Contains(d.DrugId))
+            .Select(d => new { d.DrugId, d.BrandName })
+            .ToDictionaryAsync(d => d.DrugId, d => d.BrandName, cancellationToken);
 
-        if (nearbyBranches.Count == 0)
-        {
-            logger.LogWarning("[OrderId={OrderId}] No eligible branches. Keeping order as Processing/Pending and marking items Unavailable.", order.OrderId);
-            foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
-            // Order stays in Processing, items Unavailable. Wait for manual intervention or re-split.
-            await context.SaveChangesAsync(cancellationToken);
-            return Result.Success();
-        }
+        // ── DECISION BRAIN — AI Order Fulfillment Optimization Engine (identical to the
+        //    OrderRoutingController preview flow). The engine internally queries live inventory,
+        //    computes real-world OSRM driving distances per branch, and decides the optimal
+        //    item→branch allocation. There is no deterministic fallback: if the engine cannot
+        //    place items, they are simply marked Unavailable for manual intervention/re-split. ──
+        var patientLocation = new GeoLocation(
+            order.DeliveryAddress!.GeoLocation!.Y,
+            order.DeliveryAddress!.GeoLocation!.X);
 
-        var branchIds = nearbyBranches.Select(b => b.BranchID).ToHashSet();
-
-        var invSw = Stopwatch.StartNew();
-        var inventorySnapshot = await LoadInventorySnapshotAsync(branchIds, drugIds, cancellationToken);
-        invSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Inventory query completed in {ElapsedMs}ms. {Count} records found.", order.OrderId, invSw.ElapsedMilliseconds, inventorySnapshot.Count);
-
-        var candidateBranches = BuildCandidateBranches(nearbyBranches, inventorySnapshot);
-
-        var pendingItemModels = pendingItems.Select(i => new PendingItem(i.OrderItemId, i.DrugId, i.QuantityNeeded)).ToList();
-        var splitContext = new SplittingContext(order.OrderId, order.FulfillmentMode, pendingItemModels, candidateBranches);
+        var cartForRouting = pendingItems
+            .Select(i => new CartItemDto
+            {
+                DrugId = i.DrugId,
+                DrugName = nameByDrug.TryGetValue(i.DrugId, out var name) ? name : string.Empty,
+                Quantity = i.QuantityNeeded
+            })
+            .ToList();
 
         var algoSw = Stopwatch.StartNew();
-        var splitResult = splittingAlgorithm.Execute(splitContext);
+        OrderRoutingPlan plan;
+        try
+        {
+            plan = await orderRoutingOrchestrator.OptimizeOrderFulfillmentAsync(
+                order.PatientUserId, patientLocation, cartForRouting, order.FulfillmentMode, cancellationToken);
+
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "[OrderId={OrderId}] AI fulfillment engine failed. Marking pending items Unavailable.", order.OrderId);
+            foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
+            await context.SaveChangesAsync(cancellationToken);
+            return Result.Success(new OrderRoutingPlan());
+        }
         algoSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Algorithm {AlgorithmName} completed in {ElapsedMs}ms. Assigned={AssignedCount}, Unassigned={UnassignedCount}", order.OrderId, splittingAlgorithm.AlgorithmName, algoSw.ElapsedMilliseconds, splitResult.Assignments.Count, splitResult.UnassignedItemIds.Count);
+
+        var splitResult = MapPlanToSplittingResult(plan, pendingItems);
+        logger.LogInformation(
+            "[OrderId={OrderId}] AI-FulfillmentEngine ({Strategy}) completed in {ElapsedMs}ms. Legs={LegCount}, Assigned={AssignedCount}, Unassigned={UnassignedCount}, TotalDistanceKm={TotalKm:F2}",
+            order.OrderId, plan.Strategy, algoSw.ElapsedMilliseconds, plan.FulfillmentLegCount, splitResult.Assignments.Count, splitResult.UnassignedItemIds.Count, plan.TotalDistanceKm);
+
+        if (splitResult.Assignments.Count == 0)
+        {
+            logger.LogWarning("[OrderId={OrderId}] Engine produced no fulfillable assignments. Marking items Unavailable.", order.OrderId);
+            foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
+            await context.SaveChangesAsync(cancellationToken);
+            return Result.Success(plan);
+        }
 
         ApplySplitResultToItems(pendingItems, splitResult);
+
+        // Load the authoritative inventory rows for the branches/drugs the engine chose so we can
+        // reserve stock (and re-validate against live data) inside the transaction.
+        var assignedBranchIds = splitResult.Assignments.Select(a => a.BranchId).ToHashSet();
+        var invSw = Stopwatch.StartNew();
+        var inventorySnapshot = await LoadInventorySnapshotAsync(assignedBranchIds, drugIds, cancellationToken);
+        invSw.Stop();
+        logger.LogInformation("[OrderId={OrderId}] Inventory snapshot for reservation loaded in {ElapsedMs}ms. {Count} records.", order.OrderId, invSw.ElapsedMilliseconds, inventorySnapshot.Count);
 
         var resSw = Stopwatch.StartNew();
         var reservationFailures = ReserveStockBatchedAsync(splitResult.Assignments, inventorySnapshot);
@@ -189,23 +232,83 @@ public class OrderSplittingService(
             MarkReservationFailuresUnavailable(order.Items, reservationFailures);
         }
 
-        var assignedBranchIds = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded).Select(i => i.BranchId!.Value).ToHashSet();
-        if (!assignedBranchIds.Any())
+        var fulfilledBranchIds = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded).Select(i => i.BranchId!.Value).ToHashSet();
+        if (!fulfilledBranchIds.Any())
         {
             logger.LogWarning("[OrderId={OrderId}] No items could be fulfilled. Order remains Processing, items Unavailable.", order.OrderId);
             await context.SaveChangesAsync(cancellationToken); // Save empty split status
-            return Result.Success();
+            return Result.Success(plan);
         }
 
+        // Carry the AI engine's OSRM driving distance per branch onto the persisted legs so the
+        // order response returns the SAME distance as the order-routing preview (not straight-line).
+        var distanceByBranchKm = plan.Legs
+            .GroupBy(l => l.BranchId)
+            .ToDictionary(g => g.Key, g => g.First().DistanceKm);
+
         var legSw = Stopwatch.StartNew();
-        var newLegs = legGenerationService.GenerateLegs(order, assignedBranchIds).Value;
-        context.OrderFulfillmentLegs.AddRange(newLegs);
+        var newLegs = legGenerationService.GenerateLegs(order, fulfilledBranchIds, distanceByBranchKm).Value;
+        context.OrderFulfillmentLegs.AddRange(newLegs!);
+
         legSw.Stop();
         logger.LogInformation("[OrderId={OrderId}] Fulfillment legs generated in {ElapsedMs}ms.", order.OrderId, legSw.ElapsedMilliseconds);
 
         await context.SaveChangesAsync(cancellationToken); // Save assignments, status, and generated legs once
 
-        return Result.Success();
+        return Result.Success(plan);
+    }
+
+    /// <summary>
+    /// Translates the <see cref="OrderRoutingPlan"/> produced by the AI engine into per-item
+    /// <see cref="ItemAssignment"/>s. The engine already validated availability against live
+    /// inventory, so mapping is done directly by DrugId per leg; the subsequent stock-reservation
+    /// step provides the final authoritative safety check. Any pending item the plan does not
+    /// place is returned as unassigned so it is marked Unavailable downstream.
+    /// </summary>
+    private SplittingResult MapPlanToSplittingResult(OrderRoutingPlan plan, List<OrderItem> pendingItems)
+    {
+        // Queue the concrete pending order-items per drug so multiple lines of the same drug are
+        // each given their own assignment record against the engine's per-branch line quantity.
+        var pendingByDrug = pendingItems
+            .GroupBy(i => i.DrugId)
+            .ToDictionary(g => g.Key, g => new Queue<OrderItem>(g));
+
+        var assignments = new List<ItemAssignment>();
+
+        foreach (var leg in plan.Legs)
+        {
+            foreach (var line in leg.Items)
+            {
+                if (!pendingByDrug.TryGetValue(line.DrugId, out var queue))
+                    continue;
+
+                var remainingQty = line.Quantity;
+                while (queue.Count > 0 && queue.Peek().QuantityNeeded <= remainingQty)
+                {
+                    var item = queue.Dequeue();
+                    remainingQty -= item.QuantityNeeded;
+
+                    assignments.Add(new ItemAssignment(
+                        item.OrderItemId,
+                        leg.BranchId,
+                        item.DrugId,
+                        item.QuantityNeeded,
+                        new AssignmentDecision(
+                            $"AI-FulfillmentEngine:{plan.Strategy}",
+                            plan.Legs.Count,
+                            leg.DistanceKm,
+                            remainingQty)));
+                }
+            }
+        }
+
+        var assignedItemIds = assignments.Select(a => a.OrderItemId).ToHashSet();
+        var unassigned = pendingItems
+            .Where(i => !assignedItemIds.Contains(i.OrderItemId))
+            .Select(i => i.OrderItemId)
+            .ToList();
+
+        return new SplittingResult(assignments, unassigned);
     }
 
     private async Task<Order?> LoadOrderAsync(Guid orderId, CancellationToken cancellationToken)
@@ -229,32 +332,12 @@ public class OrderSplittingService(
         return Result.Success();
     }
 
-    private async Task<List<NearbyBranchResult>> LoadNearbyBranchesAsync(Order order, CancellationToken cancellationToken)
-    {
-        var branches = await geoLookupService.FindNearbyBranchesAsync(order.DeliveryAddress.GeoLocation!, 5.0, cancellationToken);
-        return branches.Where(b => order.FulfillmentMode == FulfillmentMode.Delivery ? b.SupportsDelivery : b.SupportsPickup).ToList();
-    }
-
     private async Task<List<PharmacyInventory>> LoadInventorySnapshotAsync(HashSet<Guid> branchIds, HashSet<Guid> drugIds, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return await context.PharmacyInventories
             .Where(i => branchIds.Contains(i.BranchId) && drugIds.Contains(i.DrugId) && i.ExpiryDate > today)
             .ToListAsync(cancellationToken);
-    }
-
-    private List<CandidateBranch> BuildCandidateBranches(List<NearbyBranchResult> nearbyBranches, List<PharmacyInventory> inventorySnapshot)
-    {
-        var inventoryLookup = inventorySnapshot.ToLookup(i => i.BranchId);
-
-        return nearbyBranches.Select(b => new CandidateBranch(
-            b.BranchID,
-            b.BranchName,
-            b.DistanceKm,
-            b.SupportsDelivery,
-            b.SupportsPickup,
-            inventoryLookup[b.BranchID].ToDictionary(i => i.DrugId, i => i.StockQuantity - i.ReservedQuantity)
-        )).ToList();
     }
 
     private void ApplySplitResultToItems(List<OrderItem> pendingItems, SplittingResult splitResult)

@@ -1,116 +1,62 @@
 namespace Infrastructure.Services;
 
-public class DrugService(AppDbContext context, IGeoLookupService geoLookupService) : IDrugService
+public class DrugService(AppDbContext context) : IDrugService
 {
-    // Available stock (StockQuantity - ReservedQuantity) below this is "Low Stock" rather than "In Stock".
-    private const int LowStockThreshold = 10;
-
     public async Task<Result<PaginatedList<DrugDto>>> SearchCatalogAsync(
         DrugSearchRequest filters,
         CancellationToken cancellationToken = default)
     {
-        var query = context.Drugs.AsNoTracking().Where(d => d.IsActive);
+        var query = context.Drugs
+            .Where(d => d.IsActive);
 
         if (!string.IsNullOrWhiteSpace(filters.SearchValue))
         {
             var searchTerm = filters.SearchValue.Trim();
 
-            query = query.Where(d => d.GenericName.Contains(searchTerm)
-                                   || d.BrandName.Contains(searchTerm)
-                                   || d.ArabicName.Contains(searchTerm));
+            query = query.Where(d =>
+                d.GenericName.Contains(searchTerm) ||
+                d.BrandName.Contains(searchTerm) ||
+                d.ArabicName.Contains(searchTerm));
         }
 
         if (!string.IsNullOrWhiteSpace(filters.Form))
         {
-            var formTerm = filters.Form.Trim();
+            var form = filters.Form.Trim();
 
-            query = query.Where(d => d.Form == formTerm);
+            query = query.Where(d => d.Form == form);
         }
 
-        if (filters.Category.HasValue)
+        if (filters.CategoryId.HasValue)
         {
-            query = query.Where(d => d.Category == filters.Category.Value);
+            query = query.Where(d => d.CategoryId == filters.CategoryId.Value);
         }
 
         if (!string.IsNullOrWhiteSpace(filters.SortColumn))
         {
-            var sortCol = filters.SortColumn.Trim().ToLower() switch
-            {
-                "name" or "brandname" => nameof(Drug.BrandName),
-                "genericname" => nameof(Drug.GenericName),
-                "arabicname" => nameof(Drug.ArabicName),
-                "price" => nameof(Drug.Price),
-                "category" => nameof(Drug.Category),
-                "date" or "createddate" or "drugid" => nameof(Drug.DrugId),
-                _ => filters.SortColumn
-            };
-
-            var direction = string.Equals(filters.SortDirection, "desc", StringComparison.OrdinalIgnoreCase)
+            var sortDirection = string.Equals(
+                filters.SortDirection,
+                "desc",
+                StringComparison.OrdinalIgnoreCase)
                 ? "desc"
                 : "asc";
 
-            query = query.OrderBy($"{sortCol} {direction}");
+            query = query.OrderBy($"{filters.SortColumn} {sortDirection}");
         }
         else
         {
-            query = query.OrderBy(nameof(Drug.BrandName));
+            query = query.OrderBy(x => x.BrandName);
         }
 
-        var resultQuery = query.ProjectToType<DrugDto>();
+        var source = query
+            .ProjectToType<DrugDto>()
+            .AsNoTracking();
 
-        var page = await resultQuery.ToPaginatedListAsync(filters.PageNumber, filters.PageSize, cancellationToken);
+        var drugs = await source.ToPaginatedListAsync(
+            filters.PageNumber,
+            filters.PageSize,
+            cancellationToken);
 
-        if (filters.Latitude.HasValue && filters.Longitude.HasValue && page.Items.Count > 0)
-        {
-            await AttachAvailabilityAsync(page.Items, filters.Latitude.Value, filters.Longitude.Value,
-                cancellationToken);
-        }
-
-        return Result.Success(page);
-    }
-
-    /// <summary>
-    /// Computes each drug's AvailabilityStatus from stock at the single nearest reachable
-    /// branch to the patient. If no branch is reachable at all, every drug on the page is
-    /// reported OutOfStock, since nothing is realistically deliverable/pickup-able right now.
-    /// </summary>
-    private async Task AttachAvailabilityAsync(
-        IReadOnlyCollection<DrugDto> drugs, double latitude, double longitude,
-        CancellationToken cancellationToken)
-    {
-        var patientLocation = new Point(longitude, latitude) { SRID = 4326 };
-
-        var nearbyBranches = await geoLookupService.FindNearbyBranchesAsync(
-            patientLocation, cancellationToken: cancellationToken);
-
-        var nearestBranch = nearbyBranches.FirstOrDefault();
-
-        if (nearestBranch is null)
-        {
-            foreach (var drug in drugs)
-                drug.AvailabilityStatus = DrugAvailabilityStatus.OutOfStock;
-
-            return;
-        }
-
-        var drugIds = drugs.Select(d => d.DrugId).ToList();
-
-        var stockByDrugId = await context.PharmacyInventories
-            .AsNoTracking()
-            .Where(pi => pi.BranchId == nearestBranch.BranchID && drugIds.Contains(pi.DrugId))
-            .Select(pi => new { pi.DrugId, Available = pi.StockQuantity - pi.ReservedQuantity })
-            .ToDictionaryAsync(pi => pi.DrugId, pi => pi.Available, cancellationToken);
-
-        foreach (var drug in drugs)
-        {
-            var available = stockByDrugId.GetValueOrDefault(drug.DrugId, 0);
-
-            drug.AvailabilityStatus = available <= 0
-                ? DrugAvailabilityStatus.OutOfStock
-                : available < LowStockThreshold
-                    ? DrugAvailabilityStatus.LowStock
-                    : DrugAvailabilityStatus.InStock;
-        }
+        return Result.Success(drugs);
     }
 
     public async Task<Result<DrugDto>> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
@@ -131,13 +77,9 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
 
         drug.IsActive = true;
 
-        if (dto.Category.HasValue && dto.Category.Value != DrugCategory.Other)
+        if (dto.CategoryId.HasValue)
         {
-            drug.Category = dto.Category.Value;
-        }
-        else
-        {
-            drug.Category = DrugCategoryMapper.Map(drug.DrugClass, drug.GenericName);
+            drug.CategoryId = dto.CategoryId.Value;
         }
 
         context.Drugs.Add(drug);
@@ -157,9 +99,9 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
 
         dto.Adapt(drug);
 
-        if (dto.Category.HasValue)
+        if (dto.CategoryId.HasValue)
         {
-            drug.Category = dto.Category.Value;
+            drug.CategoryId = dto.CategoryId.Value;
         }
 
         await context.SaveChangesAsync(cancellationToken);
@@ -191,8 +133,8 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
         }
 
         var searchResults = await context.Drugs
-            .Where(m => 
-                EF.Functions.FreeText(m.BrandName, term) || 
+            .Where(m =>
+                EF.Functions.FreeText(m.BrandName, term) ||
                 EF.Functions.FreeText(m.ArabicName, term) ||
                 m.BrandName.Contains(term) ||
                 m.ArabicName.Contains(term))
@@ -213,25 +155,5 @@ public class DrugService(AppDbContext context, IGeoLookupService geoLookupServic
             .ToListAsync(cancellationToken);
 
         return Result.Success(searchResults);
-    }
-
-    public async Task<Result<int>> BackfillCategoriesAsync(CancellationToken cancellationToken = default)
-    {
-        // The pre-migration DB default is raw 0 (byte's CLR default), which doesn't
-        // correspond to any DrugCategory member (enum starts at 1). Target that raw
-        // value directly instead of comparing against DrugCategory.Other.
-        var drugsNeedingBackfill = await context.Drugs
-            .Where(d => (byte)d.Category == 0)
-            .ToListAsync(cancellationToken);
-
-        foreach (var drug in drugsNeedingBackfill)
-        {
-            drug.Category = DrugCategoryMapper.Map(drug.DrugClass, drug.GenericName);
-        }
-
-        if (drugsNeedingBackfill.Count > 0)
-            await context.SaveChangesAsync(cancellationToken);
-
-        return Result.Success(drugsNeedingBackfill.Count);
     }
 }

@@ -17,6 +17,10 @@ public class MapsterConfig : IRegister
         config.NewConfig<Drug, DrugDto>();
         config.NewConfig<CreateDrugDto, Drug>();
         config.NewConfig<UpdateDrugDto, Drug>();
+        
+        // Fix for circular reference in Projection
+        config.NewConfig<DrugCategory, DrugCategoryDto>()
+            .MaxDepth(2);
 
         // Patient Mappings
         config.NewConfig<RegisterRequestDTO, Patient>()
@@ -35,12 +39,14 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.GenericName, src => src.Drug.GenericName)
             .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
+            .Map(dest => dest.ImageUrl, src => src.Drug.ImageUrl)
             .Map(dest => dest.AvailableQuantity, src => src.StockQuantity - src.ReservedQuantity)
             .Map(dest => dest.StockStatus, src => src.StockQuantity == 0
                 ? InventoryStockStatus.OutOfStock
                 : src.StockQuantity <= 10 ? InventoryStockStatus.LowStock : InventoryStockStatus.Available);
 
         config.NewConfig<PharmacyInventory, GetPharmacyInventoryDTO>()
+            .Map(dest => dest.BranchName, src => src.Branch.BranchName)
             .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.StockStatus, src => src.StockQuantity == 0
@@ -71,11 +77,18 @@ public class MapsterConfig : IRegister
             .Map(dest => dest.IsOpenNow, src => true) // Default mock for now
             .Map(dest => dest.Latitude, src => src.Branch.GeoLocation != null ? src.Branch.GeoLocation.Y : 0)
             .Map(dest => dest.Longitude, src => src.Branch.GeoLocation != null ? src.Branch.GeoLocation.X : 0)
-            .Map(dest => dest.GoogleMapsUrl, src => src.Branch.GeoLocation != null ? "https://www.google.com/maps/dir/?api=1&destination=" + src.Branch.GeoLocation.Y + "," + src.Branch.GeoLocation.X : string.Empty)
+            .Map(dest => dest.GoogleMapsUrl, src => src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null ? $"https://www.google.com/maps/dir/?api=1&origin={src.Order.DeliveryAddress.GeoLocation.Y},{src.Order.DeliveryAddress.GeoLocation.X}&destination={src.Branch.GeoLocation.Y},{src.Branch.GeoLocation.X}" : src.Branch.GeoLocation != null ? $"https://www.google.com/maps/dir/?api=1&destination={src.Branch.GeoLocation.Y},{src.Branch.GeoLocation.X}" : string.Empty)
             .Map(dest => dest.SupportsDelivery, src => src.Branch.SupportsDelivery)
             .Map(dest => dest.SupportsPickup, src => src.Branch.SupportsPickup)
-            .Map(dest => dest.DistanceKm, src => (src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null) 
-                ? src.Branch.GeoLocation.Distance(src.Order.DeliveryAddress.GeoLocation) / 1000.0 : (double?)null)
+            // Prefer the OSRM driving distance captured on the leg at split time (same value the
+            // order-routing preview returns). Fall back to a straight-line estimate only for legacy
+            // legs created before the distance was persisted.
+            .Map(dest => dest.DistanceKm, src => src.DistanceKm != null
+                ? src.DistanceKm
+                : (src.Branch.GeoLocation != null && src.Order.DeliveryAddress.GeoLocation != null)
+                    ? src.Branch.GeoLocation.Distance(src.Order.DeliveryAddress.GeoLocation) / 1000.0
+                    : (double?)null)
+
             .Map(dest => dest.IsReady, src => src.LegStatus == LegStatus.ReadyForPickup || src.LegStatus == LegStatus.OutForDelivery)
             .Map(dest => dest.IsCompleted, src => src.LegStatus == LegStatus.Delivered)
             .Map(dest => dest.EstimatedPreparationMinutes, src => (int)((src.ReadyByEstimate - DateTime.UtcNow).TotalMinutes))
@@ -84,6 +97,8 @@ public class MapsterConfig : IRegister
         config.NewConfig<OrderItem, OrderItemResponseDTO>()
             .Map(dest => dest.DrugName, src => src.Drug.BrandName)
             .Map(dest => dest.GenericName, src => src.Drug.GenericName)
+            .Map(dest => dest.ArabicName, src => src.Drug.ArabicName)
+            .Map(dest => dest.ImageUrl, src => src.Drug.ImageUrl)
             .Map(dest => dest.Strength, src => src.Drug.Strength)
             .Map(dest => dest.DosageForm, src => src.Drug.Form)
             .Map(dest => dest.UnitPrice, src => src.Drug.Price);
@@ -95,7 +110,10 @@ public class MapsterConfig : IRegister
         // Cart Mappings
         config.NewConfig<CartItem, CartItemResponseDTO>()
             .Map(dest => dest.DrugBrandName, src => src.Drug != null ? src.Drug.BrandName : string.Empty)
-            .Map(dest => dest.DrugGenericName, src => src.Drug != null ? src.Drug.GenericName : string.Empty);
+            .Map(dest => dest.DrugGenericName, src => src.Drug != null ? src.Drug.GenericName : string.Empty)
+            .Map(dest => dest.DrugArabicName, src => src.Drug != null ? src.Drug.ArabicName : string.Empty)
+            .Map(dest => dest.DrugImageUrl, src => src.Drug != null ? src.Drug.ImageUrl : null)
+            .Map(dest => dest.RequiresPrescription, src => src.Drug != null ? src.Drug.RequiresPrescription : false);
             
         // PrescriptionReview Mappings
         config.NewConfig<PrescriptionReview, PrescriptionReviewSummaryDTO>()

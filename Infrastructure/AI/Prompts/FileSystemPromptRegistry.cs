@@ -28,12 +28,26 @@ public class FileSystemPromptRegistry(IOptions<AiOptions> options) : IPromptRegi
             throw new FileNotFoundException($"Prompt '{promptName}' version '{promptVersion}' was not found.", promptPath);
         }
 
+        var rawTemplate = await File.ReadAllTextAsync(promptPath, cancellationToken);
+        var cleanTemplate = rawTemplate;
+
+        // Strip YAML frontmatter if present
+        if (rawTemplate.StartsWith("---"))
+        {
+            var endOfYaml = rawTemplate.IndexOf("---", 3, StringComparison.Ordinal);
+            if (endOfYaml > 3)
+            {
+                // Start after the second '---' and skip leading whitespace/newlines
+                cleanTemplate = rawTemplate.Substring(endOfYaml + 3).TrimStart();
+            }
+        }
+
         return new PromptDefinition
         {
             Name = promptName,
             Version = promptVersion,
             Path = promptPath,
-            Template = await File.ReadAllTextAsync(promptPath, cancellationToken)
+            Template = cleanTemplate
         };
     }
 }

@@ -35,7 +35,7 @@ namespace API.Controllers
 
             return CreatedAtAction(
                 actionName: nameof(GetPharmacyOwner),
-                routeValues: new { id = result.Value.Id },
+                routeValues: new { id = result.Value?.Id },
                 value: result.Value
             );
         }

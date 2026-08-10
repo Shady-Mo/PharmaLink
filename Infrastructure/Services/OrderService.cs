@@ -1,5 +1,6 @@
 using Application.DTOs.Order.Requests;
 using Application.DTOs.Order.Responses;
+using Application.DTOs.OrderRouting;
 using Application.Services.Order;
 using System.Text;
 using System.IO;
@@ -7,15 +8,14 @@ using System.IO;
 using System.Text;
 using System.IO;
 
-using System.Text;
-using System.IO;
 
 namespace Infrastructure.Services;
 
 public class OrderService(
     AppDbContext context,
     IOrderSplittingService orderSplittingService,
-    CartCacheService cartCacheService) : IOrderService
+    CartCacheService cartCacheService,
+    IInventoryService inventoryService) : IOrderService
 {
     public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId,
         CreateOrderDTO createOrderDTO)
@@ -41,13 +41,32 @@ public class OrderService(
         var drugIds = cartItems.Select(item => item.DrugId).Distinct().ToList();
         var existingDrugs = await context.Drugs
             .Where(d => drugIds.Contains(d.DrugId))
-            .Select(d => d.DrugId)
+            .Select(d => new { d.DrugId, d.RequiresPrescription })
             .ToListAsync();
 
-        var invalidDrugIds = drugIds.Except(existingDrugs).ToList();
+        var invalidDrugIds = drugIds.Except(existingDrugs.Select(d => d.DrugId)).ToList();
         if (invalidDrugIds.Count > 0)
             return Result.Failure<OrderCreatedResponseDTO>(
                 OrderErrors.CreateInvalidDrugIdsError(invalidDrugIds));
+
+        bool requiresPrescription = existingDrugs.Any(d => d.RequiresPrescription);
+        Prescription? validPrescription = null;
+
+        if (requiresPrescription)
+        {
+            if (!createOrderDTO.TemporaryPrescriptionId.HasValue)
+            {
+                return Result.Failure<OrderCreatedResponseDTO>(OrderErrors.PrescriptionRequired);
+            }
+
+            validPrescription = await context.Prescriptions
+                .FirstOrDefaultAsync(p => p.Id == createOrderDTO.TemporaryPrescriptionId.Value && p.PatientId == patientUserId);
+
+            if (validPrescription == null)
+            {
+                return Result.Failure<OrderCreatedResponseDTO>(OrderErrors.InvalidPrescription);
+            }
+        }
 
         var totalAmount = await CalculateTotalAmount(cartItems);
 
@@ -60,6 +79,16 @@ public class OrderService(
             OrderStatus = OrderStatus.Pending,
             TotalAmount = totalAmount
         };
+
+        if (requiresPrescription && validPrescription != null)
+        {
+            validPrescription.OrderId = order.OrderId;
+            validPrescription.Status = PrescriptionStatus.PendingReview;
+            context.Prescriptions.Update(validPrescription);
+            
+            // Set the order status to PendingPrescriptionReview so it's not processed until approved
+            order.OrderStatus = OrderStatus.PendingPrescriptionReview;
+        }
 
         context.Orders.Add(order);
 
@@ -83,18 +112,116 @@ public class OrderService(
         // Invalidate the Redis cache so a subsequent GetCart doesn't serve stale, pre-checkout items.
         await cartCacheService.InvalidateAsync(patientUserId);
 
-        // Trigger automatic splitting inline. Result is observed but not propagated to caller —
-        // the 201 Created response represents the order being accepted, not fully split.
-        await orderSplittingService.SplitOrderAsync(order.OrderId);
+        // Trigger automatic splitting inline and capture the resulting fulfillment plan. The plan
+        // lets the 201 Created response surface — per pharmacy branch — the group of drugs that
+        // branch supplies (Arabic + English names) and its distance from the patient, plus any
+        // requested items no nearby branch could fulfill.
+        var splitResult = await orderSplittingService.SplitOrderAsync(order.OrderId);
+        var plan = splitResult.IsSuccess ? splitResult.Value : null;
 
-        var response = new OrderCreatedResponseDTO
+        // Persist the AI routing explanation so the frontend can display it when fetching the order.
+        // Prefer the AI's rich, ordered route description; fall back to its short strategy reasoning.
+        // The split ran on its own DbContext, so re-fetch the (now tracked) order to update just this
+        // column without clobbering the status the split advanced to Processing.
+        var aiRoutingDescription = !string.IsNullOrWhiteSpace(plan?.RouteSummary?.Description)
+            ? plan!.RouteSummary!.Description
+            : plan?.Reasoning;
+
+        if (!string.IsNullOrWhiteSpace(aiRoutingDescription))
         {
-            OrderId = order.OrderId,
-            Status = order.OrderStatus,
-            Message = "Order created successfully and is awaiting fulfillment assignment."
-        };
+            var persistedOrder = await context.Orders.FirstOrDefaultAsync(o => o.OrderId == order.OrderId);
+            if (persistedOrder is not null)
+            {
+                persistedOrder.AiRoutingDescription = aiRoutingDescription;
+                await context.SaveChangesAsync();
+            }
+        }
+
+        // Read the persisted status back (the split advances it to Processing on success).
+        var finalStatus = await context.Orders
+            .AsNoTracking()
+            .Where(o => o.OrderId == order.OrderId)
+            .Select(o => o.OrderStatus)
+            .FirstOrDefaultAsync();
+
+
+        var response = BuildOrderCreatedResponse(order.OrderId, finalStatus, plan);
 
         return Result.Success<OrderCreatedResponseDTO>(response);
+    }
+
+    /// <summary>
+    /// Maps the fulfillment <see cref="OrderRoutingPlan"/> (or its absence) into the patient-facing
+    /// <see cref="OrderCreatedResponseDTO"/>: available drug groups per branch with distances and
+    /// bilingual drug names, plus the unavailable items.
+    /// </summary>
+    private static OrderCreatedResponseDTO BuildOrderCreatedResponse(
+        Guid orderId, OrderStatus status, OrderRoutingPlan? plan)
+    {
+        var groups = plan?.Legs.Select(leg => new OrderFulfillmentGroupDTO
+        {
+            PharmacyId = leg.PharmacyId,
+            BranchId = leg.BranchId,
+            BranchName = leg.BranchName,
+            DistanceKm = leg.DistanceKm,
+            Subtotal = leg.LegSubtotal,
+            Items = leg.Items.Select(i => new OrderItemLineDTO
+            {
+                DrugId = i.DrugId,
+                DrugName = i.DrugName,
+                DrugNameAr = i.DrugNameAr,
+                Quantity = i.Quantity,
+                UnitPrice = i.UnitPrice,
+                LineTotal = i.LineTotal
+            }).ToList()
+        }).ToList() ?? [];
+
+        var unavailable = plan?.UnfulfillableItems.Select(m => new UnavailableItemDTO
+        {
+            DrugId = m.DrugId,
+            DrugName = m.DrugName,
+            DrugNameAr = m.DrugNameAr,
+            QuantityNeeded = m.QuantityNeeded,
+            QuantityAvailable = m.QuantityAvailable
+        }).ToList() ?? [];
+
+        var hasGroups = groups.Count > 0;
+        var hasUnavailable = unavailable.Count > 0;
+
+        string message;
+        bool isFullyFulfilled;
+        if (!hasGroups && !hasUnavailable)
+        {
+            message = "Order created successfully and is awaiting fulfillment assignment.";
+            isFullyFulfilled = false;
+        }
+        else if (hasGroups && !hasUnavailable)
+        {
+            message = "Order created successfully. All items are available and grouped by pharmacy branch.";
+            isFullyFulfilled = true;
+        }
+        else if (!hasGroups)
+        {
+            message = "Order created, but no items could be fulfilled by nearby pharmacies at the moment.";
+            isFullyFulfilled = false;
+        }
+        else
+        {
+            message = "Order created successfully. Some items are available and grouped by pharmacy branch; others are currently unavailable.";
+            isFullyFulfilled = false;
+        }
+
+        return new OrderCreatedResponseDTO
+        {
+            OrderId = orderId,
+            Status = status,
+            Message = message,
+            Strategy = plan?.Strategy ?? string.Empty,
+            IsFullyFulfilled = isFullyFulfilled,
+            TotalDistanceKm = plan?.TotalDistanceKm ?? 0,
+            FulfillmentGroups = groups,
+            UnavailableItems = unavailable
+        };
     }
 
     public async Task<Result<GetOrderDTO>> GetOrder(Guid orderId, Guid patientUserId)
@@ -452,4 +579,105 @@ public class OrderService(
             return Result.Success((data, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", $"orders-export-{DateTime.UtcNow:yyyyMMddHHmmss}.xlsx"));
         }
     }
-}
+
+    public async Task<Result<string>> ApproveOrderPrescription(Guid orderId, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        var prescription = await context.Prescriptions
+            .FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
+
+        if (prescription == null)
+            return Result.Failure<string>(OrderErrors.PrescriptionRequired);
+
+        if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
+
+        prescription.Status = PrescriptionStatus.Approved;
+        context.Prescriptions.Update(prescription);
+
+        order.OrderStatus = OrderStatus.Pending; // Return it to normal pending state so it can be fulfilled
+        
+        await context.SaveChangesAsync(ct);
+        return Result.Success("Success");
+    }
+
+    public async Task<Result<string>> RejectOrderPrescription(Guid orderId, string reason, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        var prescription = await context.Prescriptions
+            .FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
+
+        if (prescription == null)
+            return Result.Failure<string>(OrderErrors.PrescriptionRequired);
+
+        if (order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
+
+        prescription.Status = PrescriptionStatus.Rejected;
+        prescription.RejectionReason = reason;
+        context.Prescriptions.Update(prescription);
+
+        order.OrderStatus = OrderStatus.Cancelled;
+        
+        await context.SaveChangesAsync(ct);
+        return Result.Success("Success");
+    }
+
+    public async Task<Result<string>> CancelOrder(Guid orderId, Guid patientUserId, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .Include(o => o.Items)
+            .FirstOrDefaultAsync(o => o.OrderId == orderId && o.PatientUserId == patientUserId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        if (order.OrderStatus != OrderStatus.Pending && 
+            order.OrderStatus != OrderStatus.Processing &&
+            order.OrderStatus != OrderStatus.PendingPrescriptionReview)
+        {
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
+        }
+
+        var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue).ToList();
+        var releases = awardedItems
+            .GroupBy(i => new { i.BranchId, i.DrugId })
+            .Select(g => (g.Key.BranchId!.Value, g.Key.DrugId, g.Sum(x => x.QuantityNeeded)))
+            .ToList();
+
+        if (releases.Any())
+        {
+            var releaseResult = await inventoryService.ReleaseReservationBatchAsync(releases, ct);
+        }
+
+        foreach (var item in order.Items)
+        {
+            item.ItemStatus = ItemStatus.Cancelled;
+        }
+        
+        order.OrderStatus = OrderStatus.Cancelled;
+
+        var prescription = await context.Prescriptions
+            .FirstOrDefaultAsync(p => p.OrderId == orderId, ct);
+        if (prescription != null)
+        {
+            prescription.Status = PrescriptionStatus.Rejected;
+            prescription.RejectionReason = "Cancelled by patient";
+            context.Prescriptions.Update(prescription);
+        }
+
+        await context.SaveChangesAsync(ct);
+        return Result.Success("Order cancelled successfully");
+    }
+}
+

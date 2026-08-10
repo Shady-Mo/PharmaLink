@@ -1,10 +1,10 @@
-using System.Security.Claims;
+using Application.DTOs.DeliveryDriver;
 using Application.DTOs.OrderFulfillmentLeg.Requests;
 using Application.DTOs.OrderFulfillmentLeg.Responses;
 
 namespace Infrastructure.Services;
 
-public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillmentLegService
+public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverService driverService, IDeliveryNotificationService notificationService) : IOrderFulfillmentLegService
 {
     public async Task<Result<OrderFulfillmentLegDto>> GetByIdAsync(
         Guid legId,
@@ -31,8 +31,9 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         CancellationToken cancellationToken = default)
     {
         var leg = await dbContext.OrderFulfillmentLegs
-            .Include(l => l.Order)
-            .ThenInclude(o => o.FulfillmentLegs)
+            .Include(o => o.Branch)
+            .Include(l => l.Order).ThenInclude(a => a.DeliveryAddress)
+            .Include(l => l.Order).ThenInclude(o => o.FulfillmentLegs)
             .FirstOrDefaultAsync(l => l.LegId == legId, cancellationToken);
 
         if (leg is null)
@@ -85,7 +86,70 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
         if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered))
             leg.Order.OrderStatus = OrderStatus.Completed;
 
-        await dbContext.SaveChangesAsync(cancellationToken);
+
+        if (request.Status == LegStatus.OutForDelivery && leg.LegType == LegType.Delivery)
+        {
+            var address = leg.Order.DeliveryAddress;
+            var fullAddress = $"{address.BuildingNumber} عمارة, دور {address.FloorNumber}, {address.AddressLine}, {address.City}";
+
+            double distanceKm = 0;
+            if (leg.Branch.GeoLocation != null && address.GeoLocation != null)
+            {
+                distanceKm = CalculateDistanceKm(
+                    leg.Branch.GeoLocation.Y, leg.Branch.GeoLocation.X,
+                    address.GeoLocation.Y, address.GeoLocation.X
+                );
+
+                distanceKm = Math.Round(distanceKm, 2);
+            }
+
+            decimal baseFee = 15.0m;
+            decimal pricePerExtraKm = 5.0m;
+            decimal calculatedFee = baseFee;
+
+            if (distanceKm > 2.0)
+            {
+                calculatedFee += (decimal)(distanceKm - 2.0) * pricePerExtraKm;
+            }
+
+            calculatedFee = Math.Round(calculatedFee, 0);
+
+            var deliveryJob = new DeliveryJob
+            {
+                JobId = Guid.NewGuid(),
+                LegId = leg.LegId,
+                Status = DeliveryJobStatus.Pending,
+                DeliveryFee = calculatedFee
+            };
+
+            dbContext.DeliveryJobs.Add(deliveryJob);
+            await dbContext.SaveChangesAsync(cancellationToken);
+
+            var nearbyDriversResult = await driverService.GetNearbyAvailableDriversAsync(leg.BranchId);
+
+            if (nearbyDriversResult.IsSuccess && nearbyDriversResult.Value.Any())
+            {
+                var jobDetails = new DeliveryJobNotificationDto
+                {
+                    JobId = deliveryJob.JobId,
+                    PharmacyName = leg.Branch.BranchName,
+                    FullAddress = fullAddress,
+                    DeliveryFee = deliveryJob.DeliveryFee,
+                    DistanceKm = distanceKm,
+                    Latitude = address.GeoLocation.Y,
+                    Longitude = address.GeoLocation.X,
+                    PharmacyLatitude = leg.Branch.GeoLocation.Y,
+                    PharmacyLongitude = leg.Branch.GeoLocation.X
+                };
+
+                await notificationService.BroadcastNewDeliveryJobAsync(nearbyDriversResult.Value, jobDetails);
+            }
+        }
+        else
+        {
+            await dbContext.SaveChangesAsync(cancellationToken);
+        }
+
 
         return Result.Success(ToDto(leg));
     }
@@ -265,4 +329,20 @@ public class OrderFulfillmentLegService(AppDbContext dbContext) : IOrderFulfillm
 
         return Result.Success(dto);
     }
+
+
+    private static double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        var r = 6371;
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Asin(Math.Min(1, Math.Sqrt(a)));
+        return r * c;
+    }
+
+    private static double ToRadians(double angle) => Math.PI * angle / 180.0;
+
 }

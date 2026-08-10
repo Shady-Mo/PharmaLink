@@ -41,4 +41,20 @@ public static class OrderErrors
         new("Order.InvalidDrugIds",
             $"Invalid DrugID(s): {string.Join(", ", invalidIds)}",
             StatusCodes.Status400BadRequest);
+
+    public static readonly Error PrescriptionRequired =
+        new("Order.PrescriptionRequired",
+            "This order contains products that require a valid prescription.",
+            StatusCodes.Status422UnprocessableEntity);
+
+    public static readonly Error OrderCannotBeModified =
+        new("Order.CannotBeModified",
+            "This order cannot be modified at this stage.",
+            StatusCodes.Status400BadRequest);
+
+    public static readonly Error InvalidPrescription =
+        new("Order.InvalidPrescription",
+            "The provided prescription is invalid, expired, or already used.",
+            StatusCodes.Status400BadRequest);
 }
+

@@ -36,7 +36,7 @@ public class AuthService(
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.PhoneAlreadyExists);
             }
         }
-
+            
         var patient = request.Adapt<Patient>();
 
         var createResult = await userManager.CreateAsync(patient, request.Password);
@@ -350,4 +350,6 @@ public class AuthService(
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
     }
+
+    
 }

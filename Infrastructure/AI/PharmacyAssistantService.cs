@@ -1,63 +1,28 @@
 using System.Runtime.CompilerServices;
-using Microsoft.SemanticKernel;
-using Microsoft.SemanticKernel.ChatCompletion;
-using Microsoft.SemanticKernel.Connectors.Google;
+using Application.Services.AI;
+using Application.Services.AI.Models;
 
 namespace Infrastructure.AI;
 
 /// <summary>
-/// Implements IPharmacyAssistantService using Semantic Kernel.
+/// Implements IPharmacyAssistantService using the new Orchestrator (IPromptExecutionService).
 ///
 /// DESIGN DECISION — Scoped lifetime:
-///   This service is Scoped (created once per HTTP request) even though the
-///   Kernel it depends on is a Singleton. The service itself holds no persistent
-///   state between requests — it creates a fresh ChatHistory for each call,
-///   reads from request-scoped services (ICurrentUserService), and disposes
-///   cleanly. Scoped is the correct lifetime for a service that bridges
-///   Singleton (Kernel) with per-request concerns (auth context, logging).
-///
-/// DESIGN DECISION — System prompt from file:
-///   The system prompt is loaded from a .prompty file at construction time and
-///   cached as a string field. This avoids disk I/O on every chat call while
-///   still keeping the prompt editable outside of compiled code.
-///
-/// DESIGN DECISION — FunctionChoiceBehavior.Auto():
-///   With Auto(), the AI model decides when to call tools (plugins). The
-///   developer does NOT need to write orchestration loops. SK handles:
-///     1. Sending the list of available functions to the model
-///     2. Detecting when the model requests a function call
-///     3. Executing the function and returning results to the model
-///     4. Repeating until the model produces a final text response
-///   MaximumAutoInvokeAttempts caps this at 5 rounds to prevent infinite loops
-///   and control API costs.
+///   This service is Scoped (created once per HTTP request). It bridges the caller
+///   to the AI Orchestrator, which handles resilience, fallback, and routing.
 /// </summary>
 public sealed class PharmacyAssistantService : IPharmacyAssistantService
 {
-    private readonly Kernel _kernel;
-    private readonly IChatCompletionService _chatService;
-    private readonly SemanticKernelSettings _settings;
+    private readonly IPromptExecutionService _promptExecutionService;
     private readonly ILogger<PharmacyAssistantService> _logger;
-    private readonly string _systemPromptTemplate;
 
     public PharmacyAssistantService(
-        Kernel kernel,
-        IChatCompletionService chatService,
-        IOptions<SemanticKernelSettings> settings,
+        IPromptExecutionService promptExecutionService,
         ILogger<PharmacyAssistantService> logger)
     {
-        _kernel = kernel;
-        _chatService = chatService;
-        _settings = settings.Value;
+        _promptExecutionService = promptExecutionService;
         _logger = logger;
-
-        // Load the system prompt template once at construction time.
-        // The file is embedded in the Infrastructure project at build time.
-        _systemPromptTemplate = LoadSystemPrompt();
     }
-
-    // -------------------------------------------------------------------------
-    //  IPharmacyAssistantService Implementation
-    // -------------------------------------------------------------------------
 
     /// <inheritdoc/>
     public async Task<string> ChatAsync(
@@ -70,34 +35,40 @@ public sealed class PharmacyAssistantService : IPharmacyAssistantService
             "PharmacyAssistantService.ChatAsync — User: {UserId}, HistoryLength: {HistoryLength}",
             userId, history.Count);
 
-        var chatHistory = BuildChatHistory(userId, history);
-        chatHistory.AddUserMessage(userMessage);
+        // Cap history length at 30 turns to keep enough context but avoid overflow
+        var maxHistoryTurns = 30;
+        var trimmedHistory = history.Count > maxHistoryTurns
+            ? history.Skip(history.Count - maxHistoryTurns).ToList()
+            : history.ToList();
 
-        var executionSettings = BuildExecutionSettings();
+        var request = new PromptExecutionRequest
+        {
+            PromptName = "PharmacyAssistant",
+            TaskType = AITaskType.Chat,
+            ChatHistory = trimmedHistory,
+            UserMessage = userMessage,
+            Variables = new Dictionary<string, object?>
+            {
+                { "current_date", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC") },
+                { "user_id", userId }
+            }
+        };
 
         try
         {
-            var result = await _chatService.GetChatMessageContentAsync(
-                chatHistory,
-                executionSettings,
-                _kernel,
-                ct);
-
-            var responseText = result.Content ?? string.Empty;
+            var result = await _promptExecutionService.ExecuteAsync(request, ct);
 
             _logger.LogInformation(
                 "PharmacyAssistantService.ChatAsync complete — User: {UserId}, ResponseLength: {Length}",
-                userId, responseText.Length);
+                userId, result.RawResponse.Length);
 
-            return responseText;
+            return result.RawResponse;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex,
                 "PharmacyAssistantService.ChatAsync failed for user {UserId}", userId);
 
-            // Graceful degradation: return a user-friendly message rather than
-            // propagating the exception to the HTTP layer.
             return "عذراً، أواجه ضغطاً حالياً في الاتصال بالخوادم (429 Too Many Requests). يرجى الانتظار دقيقة ثم المحاولة مرة أخرى.";
         }
     }
@@ -112,144 +83,85 @@ public sealed class PharmacyAssistantService : IPharmacyAssistantService
         _logger.LogInformation(
             "PharmacyAssistantService.ChatStreamAsync — User: {UserId}", userId);
 
-        var chatHistory = BuildChatHistory(userId, history);
-        chatHistory.AddUserMessage(userMessage);
+        var maxHistoryTurns = 30;
+        var trimmedHistory = history.Count > maxHistoryTurns
+            ? history.Skip(history.Count - maxHistoryTurns).ToList()
+            : history.ToList();
 
-        var executionSettings = BuildExecutionSettings();
+        var request = new PromptExecutionRequest
+        {
+            PromptName = "PharmacyAssistant",
+            TaskType = AITaskType.Chat,
+            ChatHistory = trimmedHistory,
+            UserMessage = userMessage,
+            Variables = new Dictionary<string, object?>
+            {
+                { "current_date", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC") },
+                { "user_id", userId }
+            }
+        };
 
-        // DESIGN DECISION — Streaming with function calling:
-        //   GetStreamingChatMessageContentsAsync streams tokens as they arrive.
-        //   When FunctionChoiceBehavior.Auto is active and the model makes a
-        //   function call mid-stream, SK pauses the stream, executes the
-        //   function, and resumes streaming the model's continuation.
-        //   The caller sees a seamless token stream without needing to handle
-        //   the function call lifecycle.
-        //
-        // DESIGN DECISION — No yield in catch:
-        //   C# does not allow yield return inside a catch block.
-        //   We use a sentinel errorMessage string: if set, we yield it outside
-        //   the try-catch and then break. This keeps the error reporting
-        //   inline without restructuring into a channel-based approach.
-        string? errorMessage = null;
-        IAsyncEnumerable<StreamingChatMessageContent>? stream = null;
-
+        var stream = _promptExecutionService.ExecuteStreamAsync(request, ct);
+        
+        IAsyncEnumerator<string>? enumerator = null;
+        string? initError = null;
         try
         {
-            stream = _chatService.GetStreamingChatMessageContentsAsync(
-                chatHistory,
-                executionSettings,
-                _kernel,
-                ct);
+            enumerator = stream.GetAsyncEnumerator(ct);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex,
-                "PharmacyAssistantService.ChatStreamAsync failed to initiate for user {UserId}", userId);
-            errorMessage = "عذراً، أواجه ضغطاً حالياً في الاتصال بالخوادم (429). يرجى الانتظار دقيقة ثم المحاولة.";
+            _logger.LogError(ex, "PharmacyAssistantService.ChatStreamAsync failed to get enumerator for user {UserId}", userId);
+            initError = "عذراً، أواجه ضغطاً حالياً في الاتصال بالخوادم. يرجى الانتظار دقيقة ثم المحاولة.";
         }
 
-        if (errorMessage is not null)
+        if (initError != null)
         {
-            yield return errorMessage;
+            yield return initError;
             yield break;
         }
 
-        await foreach (var chunk in stream!.WithCancellation(ct))
+        var yieldedAny = false;
+        string? moveNextError = null;
+        
+        while (true)
         {
-            var text = chunk.Content;
+            try
+            {
+                if (!await enumerator!.MoveNextAsync())
+                    break;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "PharmacyAssistantService.ChatStreamAsync failed during MoveNextAsync for user {UserId}", userId);
+                if (!yieldedAny)
+                    moveNextError = "عذراً، أواجه ضغطاً حالياً في الاتصال بالخوادم (429). يرجى الانتظار دقيقة ثم المحاولة.";
+                break;
+            }
+
+            var text = enumerator!.Current;
             if (!string.IsNullOrEmpty(text))
+            {
+                yieldedAny = true;
                 yield return text;
+            }
+        }
+        
+        await enumerator!.DisposeAsync();
+
+        if (moveNextError != null)
+        {
+            yield return moveNextError;
+            yield break;
+        }
+
+        if (!yieldedAny)
+        {
+            _logger.LogWarning("PharmacyAssistantService.ChatStreamAsync returned an empty response for user {UserId}", userId);
+            yield return "عذراً، حدث انقطاع مفاجئ أثناء معالجة الرد (Empty Response). يرجى المحاولة مرة أخرى.";
         }
 
         _logger.LogInformation(
             "PharmacyAssistantService.ChatStreamAsync complete — User: {UserId}", userId);
-    }
-
-    // -------------------------------------------------------------------------
-    //  Private helpers
-    // -------------------------------------------------------------------------
-
-    /// <summary>
-    /// Builds a SK ChatHistory from our Application-layer ChatMessage records.
-    /// Prepends the system prompt and trims history to MaxHistoryTurns to
-    /// avoid context window overflow.
-    /// </summary>
-    private ChatHistory BuildChatHistory(string userId, IReadOnlyList<ChatMessage> history)
-    {
-        var systemPrompt = _systemPromptTemplate
-            .Replace("{{$current_date}}", DateTime.UtcNow.ToString("yyyy-MM-dd HH:mm UTC"))
-            .Replace("{{$user_id}}", userId);
-
-        var chatHistory = new ChatHistory(systemPrompt);
-
-        // Trim history to the most recent N turns to prevent context overflow.
-        var trimmedHistory = history.Count > _settings.MaxHistoryTurns
-            ? history.Skip(history.Count - _settings.MaxHistoryTurns).ToList()
-            : history;
-
-        foreach (var msg in trimmedHistory)
-        {
-            switch (msg.Role.ToLowerInvariant())
-            {
-                case "user":
-                    chatHistory.AddUserMessage(msg.Content);
-                    break;
-                case "assistant":
-                    chatHistory.AddAssistantMessage(msg.Content);
-                    break;
-                // "system" messages in history are intentionally skipped —
-                // only our fixed system prompt is allowed as a system turn.
-            }
-        }
-
-        return chatHistory;
-    }
-
-    /// <summary>
-    /// Creates the execution settings with auto function calling enabled.
-    /// Falls back to OpenAI settings if the provider is not Gemini.
-    /// </summary>
-    private PromptExecutionSettings BuildExecutionSettings()
-    {
-        var provider = _settings.Provider.Trim().ToLowerInvariant();
-
-        if (provider is "googlegemini" or "gemini")
-        {
-            // GeminiPromptExecutionSettings gives us access to Gemini-specific
-            // parameters while FunctionChoiceBehavior.Auto() is cross-provider.
-            return new GeminiPromptExecutionSettings
-            {
-                MaxTokens = 8192,
-                Temperature = _settings.Temperature,
-                // FunctionChoiceBehavior.Auto() — the model can call any plugin
-                // function registered on the Kernel automatically.
-                FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-            };
-        }
-
-        // Generic settings that work with OpenAI and Azure OpenAI.
-        return new PromptExecutionSettings
-        {
-            FunctionChoiceBehavior = FunctionChoiceBehavior.Auto()
-        };
-    }
-
-    /// <summary>
-    /// Loads the system prompt from the embedded .prompty file.
-    /// The file is included as a project item and copied to the output directory.
-    /// </summary>
-    private static string LoadSystemPrompt()
-    {
-        // Resolve the path relative to the executing assembly's location.
-        // This works both in development (bin/Debug) and when deployed.
-        var assemblyDir = Path.GetDirectoryName(typeof(PharmacyAssistantService).Assembly.Location)!;
-        var promptPath = Path.Combine(assemblyDir, "AI", "PromptTemplates", "PharmacyAssistant.prompty");
-
-        if (File.Exists(promptPath))
-            return File.ReadAllText(promptPath);
-
-        // Fallback minimal system prompt if the file is missing.
-        return "You are a helpful pharmacy assistant for PharmaLink. " +
-               "Always recommend consulting a licensed pharmacist or doctor for medical advice.";
     }
 }

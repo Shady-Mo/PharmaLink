@@ -18,8 +18,16 @@ namespace Application.DTOs.Order.Responses
 
         public OrderStatus OrderStatus { get; set; }
         public decimal TotalAmount { get; set; }
+        public DateTime CreatedAt { get; set; }
+
+        /// <summary>
+        /// AI-generated explanation of how this order was routed/split across pharmacy branches.
+        /// Surfaced so the frontend can show the reasoning behind the chosen fulfillment plan.
+        /// </summary>
+        public string? AiRoutingDescription { get; set; }
 
         public OrderSummaryDTO Summary { get; set; } = null!;
+
 
         public ICollection<OrderFulfillmentLegResponseDTO> FulfillmentLegs { get; set; } 
             = new HashSet<OrderFulfillmentLegResponseDTO>();

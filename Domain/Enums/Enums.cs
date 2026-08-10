@@ -27,7 +27,9 @@ public enum OrderStatus : byte
     Processing = 2,
     Shipped = 3,
     Completed = 4,
-    Cancelled = 5
+    Cancelled = 5,
+    PendingPrescriptionReview = 6,
+    PrescriptionRejected = 7
 }
 
 public enum ItemStatus : byte
@@ -63,17 +65,7 @@ public enum PrescriptionReviewStatus : byte
     OrderCreated = 4
 }
 
-public enum DrugCategory : byte
-{
-    PainRelievers = 1,
-    Antibiotics = 2,
-    DigestiveSystem = 3,
-    Diabetes = 4,
-    Cardiovascular = 5,
-    BloodPressure = 6,
-    AntiInflammatory = 7,
-    Other = 8
-}
+
 
 public enum DrugAvailabilityStatus : byte
 {
