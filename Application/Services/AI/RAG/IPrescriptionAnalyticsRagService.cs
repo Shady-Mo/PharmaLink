@@ -10,5 +10,7 @@ public interface IPrescriptionAnalyticsRagService
 
     Task<int> ReindexPrescriptionsAsync(CancellationToken cancellationToken = default);
 
+    Task<int> EnsurePrescriptionsIndexedAsync(CancellationToken cancellationToken = default);
+
     Task IndexSinglePrescriptionAsync(Guid prescriptionReviewId, CancellationToken cancellationToken = default);
 }

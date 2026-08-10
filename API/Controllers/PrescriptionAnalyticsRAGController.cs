@@ -81,4 +81,23 @@ public class PrescriptionAnalyticsRAGController : ControllerBase
             totalIndexed = indexedCount
         });
     }
+
+    /// <summary>
+    /// Synchronizes and generates embeddings for any unindexed/new prescription reviews.
+    /// Accessible by Pharmacists, Pharmacy Admins, System Admins, and Review Team.
+    /// </summary>
+    [HttpPost("sync-embeddings")]
+    [Authorize(Roles = $"{AppRoles.Pharmacist},{AppRoles.PharmacyAdmin},{AppRoles.Admin},{AppRoles.PrescriptionReviewTeam}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> SyncEmbeddings(CancellationToken cancellationToken)
+    {
+        var newlyIndexedCount = await _ragService.EnsurePrescriptionsIndexedAsync(cancellationToken);
+        return Ok(new
+        {
+            message = newlyIndexedCount > 0
+                ? $"تم إنشاء الـ Embeddings بنجاح لعدد {newlyIndexedCount} روشتة جديدة."
+                : "جميع الروشتات تحتوي بالفعل على Embeddings ومحدثة بالكامل.",
+            newlyIndexedCount
+        });
+    }
 }

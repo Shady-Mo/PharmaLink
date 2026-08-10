@@ -45,6 +45,9 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
         if (string.IsNullOrWhiteSpace(request.Question))
             throw new ArgumentException("Question cannot be empty.", nameof(request.Question));
 
+        // 0. Auto-index any newly added or unindexed prescriptions before executing query
+        await EnsurePrescriptionsIndexedAsync(cancellationToken);
+
         // 1. Authorization: block competitor-pharmacy queries, resolve branchId restriction if needed
         var restrictedBranchId = await ResolveAuthorizationAsync(request, cancellationToken);
 
@@ -209,6 +212,56 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
 
         if (review != null)
             await IndexPrescriptionInternalAsync(review, cancellationToken);
+    }
+
+    public async Task<int> EnsurePrescriptionsIndexedAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogInformation("Checking for unindexed prescription reviews in vector store...");
+
+        var candidateReviewIds = await _dbContext.PrescriptionReviews
+            .AsNoTracking()
+            .Where(r => r.Medicines.Any() || !string.IsNullOrWhiteSpace(r.ExtractedText))
+            .Select(r => r.PrescriptionReviewId)
+            .ToListAsync(cancellationToken);
+
+        if (candidateReviewIds.Count == 0)
+        {
+            return 0;
+        }
+
+        var indexedReviewIds = await _dbContext.PrescriptionVectorIndices
+            .AsNoTracking()
+            .Select(v => v.PrescriptionReviewId)
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        var unindexedIds = candidateReviewIds.Except(indexedReviewIds).ToList();
+
+        if (unindexedIds.Count == 0)
+        {
+            _logger.LogInformation("All prescription reviews are already indexed in vector store.");
+            return 0;
+        }
+
+        _logger.LogInformation("Found {Count} unindexed prescription review(s). Generating embeddings...", unindexedIds.Count);
+
+        int newlyIndexed = 0;
+        foreach (var reviewId in unindexedIds)
+        {
+            var review = await _dbContext.PrescriptionReviews
+                .Include(r => r.Medicines)
+                .Include(r => r.Patient)
+                .FirstOrDefaultAsync(r => r.PrescriptionReviewId == reviewId, cancellationToken);
+
+            if (review != null)
+            {
+                await IndexPrescriptionInternalAsync(review, cancellationToken);
+                newlyIndexed++;
+            }
+        }
+
+        _logger.LogInformation("Auto-indexing complete. Successfully indexed {Count} new prescription review(s).", newlyIndexed);
+        return newlyIndexed;
     }
 
     private async Task IndexPrescriptionInternalAsync(PrescriptionReview review, CancellationToken cancellationToken)
