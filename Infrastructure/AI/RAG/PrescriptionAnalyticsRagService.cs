@@ -54,10 +54,15 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
         // 2. Auto-detect intent from question text
         bool isPediatricQuery = DetectPediatricIntent(request.Question);
 
-        // 3. Auto-detect city from question if not provided
+        // 3. Auto-detect city & governorate from question if not provided
         if (string.IsNullOrWhiteSpace(request.City))
         {
             request.City = await DetectCityFromQuestionAsync(request.Question, cancellationToken);
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Governorate))
+        {
+            request.Governorate = await DetectGovernorateFromQuestionAsync(request.Question, cancellationToken);
         }
 
         // 4. Prepare scope labels for response & prompt
@@ -107,7 +112,7 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
         }
 
         // 8. Aggregate statistical metrics
-        var topDrugs = AggregatePrescribedDrugs(searchResults);
+        var topDrugs = AggregatePrescribedDrugs(searchResults, filterPediatricOnly: isPediatricQuery);
         var categories = AggregateCategories(searchResults);
         var matchedRefs = searchResults.Select(r => new PrescriptionRefDTO
         {
@@ -404,7 +409,8 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
     // ─────────────────────────────────────────────────────────────────────────
 
     private static List<PrescribedDrugMetricDTO> AggregatePrescribedDrugs(
-        IReadOnlyList<VectorSearchResult<PrescriptionVectorIndex>> searchResults)
+        IReadOnlyList<VectorSearchResult<PrescriptionVectorIndex>> searchResults,
+        bool filterPediatricOnly = false)
     {
         var dict = new Dictionary<string, PrescribedDrugMetricDTO>(StringComparer.OrdinalIgnoreCase);
         int total = searchResults.Count;
@@ -418,8 +424,15 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
                 {
                     var name = element.GetProperty("MedicineName").GetString() ?? "دواء غير معروف";
                     var generic = element.TryGetProperty("GenericName", out var g) ? g.GetString() : null;
+                    var dosageForm = element.TryGetProperty("DosageForm", out var df) ? df.GetString() : null;
                     int qty = element.TryGetProperty("Quantity", out var q) ? q.GetInt32() : 1;
-                    bool pediatric = element.TryGetProperty("IsPediatric", out var p) && p.GetBoolean();
+                    bool pediatric = (element.TryGetProperty("IsPediatric", out var p) && p.GetBoolean())
+                                     || IsPediatricMedicine(name, dosageForm);
+
+                    if (filterPediatricOnly && !pediatric)
+                    {
+                        continue;
+                    }
 
                     if (!dict.TryGetValue(name, out var metric))
                     {
@@ -540,14 +553,125 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
 
     private async Task<string?> DetectCityFromQuestionAsync(string question, CancellationToken cancellationToken)
     {
-        var cities = await _dbContext.PrescriptionVectorIndices.AsNoTracking()
+        var normQuestion = NormalizeArabicText(question);
+
+        // 1. Known Egyptian city aliases dictionary
+        var knownCityAliases = new (string Key, string Value)[]
+        {
+            ("شبرا الخيمة", "شبر الخيمة"),
+            ("شبر الخيمة", "شبر الخيمة"),
+            ("شبرا", "شبرا"),
+            ("طنطا", "طنطا"),
+            ("اسكندرية", "الإسكندرية"),
+            ("الاسكندرية", "الإسكندرية"),
+            ("إسكندرية", "الإسكندرية"),
+            ("الإسكندرية", "الإسكندرية"),
+            ("المنصورة", "المنصورة"),
+            ("المحلة الكبرى", "المحلة الكبرى"),
+            ("المحلة", "المحلة الكبرى"),
+            ("الزقازيق", "الزقازيق"),
+            ("شبين الكوم", "شبين الكوم"),
+            ("شبين", "شبين الكوم"),
+            ("دمنهور", "دمنهور"),
+            ("بنها", "بنها"),
+            ("بورسعيد", "بورسعيد"),
+            ("السويس", "السويس"),
+            ("الاسماعيلية", "الإسماعيلية"),
+            ("الإسماعيلية", "الإسماعيلية"),
+            ("القاهرة", "القاهرة"),
+            ("الجيزة", "الجيزة")
+        };
+
+        foreach (var (key, value) in knownCityAliases)
+        {
+            if (normQuestion.Contains(NormalizeArabicText(key)))
+                return value;
+        }
+
+        // 2. Dynamic check against database cities
+        var dbCities = await _dbContext.PrescriptionVectorIndices.AsNoTracking()
             .Select(x => x.City)
+            .Union(_dbContext.Addresses.AsNoTracking().Select(a => a.City))
+            .Where(c => !string.IsNullOrWhiteSpace(c))
             .Distinct()
             .ToListAsync(cancellationToken);
 
-        return cities.FirstOrDefault(c =>
-            !string.IsNullOrWhiteSpace(c) &&
-            question.Contains(c, StringComparison.OrdinalIgnoreCase));
+        foreach (var dbCity in dbCities)
+        {
+            var normDbCity = NormalizeArabicText(dbCity);
+            if (!string.IsNullOrWhiteSpace(normDbCity) && (normQuestion.Contains(normDbCity) || normDbCity.Contains(normQuestion)))
+                return dbCity;
+        }
+
+        return null;
+    }
+
+    private async Task<string?> DetectGovernorateFromQuestionAsync(string question, CancellationToken cancellationToken)
+    {
+        var normQuestion = NormalizeArabicText(question);
+
+        var knownGovs = new (string Key, string Value)[]
+        {
+            ("الغربية", "الغربية"),
+            ("الإسكندرية", "الإسكندرية"),
+            ("الاسكندرية", "الإسكندرية"),
+            ("اسكندرية", "الإسكندرية"),
+            ("القاهرة", "القاهرة"),
+            ("الجيزة", "الجيزة"),
+            ("القليوبية", "القليوبية"),
+            ("الدقهلية", "الدقهلية"),
+            ("الشرقية", "الشرقية"),
+            ("المنوفية", "المنوفية"),
+            ("البحيرة", "البحيرة"),
+            ("كفر الشيخ", "كفر الشيخ"),
+            ("دمياط", "دمياط"),
+            ("بني سويف", "بني سويف"),
+            ("الفيوم", "الفيوم"),
+            ("المنيا", "المنيا"),
+            ("أسيوط", "أسيوط"),
+            ("سوهاج", "سوهاج"),
+            ("قنا", "قنا"),
+            ("الأقصر", "الأقصر"),
+            ("أسوان", "أسوان"),
+            ("السويس", "السويس"),
+            ("بورسعيد", "بورسعيد"),
+            ("الإسماعيلية", "الإسماعيلية")
+        };
+
+        foreach (var (key, value) in knownGovs)
+        {
+            if (normQuestion.Contains(NormalizeArabicText(key)))
+                return value;
+        }
+
+        var dbGovs = await _dbContext.PrescriptionVectorIndices.AsNoTracking()
+            .Select(x => x.Governorate)
+            .Union(_dbContext.Addresses.AsNoTracking().Select(a => a.Governorate))
+            .Where(g => !string.IsNullOrWhiteSpace(g))
+            .Distinct()
+            .ToListAsync(cancellationToken);
+
+        foreach (var dbGov in dbGovs)
+        {
+            var normDbGov = NormalizeArabicText(dbGov);
+            if (!string.IsNullOrWhiteSpace(normDbGov) && (normQuestion.Contains(normDbGov) || normDbGov.Contains(normQuestion)))
+                return dbGov;
+        }
+
+        return null;
+    }
+
+    private static string NormalizeArabicText(string input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+
+        return input.Trim()
+            .Replace('أ', 'ا')
+            .Replace('إ', 'ا')
+            .Replace('آ', 'ا')
+            .Replace('ة', 'ه')
+            .Replace('ى', 'ي')
+            .ToLowerInvariant();
     }
 
     private static string BuildRegionScope(PrescriptionAnalyticsRagRequestDTO request, Guid? restrictedBranchId)
@@ -622,11 +746,35 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
         var lower = medicineName.ToLowerInvariant();
         var formLower = (dosageForm ?? "").ToLowerInvariant();
 
-        return lower.Contains("pediatric") || lower.Contains("drops") ||
-               lower.Contains("syrup") || lower.Contains("suspension") ||
-               formLower.Contains("syrup") || formLower.Contains("drops") ||
-               formLower.Contains("شراب") || formLower.Contains("نقط") ||
-               formLower.Contains("أطفال");
+        if (lower.Contains("pediatric") || lower.Contains("drops") ||
+            lower.Contains("syrup") || lower.Contains("suspension") ||
+            lower.Contains("infant") || lower.Contains("baby") ||
+            lower.Contains("child") || lower.Contains("kid") ||
+            lower.Contains("أطفال") || lower.Contains("اطفال") ||
+            lower.Contains("رضع") || lower.Contains("بيبي") ||
+            formLower.Contains("syrup") || formLower.Contains("drops") ||
+            formLower.Contains("suspension") || formLower.Contains("شراب") ||
+            formLower.Contains("نقط") || formLower.Contains("معلق") ||
+            formLower.Contains("أطفال") || formLower.Contains("اطفال"))
+        {
+            return true;
+        }
+
+        bool isSuppository = lower.Contains("supp") || lower.Contains("suppositories") ||
+                             formLower.Contains("supp") || formLower.Contains("لبوس") ||
+                             formLower.Contains("تحاميل") || formLower.Contains("اقماع");
+
+        if (isSuppository)
+        {
+            if (lower.Contains("12.5") || lower.Contains("25mg") || lower.Contains("25 mg") ||
+                lower.Contains("0.7") || lower.Contains("infant") || lower.Contains("pediatric") ||
+                lower.Contains("أطفال") || lower.Contains("اطفال"))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

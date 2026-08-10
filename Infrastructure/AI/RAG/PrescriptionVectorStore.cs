@@ -92,12 +92,26 @@ public class PrescriptionVectorStore : IRagVectorStore<PrescriptionVectorIndex, 
         // 2. Geographic filters (market-wide — not branch restricted)
         if (!string.IsNullOrWhiteSpace(metadataFilter.City))
         {
-            query = query.Where(x => x.City.Contains(metadataFilter.City) || metadataFilter.City.Contains(x.City));
+            var rawCity = metadataFilter.City.Trim();
+            var normCity = rawCity.Replace('أ', 'ا').Replace('إ', 'ا').Replace('آ', 'ا').Replace('ة', 'ه').Replace('ى', 'ي');
+
+            query = query.Where(x =>
+                x.City.Contains(rawCity) ||
+                rawCity.Contains(x.City) ||
+                x.City.Replace("أ", "ا").Replace("إ", "ا").Replace("آ", "ا").Replace("ة", "ه").Replace("ى", "ي").Contains(normCity) ||
+                normCity.Contains(x.City.Replace("أ", "ا").Replace("إ", "ا").Replace("آ", "ا").Replace("ة", "ه").Replace("ى", "ي")));
         }
 
         if (!string.IsNullOrWhiteSpace(metadataFilter.Governorate))
         {
-            query = query.Where(x => x.Governorate.Contains(metadataFilter.Governorate));
+            var rawGov = metadataFilter.Governorate.Trim();
+            var normGov = rawGov.Replace('أ', 'ا').Replace('إ', 'ا').Replace('آ', 'ا').Replace('ة', 'ه').Replace('ى', 'ي');
+
+            query = query.Where(x =>
+                x.Governorate.Contains(rawGov) ||
+                rawGov.Contains(x.Governorate) ||
+                x.Governorate.Replace("أ", "ا").Replace("إ", "ا").Replace("آ", "ا").Replace("ة", "ه").Replace("ى", "ي").Contains(normGov) ||
+                normGov.Contains(x.Governorate.Replace("أ", "ا").Replace("إ", "ا").Replace("آ", "ا").Replace("ة", "ه").Replace("ى", "ي")));
         }
 
         // 3. Pediatric filter — only when explicitly flagged from question
