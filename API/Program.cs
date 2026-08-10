@@ -1,3 +1,4 @@
+using API.Hubs;
 using API.Notification;
 using Application.Hubs;
 using Application.Services.AI;
@@ -24,26 +25,26 @@ var app = builder.Build();
 //{
 //    var recurringJobManager = scope.ServiceProvider.GetRequiredService<IRecurringJobManager>();
 
-    try
-    {
-        var initializer = scope.ServiceProvider.GetRequiredService<PatientPrescriptionCollectionInitializer>();
-        await initializer.InitializeAsync();
-    }
-    catch (Exception ex)
-    {
-        var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
-            .CreateLogger("Startup");
-        startupLogger.LogError(ex,
-            "Failed to initialize Qdrant 'patient_prescriptions' collection. " +
-            "Prescription search will be degraded until Qdrant is reachable.");
-    }
+//    try
+//    {
+//        var initializer = scope.ServiceProvider.GetRequiredService<PatientPrescriptionCollectionInitializer>();
+//        await initializer.InitializeAsync();
+//    }
+//    catch (Exception ex)
+//    {
+//        var startupLogger = scope.ServiceProvider.GetRequiredService<ILoggerFactory>()
+//            .CreateLogger("Startup");
+//        startupLogger.LogError(ex,
+//            "Failed to initialize Qdrant 'patient_prescriptions' collection. " +
+//            "Prescription search will be degraded until Qdrant is reachable.");
+//    }
 
-    recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
-        "inventory-forecasting-daily-job",
-        job => job.RunDailyForecastAsync(),
-        Cron.Daily
-    );
-}
+//    recurringJobManager.AddOrUpdate<IInventoryForecastingBackgroundJob>(
+//        "inventory-forecasting-daily-job",
+//        job => job.RunDailyForecastAsync(),
+//        Cron.Daily
+//    );
+//}
 
 app.UseSwaggerDocs();
 
