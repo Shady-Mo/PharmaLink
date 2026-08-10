@@ -57,10 +57,9 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
                 continue;
             }
 
-            if (!_providerRegistry.TryGetProvider(target.ProviderName, out var executionProvider) || 
-                (target.ProviderName == "Gemini" && request.TaskType != AITaskType.Vision))
+            if (!_providerRegistry.TryGetProvider(target.ProviderName, out var executionProvider))
             {
-                // Fallback to the generic SK provider if specific one isn't found, or if it is Gemini for Chat/Agent tasks
+                // Provider not registered — fall back to the generic SemanticKernel provider
                 executionProvider = _providerRegistry.GetProvider("SemanticKernel");
             }
 
@@ -84,12 +83,21 @@ public class SemanticKernelPromptExecutionService : IPromptExecutionService
                     return execResult.Value!;
                 }, cancellationToken);
 
-                stopwatch.Stop();
-                _logger.LogInformation(
-                    "Successfully executed Prompt={PromptName} via {Provider}:{Model} in {ElapsedMs}ms",
-                    prompt.Name, target.ProviderName, target.ModelId, stopwatch.ElapsedMilliseconds);
-
                 result.LatencyMs = stopwatch.ElapsedMilliseconds;
+
+                Console.ForegroundColor = ConsoleColor.Cyan;
+                Console.WriteLine("\n=========================================================");
+                Console.WriteLine($"🤖 [AI MODEL REQUEST SUCCESS]");
+                Console.WriteLine($"🔹 Provider : {target.ProviderName}");
+                Console.WriteLine($"🔹 Model    : {target.ModelId}");
+                Console.WriteLine($"🔹 Prompt   : {prompt.Name}");
+                Console.WriteLine($"🔹 Latency  : {stopwatch.ElapsedMilliseconds} ms");
+                Console.WriteLine("---------------------------------------------------------");
+                Console.WriteLine("📄 [REQUEST RESULT]:");
+                Console.WriteLine(result.RawResponse);
+                Console.WriteLine("=========================================================\n");
+                Console.ResetColor();
+
                 return result;
             }
             catch (Exception ex) when (AIFallbackPolicy.IsTransient(ex))

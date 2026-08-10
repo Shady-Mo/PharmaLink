@@ -1,3 +1,5 @@
+using Domain.Entities.RAG;
+
 namespace Infrastructure.Data;
 
 public class AppDbContext(DbContextOptions<AppDbContext> options)
@@ -53,7 +55,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<Prescription> Prescriptions { get; set; }
     public DbSet<DeliveryJob> DeliveryJobs { get; set; }
     public DbSet<DeliveryDriver> DeliveryDrivers { get; set; }
-
+    public DbSet<PrescriptionVectorIndex> PrescriptionVectorIndices { get; set; }
 
 }
 

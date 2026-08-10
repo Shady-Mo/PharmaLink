@@ -1,4 +1,5 @@
 using Hangfire;
+using Hangfire.SqlServer;
 using Infrastructure.BackgroundJobs;
 
 namespace Infrastructure;

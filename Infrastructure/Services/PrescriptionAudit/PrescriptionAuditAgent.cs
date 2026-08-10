@@ -1,3 +1,5 @@
+using Application.Services.AI.RAG;
+
 namespace Infrastructure.Services.PrescriptionAudit;
 
 public class PrescriptionAuditAgent(
@@ -5,6 +7,7 @@ public class PrescriptionAuditAgent(
     IDrugCatalogPlugin drugCatalogPlugin,
     IAlternativeSearchPlugin alternativeSearchPlugin,
     IAgentProfileProvider agentProfileProvider,
+    IPrescriptionAnalyticsRagService ragService,
     AppDbContext context,
     ILogger<PrescriptionAuditAgent> logger)
     : IPrescriptionAuditAgent
@@ -184,6 +187,15 @@ public class PrescriptionAuditAgent(
 
         context.PrescriptionReviewMedicines.AddRange(medicines);
         await context.SaveChangesAsync(cancellationToken);
+
+        try
+        {
+            await ragService.IndexSinglePrescriptionAsync(review.PrescriptionReviewId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            logger.LogWarning(ex, "Failed to auto-index prescription review {ReviewId} in vector store.", review.PrescriptionReviewId);
+        }
 
         logger.LogInformation(
             "{AgentName} completed prescription audit for patient {PatientUserId}. Review {ReviewId}",

@@ -47,6 +47,12 @@ public static class AiDependencyInjection
         services.AddScoped<PromptExecutionService>();
         services.AddScoped<EmbeddingService>();
 
+        // RAG Framework Services
+        services.AddScoped<Domain.Abstractions.RAG.IRagVectorStore<Domain.Entities.RAG.PrescriptionVectorIndex, Application.DTOs.AI.RAG.PrescriptionMetadataFilter>,
+            Infrastructure.AI.RAG.PrescriptionVectorStore>();
+        services.AddScoped<Application.Services.AI.RAG.IPrescriptionAnalyticsRagService,
+            Infrastructure.AI.RAG.PrescriptionAnalyticsRagService>();
+
         services.AddHttpClient<TranscriptionService>();
         services.AddScoped<AiHealthService>();
 
