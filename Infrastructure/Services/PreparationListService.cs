@@ -14,6 +14,7 @@ namespace Infrastructure.Services
                 .Where(p => p.Branch.Pharmacy.PharmacistAssignments
                 .Any(pa => pa.PharmacistId == id && pa.IsActive) 
                 && p.LegStatus != LegStatus.Delivered
+                && p.LegStatus != LegStatus.OutForDelivery
                 && p.LegStatus != LegStatus.Cancelled)
                 .AsQueryable();
 

@@ -1,4 +1,5 @@
-﻿using Application.Services.AI;
+﻿using Application.DTOs.Supplier;
+using Application.Services.AI;
 using Infrastructure.Services;
 using Twilio.TwiML.Messaging;
 
@@ -232,9 +233,9 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
     [HttpGet("supplier-orders/{branchId:guid}")]
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
-    public async Task<IActionResult> GetBranchOrders(Guid branchId)
+    public async Task<IActionResult> GetBranchOrders(Guid branchId, [FromQuery] OrderFilterParams filterParams)
     {
-        var result = await _poService.GetBranchOrdersAsync(branchId);
+        var result = await _poService.GetBranchOrdersAsync(branchId, filterParams);
 
         if (result.IsFailure)
             return result.ToProblem();

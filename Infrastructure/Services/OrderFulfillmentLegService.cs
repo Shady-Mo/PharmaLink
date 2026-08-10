@@ -32,8 +32,8 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
     {
         var leg = await dbContext.OrderFulfillmentLegs
             .Include(o => o.Branch)
-            .Include(l => l.Order)
-            .ThenInclude(o => o.FulfillmentLegs)
+            .Include(l => l.Order).ThenInclude(a => a.DeliveryAddress)
+            .Include(l => l.Order).ThenInclude(o => o.FulfillmentLegs)
             .FirstOrDefaultAsync(l => l.LegId == legId, cancellationToken);
 
         if (leg is null)
@@ -87,14 +87,39 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             leg.Order.OrderStatus = OrderStatus.Completed;
 
 
-        if (request.Status == LegStatus.ReadyForPickup && leg.LegType == LegType.Delivery)
+        if (request.Status == LegStatus.OutForDelivery && leg.LegType == LegType.Delivery)
         {
+            var address = leg.Order.DeliveryAddress;
+            var fullAddress = $"{address.BuildingNumber} عمارة, دور {address.FloorNumber}, {address.AddressLine}, {address.City}";
+
+            double distanceKm = 0;
+            if (leg.Branch.GeoLocation != null && address.GeoLocation != null)
+            {
+                distanceKm = CalculateDistanceKm(
+                    leg.Branch.GeoLocation.Y, leg.Branch.GeoLocation.X,
+                    address.GeoLocation.Y, address.GeoLocation.X
+                );
+
+                distanceKm = Math.Round(distanceKm, 2);
+            }
+
+            decimal baseFee = 15.0m;
+            decimal pricePerExtraKm = 5.0m;
+            decimal calculatedFee = baseFee;
+
+            if (distanceKm > 2.0)
+            {
+                calculatedFee += (decimal)(distanceKm - 2.0) * pricePerExtraKm;
+            }
+
+            calculatedFee = Math.Round(calculatedFee, 0);
+
             var deliveryJob = new DeliveryJob
             {
                 JobId = Guid.NewGuid(),
                 LegId = leg.LegId,
                 Status = DeliveryJobStatus.Pending,
-                DeliveryFee = 30.0m
+                DeliveryFee = calculatedFee
             };
 
             dbContext.DeliveryJobs.Add(deliveryJob);
@@ -104,20 +129,17 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
 
             if (nearbyDriversResult.IsSuccess && nearbyDriversResult.Value.Any())
             {
-                var address = leg.Order.DeliveryAddress;
-
-                var fullAddress = $"{address.BuildingNumber} عمارة, دور {address.FloorNumber}, {address.AddressLine}, {address.City}";
-
-                double distanceMeters = leg.Branch.GeoLocation?.Distance(address.GeoLocation) ?? 0;
-                double distanceKm = Math.Round(distanceMeters / 1000.0, 2);
-
                 var jobDetails = new DeliveryJobNotificationDto
                 {
                     JobId = deliveryJob.JobId,
                     PharmacyName = leg.Branch.BranchName,
                     FullAddress = fullAddress,
                     DeliveryFee = deliveryJob.DeliveryFee,
-                    DistanceKm = distanceKm
+                    DistanceKm = distanceKm,
+                    Latitude = address.GeoLocation.Y,
+                    Longitude = address.GeoLocation.X,
+                    PharmacyLatitude = leg.Branch.GeoLocation.Y,
+                    PharmacyLongitude = leg.Branch.GeoLocation.X
                 };
 
                 await notificationService.BroadcastNewDeliveryJobAsync(nearbyDriversResult.Value, jobDetails);
@@ -307,4 +329,20 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
 
         return Result.Success(dto);
     }
+
+
+    private static double CalculateDistanceKm(double lat1, double lon1, double lat2, double lon2)
+    {
+        var r = 6371;
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Asin(Math.Min(1, Math.Sqrt(a)));
+        return r * c;
+    }
+
+    private static double ToRadians(double angle) => Math.PI * angle / 180.0;
+
 }

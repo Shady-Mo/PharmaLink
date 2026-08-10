@@ -1,5 +1,6 @@
 using Hangfire;
-using Infrastructure.Services;
+using Hangfire.SqlServer;
+using Infrastructure.BackgroundJobs;
 
 namespace Infrastructure;
 
@@ -20,7 +21,16 @@ public static class DependencyInjection
 
             services.AddDbContext<AppDbContext>(options =>
             {
-                options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
+                options.UseSqlServer(connectionString, sqlOptions => {
+                    
+                    sqlOptions.UseNetTopologySuite();
+                    sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,                  
+                maxRetryDelay: TimeSpan.FromSeconds(30), 
+                errorNumbersToAdd: null             
+            );
+
+                });
 
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });
@@ -34,6 +44,7 @@ public static class DependencyInjection
             services.AddJwtServices(configuration);
 
             services.AddHttpContextAccessor();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             services.AddHttpClient<IWebhookOtpDispatcher, WhapiWhatsAppOtpDispatcher>();
 
@@ -109,6 +120,7 @@ public static class DependencyInjection
 
             services.AddScoped<ISupplierDrugService, SupplierDrugService>();
             services.AddScoped<ISupplierProfileService, SupplierProfileService>();
+            services.AddScoped<IDriverProfileService, DriverProfileService>();
 
             services.AddScoped<ISupplierOrderService, SupplierOrderService>();
             services.Configure<GeminiSettings>(
@@ -117,13 +129,13 @@ public static class DependencyInjection
             services.AddTransient<GeminiRetryHandler>();
 
             services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
-                {
-                    var settings = configuration
-                        .GetSection(GeminiSettings.SectionName)
-                        .Get<GeminiSettings>() ?? new GeminiSettings();
+            {
+                var settings = configuration
+                    .GetSection(GeminiSettings.SectionName)
+                    .Get<GeminiSettings>() ?? new GeminiSettings();
 
-                    client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
-                })
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            })
                 .AddHttpMessageHandler<GeminiRetryHandler>();
 
 
@@ -165,6 +177,15 @@ public static class DependencyInjection
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
 
+
+            // Program.cs / DependencyInjection.cs
+            services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
+            services.AddScoped<IPrescriptionHistoryRagService, AI.Services.PrescriptionHistoryRagService>();
+            services.AddScoped<PatientPrescriptionSearchPlugin>();
+            services.AddScoped<IPrescriptionEmbeddingJob, PrescriptionEmbeddingJob>();
+            services.AddScoped<PatientPrescriptionCollectionInitializer>();
+
+
             services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
             {
                 client.BaseAddress = new Uri("https://meilisearch.chefaa.com/");
@@ -201,10 +222,10 @@ public static class DependencyInjection
 
 
             services.AddAuthentication(options =>
-                {
-                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                })
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
                 .AddJwtBearer(options =>
                 {
                     options.TokenValidationParameters = new TokenValidationParameters
@@ -221,6 +242,24 @@ public static class DependencyInjection
 
                         RoleClaimType = JwtClaimTypes.RoleName,
                         NameClaimType = JwtClaimTypes.UserId
+                    };
+
+                    options.Events = new JwtBearerEvents
+                    {
+                        OnMessageReceived = context =>
+                        {
+                            var accessToken = context.Request.Query["access_token"];
+                            var path = context.HttpContext.Request.Path;
+
+                            if (!string.IsNullOrEmpty(accessToken) &&
+                                (path.StartsWithSegments("/hubs/delivery") ||
+                                 path.StartsWithSegments("/DeliveryHub") ||
+                                 path.StartsWithSegments("/hubs/Delivery")))
+                            {
+                                context.Token = accessToken;
+                            }
+                            return Task.CompletedTask;
+                        }
                     };
                 });
 

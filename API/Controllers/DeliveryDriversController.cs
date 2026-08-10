@@ -18,7 +18,6 @@ namespace API.Controllers
         }
 
         [HttpPost("jobs/{jobId}/accept")]
-        [Authorize(Roles = AppRoles.DeliveryDriver)]
         public async Task<IActionResult> AcceptJob(Guid jobId)
         {
             var driverId = User.GetUserId();
@@ -29,7 +28,6 @@ namespace API.Controllers
         }
 
         [HttpPost("jobs/{jobId}/complete")]
-        [Authorize(Roles = AppRoles.DeliveryDriver)]
         public async Task<IActionResult> CompleteJob(Guid jobId)
         {
             var driverId = User.GetUserId();
@@ -37,6 +35,22 @@ namespace API.Controllers
             var result = await driverService.CompleteJobAsync(driverId, jobId);
 
             return result.IsSuccess ? Ok(new { Message = "تم إنهاء الطلب والتسليم بنجاح." }) : result.ToProblem();
+        }
+
+        [HttpGet("available-jobs")]
+        public async Task<IActionResult> GetAvailableJobs([FromQuery] double? lat, [FromQuery] double? lng)
+        {
+            var result = await driverService.GetAvailableJobsAsync(lat, lng);
+            return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
+        }
+
+        [HttpGet("history")]
+        public async Task<IActionResult> GetHistory([FromQuery] int pageNumber = 1, [FromQuery] int pageSize = 10)
+        {
+            var driverId = User.GetUserId();
+
+            var result = await driverService.GetDriverHistoryAsync(driverId, pageNumber, pageSize);
+            return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
         }
     }
 }

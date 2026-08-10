@@ -623,6 +623,7 @@ namespace Infrastructure.Migrations
 
                     b.HasKey("Id");
 
+                    b.ToTable("Drugs");
                     b.ToTable("InventoryForecastLogs");
                 });
 
@@ -1025,6 +1026,79 @@ namespace Infrastructure.Migrations
                     b.ToTable("PharmacyInventories");
                 });
 
+            modelBuilder.Entity("Domain.Entities.PharmacyMissingStockLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("DrugId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("DrugId1")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<bool>("IsProcessed")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime>("LoggedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("PharmacyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PharmacyId1")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<int>("QuantityRequested")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("DrugId1");
+
+                    b.HasIndex("PharmacyId1");
+
+                    b.ToTable("PharmacyMissingStockLog");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PharmacyReport", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("FilePath")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("IsDownloaded")
+                        .HasColumnType("bit");
+
+                    b.Property<int>("PharmacyId")
+                        .HasColumnType("int");
+
+                    b.Property<Guid>("PharmacyId1")
+                        .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("ReportTitle")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("PharmacyId1");
+
+                    b.ToTable("PharmacyReport");
+                });
+
             modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1130,11 +1204,26 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
+                    b.Property<string>("ClinicOrHospital")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedOrderId")
                         .HasColumnType("uniqueidentifier");
+
+                    b.Property<string>("DoctorName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime?>("EmbeddedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("EmbeddingFailureReason")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int>("EmbeddingStatus")
+                        .HasColumnType("int");
 
                     b.Property<string>("ExtractedText")
                         .HasColumnType("nvarchar(max)");
@@ -1174,6 +1263,9 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("Specialty")
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1936,6 +2028,36 @@ namespace Infrastructure.Migrations
                     b.Navigation("Branch");
 
                     b.Navigation("Drug");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PharmacyMissingStockLog", b =>
+                {
+                    b.HasOne("Domain.Entities.Drug", "Drug")
+                        .WithMany()
+                        .HasForeignKey("DrugId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.Entities.Pharmacy", "Pharmacy")
+                        .WithMany()
+                        .HasForeignKey("PharmacyId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Drug");
+
+                    b.Navigation("Pharmacy");
+                });
+
+            modelBuilder.Entity("Domain.Entities.PharmacyReport", b =>
+                {
+                    b.HasOne("Domain.Entities.Pharmacy", "Pharmacy")
+                        .WithMany()
+                        .HasForeignKey("PharmacyId1")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Pharmacy");
                 });
 
             modelBuilder.Entity("Domain.Entities.PhoneVerificationOtp", b =>
