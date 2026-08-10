@@ -1,0 +1,34 @@
+*   [33mde04da6[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m Merge pull request #114 from Shady-Mo/shadyi
+[31m|[m[32m\[m  
+[31m|[m *   [33ma628b94[m[33m ([m[1;31morigin/shadyi[m[33m)[m Merge branch 'master' into shadyi
+[31m|[m [33m|[m[31m\[m  
+[31m|[m [33m|[m[31m/[m  
+[31m|[m[31m/[m[33m|[m   
+* [33m|[m   [33ma6a5188[m Merge pull request #113 from Shady-Mo/shadyi
+[35m|[m[36m\[m [33m\[m  
+[35m|[m * [33m\[m   [33me8a2d1a[m Merge branch 'master' into shadyi
+[35m|[m [1;31m|[m[35m\[m [33m\[m  
+[35m|[m [1;31m|[m[35m/[m [33m/[m  
+[35m|[m[35m/[m[1;31m|[m [33m|[m   
+[35m|[m * [33m|[m [33mce607c1[m //
+[35m|[m * [33m|[m [33m5b9af6d[m add Entities//
+[35m|[m [1;32m|[m *   [33m63d951d[m[33m ([m[1;32mshadyi[m[33m)[m fix
+[35m|[m [1;32m|[m [1;33m|[m[35m\[m  
+[35m|[m [1;32m|[m[35m_[m[1;33m|[m[35m/[m  
+[35m|[m[35m/[m[1;32m|[m [1;33m|[m   
+* [1;32m|[m [1;33m|[m [33m45ee650[m Optimize AI at writing text
+* [1;32m|[m [1;33m|[m [33m4044eaa[m Optimize AI to be more accurate at describing the route to branches
+* [1;32m|[m [1;33m|[m [33m6f9fbe0[m Optimize AI to be more accurate at describing the route to branches
+* [1;32m|[m [1;33m|[m   [33md461fa6[m Merge branch 'master' of https://github.com/Shady-Mo/PharmaLink
+[1;35m|[m[1;36m\[m [1;32m\[m [1;33m\[m  
+[1;35m|[m * [1;32m|[m [1;33m|[m [33ma30e8db[m add pagination to supplier-orders
+* [1;36m|[m [1;32m|[m [1;33m|[m [33m12dcc40[m Fix error
+[31m|[m[1;36m\[m[1;36m|[m [1;32m|[m [1;33m|[m 
+[31m|[m * [1;32m|[m [1;33m|[m   [33m5e1d828[m Merge branch 'ImplementRag'
+[31m|[m [33m|[m[34m\[m [1;32m\[m [1;33m\[m  
+[31m|[m [33m|[m * [1;32m|[m [1;33m|[m [33m7c3e4ad[m[33m ([m[1;31morigin/ImplementRag[m[33m)[m add endpoints
+[31m|[m [33m|[m * [1;32m|[m [1;33m|[m [33md7b0e85[m add files
+[31m|[m [33m|[m * [1;32m|[m [1;33m|[m [33m954f2a6[m add migrations and database
+[31m|[m [33m|[m * [1;32m|[m [1;33m|[m [33mbf9b69d[m add qdrant
+[31m|[m [33m|[m * [1;32m|[m [1;33m|[m [33m118362c[m Add New files
+[31m|[m * [34m|[m [1;32m|[m [1;33m|[m [33me50ce5f[m add segl eltwseel
