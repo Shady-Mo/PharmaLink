@@ -16,6 +16,12 @@ public class PrescriptionReview
 
     public string? AISummary { get; set; }
 
+    public string? DoctorName { get; set; }
+
+    public string? Specialty { get; set; }
+
+    public string? ClinicOrHospital { get; set; }
+
     public double? ExtractionConfidence { get; set; }
 
     public PrescriptionProcessingStatus ProcessingStatus { get; set; } =
@@ -33,6 +39,11 @@ public class PrescriptionReview
 
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+
+    public PrescriptionEmbeddingStatus EmbeddingStatus { get; set; } = PrescriptionEmbeddingStatus.Pending;
+    public DateTime? EmbeddedAt { get; set; }
+    public string? EmbeddingFailureReason { get; set; }
 
     // Navigation properties
     public Patient Patient { get; set; } = null!;

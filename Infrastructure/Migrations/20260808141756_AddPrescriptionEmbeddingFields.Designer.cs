@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260808141756_AddPrescriptionEmbeddingFields")]
+    partial class AddPrescriptionEmbeddingFields
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -145,8 +148,8 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("UserType")
                         .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("nvarchar(21)");
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
 
                     b.HasKey("Id");
 
@@ -218,51 +221,6 @@ namespace Infrastructure.Migrations
                         {
                             t.HasCheckConstraint("CK_CartItem_Quantity", "\"Quantity\" > 0");
                         });
-                });
-
-            modelBuilder.Entity("Domain.Entities.DeliveryJob", b =>
-                {
-                    b.Property<Guid>("JobId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("AcceptedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("DeliveryFee")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("DriverId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("LegId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("PickedUpAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("JobId");
-
-                    b.HasIndex("DriverId");
-
-                    b.HasIndex("LegId");
-
-                    b.ToTable("DeliveryJobs");
                 });
 
             modelBuilder.Entity("Domain.Entities.Drug", b =>
@@ -675,9 +633,6 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AiRoutingDescription")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -1058,63 +1013,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("PhoneVerificationOtps", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Entities.Prescription", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ConsumedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid?>("OrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("RejectionReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StoragePath")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderId")
-                        .IsUnique()
-                        .HasFilter("[OrderId] IS NOT NULL");
-
-                    b.HasIndex("PatientId");
-
-                    b.ToTable("Prescriptions");
-                });
-
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
                 {
                     b.Property<Guid>("PrescriptionReviewId")
@@ -1130,17 +1028,11 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
-                    b.Property<string>("ClinicOrHospital")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedOrderId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DoctorName")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime?>("EmbeddedAt")
                         .HasColumnType("datetime2");
@@ -1189,9 +1081,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Specialty")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1513,26 +1402,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Entities.DeliveryDriver", b =>
-                {
-                    b.HasBaseType("Domain.Entities.AppUser");
-
-                    b.Property<Point>("CurrentLocation")
-                        .HasColumnType("geography");
-
-                    b.Property<int>("DriverAvailability")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("LastLocationUpdateUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("VehicleInfo")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasDiscriminator().HasValue("DeliveryDriver");
-                });
-
             modelBuilder.Entity("Domain.Entities.Patient", b =>
                 {
                     b.HasBaseType("Domain.Entities.AppUser");
@@ -1662,24 +1531,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Cart");
 
                     b.Navigation("Drug");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DeliveryJob", b =>
-                {
-                    b.HasOne("Domain.Entities.DeliveryDriver", "Driver")
-                        .WithMany("DeliveryJobs")
-                        .HasForeignKey("DriverId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Domain.Entities.OrderFulfillmentLeg", "FulfillmentLeg")
-                        .WithMany()
-                        .HasForeignKey("LegId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Driver");
-
-                    b.Navigation("FulfillmentLeg");
                 });
 
             modelBuilder.Entity("Domain.Entities.Drug", b =>
@@ -1912,24 +1763,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Domain.Entities.Prescription", b =>
-                {
-                    b.HasOne("Domain.Entities.Order", "Order")
-                        .WithOne("Prescription")
-                        .HasForeignKey("Domain.Entities.Prescription", "OrderId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Domain.Entities.Patient", "Patient")
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Order");
-
-                    b.Navigation("Patient");
-                });
-
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
                 {
                     b.HasOne("Domain.Entities.Order", "CreatedOrder")
@@ -2124,8 +1957,6 @@ namespace Infrastructure.Migrations
 
                     b.Navigation("Items");
 
-                    b.Navigation("Prescription");
-
                     b.Navigation("PrescriptionReview");
                 });
 
@@ -2161,11 +1992,6 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
                 {
                     b.Navigation("Medicines");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DeliveryDriver", b =>
-                {
-                    b.Navigation("DeliveryJobs");
                 });
 
             modelBuilder.Entity("Domain.Entities.Patient", b =>

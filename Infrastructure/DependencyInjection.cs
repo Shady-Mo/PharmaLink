@@ -1,5 +1,5 @@
 using Hangfire;
-using Infrastructure.Services;
+using Infrastructure.BackgroundJobs;
 
 namespace Infrastructure;
 
@@ -34,6 +34,7 @@ public static class DependencyInjection
             services.AddJwtServices(configuration);
 
             services.AddHttpContextAccessor();
+            services.AddScoped<ICurrentUserService, CurrentUserService>();
 
             services.AddHttpClient<IWebhookOtpDispatcher, WhapiWhatsAppOtpDispatcher>();
 
@@ -118,13 +119,13 @@ public static class DependencyInjection
             services.AddTransient<GeminiRetryHandler>();
 
             services.AddHttpClient(GeminiExtractionService.HttpClientName, client =>
-                {
-                    var settings = configuration
-                        .GetSection(GeminiSettings.SectionName)
-                        .Get<GeminiSettings>() ?? new GeminiSettings();
+            {
+                var settings = configuration
+                    .GetSection(GeminiSettings.SectionName)
+                    .Get<GeminiSettings>() ?? new GeminiSettings();
 
-                    client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
-                })
+                client.Timeout = TimeSpan.FromMinutes(settings.TimeoutSeconds);
+            })
                 .AddHttpMessageHandler<GeminiRetryHandler>();
 
 
@@ -166,6 +167,15 @@ public static class DependencyInjection
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
 
+
+            // Program.cs / DependencyInjection.cs
+            services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
+            services.AddScoped<IPrescriptionHistoryRagService, AI.Services.PrescriptionHistoryRagService>();
+            services.AddScoped<PatientPrescriptionSearchPlugin>();
+            services.AddScoped<IPrescriptionEmbeddingJob, PrescriptionEmbeddingJob>();
+            services.AddScoped<PatientPrescriptionCollectionInitializer>();
+
+
             services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
             {
                 client.BaseAddress = new Uri("https://meilisearch.chefaa.com/");
@@ -202,10 +212,10 @@ public static class DependencyInjection
 
 
             services.AddAuthentication(options =>
-                {
-                    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-                    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-                })
+            {
+                options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+                options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+            })
                 .AddJwtBearer(options =>
                 {
                     options.TokenValidationParameters = new TokenValidationParameters
