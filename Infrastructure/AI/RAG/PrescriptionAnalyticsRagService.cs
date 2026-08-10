@@ -51,10 +51,22 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
         // 1. Authorization: block competitor-pharmacy queries, resolve branchId restriction if needed
         var restrictedBranchId = await ResolveAuthorizationAsync(request, cancellationToken);
 
-        // 2. Auto-detect intent from question text
-        bool isPediatricQuery = DetectPediatricIntent(request.Question);
+        // 2. Auto-detect time range from question if not provided in DTO
+        if (!request.StartDate.HasValue && !request.EndDate.HasValue)
+        {
+            var (detectedStart, detectedEnd) = DetectTimeRangeFromQuestion(request.Question);
+            if (detectedStart.HasValue)
+            {
+                request.StartDate = detectedStart;
+                request.EndDate = detectedEnd;
+            }
+        }
 
-        // 3. Auto-detect city & governorate from question if not provided
+        // 3. Auto-detect category intent & pediatric flag from question text
+        var categoryIntent = DetectCategoryIntent(request.Question);
+        bool isPediatricQuery = categoryIntent == CategoryIntent.Pediatric || DetectPediatricIntent(request.Question);
+
+        // 4. Auto-detect city & governorate from question if not provided
         if (string.IsNullOrWhiteSpace(request.City))
         {
             request.City = await DetectCityFromQuestionAsync(request.Question, cancellationToken);
@@ -65,15 +77,15 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
             request.Governorate = await DetectGovernorateFromQuestionAsync(request.Question, cancellationToken);
         }
 
-        // 4. Prepare scope labels for response & prompt
+        // 5. Prepare scope labels for response & prompt
         var regionScope = BuildRegionScope(request, restrictedBranchId);
         var timeRange = BuildTimeRange(request);
 
-        // 5. Generate embedding for the question
+        // 6. Generate embedding for the question
         _logger.LogInformation("Generating embedding for analytics question: '{Question}'", request.Question);
         var queryEmbedding = await _embeddingService.GenerateEmbeddingAsync(request.Question);
 
-        // 6. Query vector store
+        // 7. Query vector store
         var metadataFilter = new PrescriptionMetadataFilter
         {
             RestrictedBranchId = restrictedBranchId,
@@ -93,7 +105,7 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
 
         _logger.LogInformation("Vector search retrieved {Count} matching prescription documents.", searchResults.Count);
 
-        // 7. Early exit when no results — avoid wasting an LLM call
+        // 8. Early exit when no results — avoid wasting an LLM call
         if (searchResults.Count == 0)
         {
             stopwatch.Stop();
@@ -113,9 +125,9 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
             };
         }
 
-        // 8. Aggregate statistical metrics
-        var topDrugs = AggregatePrescribedDrugs(searchResults, filterPediatricOnly: isPediatricQuery);
-        var categories = AggregateCategories(searchResults);
+        // 9. Aggregate statistical metrics
+        var topDrugs = AggregatePrescribedDrugs(searchResults, categoryIntent);
+        var categories = AggregateCategories(searchResults, categoryIntent, topDrugs);
         var matchedRefs = searchResults.Select(r => new PrescriptionRefDTO
         {
             PrescriptionReviewId = r.Document.PrescriptionReviewId,
@@ -412,7 +424,7 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
 
     private static List<PrescribedDrugMetricDTO> AggregatePrescribedDrugs(
         IReadOnlyList<VectorSearchResult<PrescriptionVectorIndex>> searchResults,
-        bool filterPediatricOnly = false)
+        CategoryIntent categoryIntent = CategoryIntent.None)
     {
         var dict = new Dictionary<string, PrescribedDrugMetricDTO>(StringComparer.OrdinalIgnoreCase);
         int total = searchResults.Count;
@@ -431,7 +443,7 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
                     bool pediatric = (element.TryGetProperty("IsPediatric", out var p) && p.GetBoolean())
                                      || IsPediatricMedicine(name, dosageForm);
 
-                    if (filterPediatricOnly && !pediatric)
+                    if (categoryIntent != CategoryIntent.None && !MatchesCategoryIntent(name, generic, dosageForm, categoryIntent))
                     {
                         continue;
                     }
@@ -473,38 +485,162 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
     }
 
     private static List<CategoryMetricDTO> AggregateCategories(
-        IReadOnlyList<VectorSearchResult<PrescriptionVectorIndex>> searchResults)
+        IReadOnlyList<VectorSearchResult<PrescriptionVectorIndex>> searchResults,
+        CategoryIntent categoryIntent,
+        List<PrescribedDrugMetricDTO> topDrugs)
     {
-        int total = searchResults.Count;
-        int pediatricCount = searchResults.Count(r => r.Document.IsPediatric);
-        int adultCount = total - pediatricCount;
-        int antibioticEstimate = (int)(adultCount * 0.35);
-        int chronicEstimate = adultCount - antibioticEstimate;
+        if (topDrugs.Count == 0) return [];
 
-        return
-        [
-            new CategoryMetricDTO
-            {
-                CategoryName = "أدوية الأطفال",
-                Count = pediatricCount,
-                Percentage = total > 0 ? Math.Round((pediatricCount / (double)total) * 100, 1) : 0.0,
-                ColorHint = "#4CAF50"
-            },
-            new CategoryMetricDTO
-            {
-                CategoryName = "مضادات حيوية ومسكنات",
-                Count = antibioticEstimate,
-                Percentage = total > 0 ? Math.Round((antibioticEstimate / (double)total) * 100, 1) : 0.0,
-                ColorHint = "#FF9800"
-            },
-            new CategoryMetricDTO
-            {
-                CategoryName = "أمراض مزمنة (سكر وضغط)",
-                Count = chronicEstimate,
-                Percentage = total > 0 ? Math.Round((chronicEstimate / (double)total) * 100, 1) : 0.0,
-                ColorHint = "#2196F3"
-            }
-        ];
+        int totalMedicinesCount = topDrugs.Sum(d => d.MentionCount);
+        if (totalMedicinesCount == 0) totalMedicinesCount = 1;
+
+        if (categoryIntent == CategoryIntent.Diabetes)
+        {
+            int oralCount = topDrugs.Where(d => IsOralDiabetesMedicine(d.MedicineName, d.GenericName)).Sum(d => d.MentionCount);
+            int insulinCount = topDrugs.Where(d => IsInsulinOrSyringe(d.MedicineName, d.GenericName)).Sum(d => d.MentionCount);
+            int otherCount = totalMedicinesCount - (oralCount + insulinCount);
+            if (otherCount < 0) otherCount = 0;
+
+            var list = new List<CategoryMetricDTO>();
+            if (oralCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "أدوية السكر الفموية", Count = oralCount, Percentage = Math.Round((oralCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#2196F3" });
+            if (insulinCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "مستلزمات وحقن الإنسولين", Count = insulinCount, Percentage = Math.Round((insulinCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#00BCD4" });
+            if (otherCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "مستحضرات سكر أخرى", Count = otherCount, Percentage = Math.Round((otherCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#9C27B0" });
+
+            return list;
+        }
+
+        if (categoryIntent == CategoryIntent.Hypertension)
+        {
+            int bpCount = topDrugs.Where(d => IsHypertensionMedicine(d.MedicineName, d.GenericName)).Sum(d => d.MentionCount);
+            int cardiacCount = totalMedicinesCount - bpCount;
+            if (cardiacCount < 0) cardiacCount = 0;
+
+            var list = new List<CategoryMetricDTO>();
+            if (bpCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "أدوية خفض ضغط الدم", Count = bpCount, Percentage = Math.Round((bpCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#2196F3" });
+            if (cardiacCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "أدوية القلب والأوعية", Count = cardiacCount, Percentage = Math.Round((cardiacCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#E91E63" });
+
+            return list;
+        }
+
+        if (categoryIntent == CategoryIntent.Pediatric)
+        {
+            int suppCount = topDrugs.Where(d => (d.MedicineName ?? "").ToLower().Contains("supp") || (d.GenericName ?? "").ToLower().Contains("supp") || d.MedicineName.Contains("لبوس")).Sum(d => d.MentionCount);
+            int syrupCount = totalMedicinesCount - suppCount;
+            if (syrupCount < 0) syrupCount = 0;
+
+            var list = new List<CategoryMetricDTO>();
+            if (syrupCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "أشربة وقطرات أطفال", Count = syrupCount, Percentage = Math.Round((syrupCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#4CAF50" });
+            if (suppCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "تحاميل ولبوس أطفال", Count = suppCount, Percentage = Math.Round((suppCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#FF9800" });
+
+            return list;
+        }
+
+        if (categoryIntent == CategoryIntent.Cosmetics)
+        {
+            int hairCount = topDrugs.Where(d => (d.MedicineName ?? "").ToLower().Contains("hair") || d.MedicineName.Contains("شعر") || (d.MedicineName ?? "").ToLower().Contains("vatika")).Sum(d => d.MentionCount);
+            int skinCount = totalMedicinesCount - hairCount;
+            if (skinCount < 0) skinCount = 0;
+
+            var list = new List<CategoryMetricDTO>();
+            if (hairCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "مستحضرات العناية بالشعر", Count = hairCount, Percentage = Math.Round((hairCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#E91E63" });
+            if (skinCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "مستحضرات العناية بالبشرة", Count = skinCount, Percentage = Math.Round((skinCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#9C27B0" });
+
+            return list;
+        }
+
+        if (categoryIntent == CategoryIntent.Supplies)
+        {
+            int antisepticsCount = topDrugs.Where(d => (d.MedicineName ?? "").ToLower().Contains("peroxide") || d.MedicineName.Contains("مطهر")).Sum(d => d.MentionCount);
+            int cottonGauzeCount = totalMedicinesCount - antisepticsCount;
+            if (cottonGauzeCount < 0) cottonGauzeCount = 0;
+
+            var list = new List<CategoryMetricDTO>();
+            if (cottonGauzeCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "ضمادات وقطن طبي", Count = cottonGauzeCount, Percentage = Math.Round((cottonGauzeCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#00BCD4" });
+            if (antisepticsCount > 0)
+                list.Add(new CategoryMetricDTO { CategoryName = "مطهرات وسوائل طبية", Count = antisepticsCount, Percentage = Math.Round((antisepticsCount / (double)totalMedicinesCount) * 100, 1), ColorHint = "#4CAF50" });
+
+            return list;
+        }
+
+        // For CategoryIntent.None (General market queries)
+        int pediatric = topDrugs.Where(d => IsPediatricMedicine(d.MedicineName, null)).Sum(d => d.MentionCount);
+        int cosmetics = topDrugs.Where(d => IsPersonalCareOrCosmetics(d.MedicineName, d.GenericName, null)).Sum(d => d.MentionCount);
+        int supplies = topDrugs.Where(d => IsMedicalSupplies(d.MedicineName, d.GenericName, null)).Sum(d => d.MentionCount);
+        int antibiotic = topDrugs.Where(d => IsAntibioticOrPainkiller(d.MedicineName, d.GenericName)).Sum(d => d.MentionCount);
+        int chronic = topDrugs.Where(d => IsChronicMedicine(d.MedicineName, d.GenericName)).Sum(d => d.MentionCount);
+        int others = totalMedicinesCount - (pediatric + cosmetics + supplies + antibiotic + chronic);
+        if (others < 0) others = 0;
+
+        var generalList = new List<CategoryMetricDTO>();
+        if (pediatric > 0) generalList.Add(new CategoryMetricDTO { CategoryName = "أدوية الأطفال والرضع", Count = pediatric, Percentage = Math.Round((pediatric / (double)totalMedicinesCount) * 100, 1), ColorHint = "#4CAF50" });
+        if (cosmetics > 0) generalList.Add(new CategoryMetricDTO { CategoryName = "مستحضرات تجميل وعناية شخصية", Count = cosmetics, Percentage = Math.Round((cosmetics / (double)totalMedicinesCount) * 100, 1), ColorHint = "#E91E63" });
+        if (supplies > 0) generalList.Add(new CategoryMetricDTO { CategoryName = "مستلزمات ومطهرات طبية", Count = supplies, Percentage = Math.Round((supplies / (double)totalMedicinesCount) * 100, 1), ColorHint = "#00BCD4" });
+        if (antibiotic > 0) generalList.Add(new CategoryMetricDTO { CategoryName = "مضادات حيوية ومسكنات", Count = antibiotic, Percentage = Math.Round((antibiotic / (double)totalMedicinesCount) * 100, 1), ColorHint = "#FF9800" });
+        if (chronic > 0) generalList.Add(new CategoryMetricDTO { CategoryName = "أمراض مزمنة (سكر وضغط وقلب)", Count = chronic, Percentage = Math.Round((chronic / (double)totalMedicinesCount) * 100, 1), ColorHint = "#2196F3" });
+        if (others > 0) generalList.Add(new CategoryMetricDTO { CategoryName = "أدوية وفيتامينات أخرى", Count = others, Percentage = Math.Round((others / (double)totalMedicinesCount) * 100, 1), ColorHint = "#9C27B0" });
+
+        return generalList;
+    }
+
+    private static bool IsPersonalCareOrCosmetics(string name, string? generic, string? dosageForm)
+    {
+        var text = (name + " " + (generic ?? "") + " " + (dosageForm ?? "")).ToLowerInvariant();
+
+        return text.Contains("cream") || text.Contains("lotion") || text.Contains("shampoo") ||
+               text.Contains("hair") || text.Contains("vatika") || text.Contains("bless") ||
+               text.Contains("skin") || text.Contains("serum") || text.Contains("soap") ||
+               text.Contains("كريم") || text.Contains("شامبو") || text.Contains("شعر") ||
+               text.Contains("بشرة") || text.Contains("عناية") || text.Contains("تجميل");
+    }
+
+    private static bool IsMedicalSupplies(string name, string? generic, string? dosageForm)
+    {
+        var text = (name + " " + (generic ?? "") + " " + (dosageForm ?? "")).ToLowerInvariant();
+
+        return text.Contains("cotton") || text.Contains("tape") || text.Contains("pad") ||
+               text.Contains("bandage") || text.Contains("peroxide") || text.Contains("syringe") ||
+               text.Contains("needle") || text.Contains("gauze") || text.Contains("surgipad") ||
+               text.Contains("silkplast") || text.Contains("super lord") || text.Contains("cmi") ||
+               text.Contains("قطن") || text.Contains("بلاستر") || text.Contains("ضمادة") ||
+               text.Contains("شاش") || text.Contains("سرنجة") || text.Contains("مطهر");
+    }
+
+    private static bool IsAntibioticOrPainkiller(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+
+        return text.Contains("amox") || text.Contains("amoxil") || text.Contains("flucamox") ||
+               text.Contains("cef") || text.Contains("curisafe") || text.Contains("cifin") ||
+               text.Contains("cipro") || text.Contains("azithro") || text.Contains("augmentin") ||
+               text.Contains("gentamicin") || text.Contains("epigent") || text.Contains("antibiotic") ||
+               text.Contains("diclofenac") || text.Contains("declophen") || text.Contains("epifenac") ||
+               text.Contains("brufen") || text.Contains("ibuprofen") || text.Contains("paracetamol") ||
+               text.Contains("ketofan") || text.Contains("ketoprek") || text.Contains("actifast") ||
+               text.Contains("rheumarene") || text.Contains("adwiflam") || text.Contains("analgesic") ||
+               text.Contains("مضاد حيوي") || text.Contains("مسكن") || text.Contains("مضاد للألم");
+    }
+
+    private static bool IsChronicMedicine(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+
+        return text.Contains("metformin") || text.Contains("cidophage") || text.Contains("amophage") ||
+               text.Contains("diabenor") || text.Contains("daonil") || text.Contains("insulin") ||
+               text.Contains("bisoprolol") || text.Contains("bisolock") || text.Contains("sinopril") ||
+               text.Contains("enalapril") || text.Contains("atenolol") || text.Contains("blokium") ||
+               text.Contains("aldactone") || text.Contains("diltiazem") || text.Contains("delay tiazem") ||
+               text.Contains("rampecardin") || text.Contains("olmeborg") || text.Contains("hypertension") ||
+               text.Contains("diabetes") || text.Contains("سكر") || text.Contains("ضغط");
     }
 
     private async Task<List<ShortageWarningDTO>> EvaluateShortageWarningsAsync(
@@ -778,6 +914,146 @@ public class PrescriptionAnalyticsRagService : IPromptExecutionServiceOwner, IPr
 
         return false;
     }
+
+    private static CategoryIntent DetectCategoryIntent(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return CategoryIntent.None;
+        var q = question.ToLowerInvariant();
+
+        if (q.Contains("سكر") || q.Contains("سكري") || q.Contains("انسولين") || q.Contains("إنسولين") || q.Contains("diabetes") || q.Contains("diabetic"))
+            return CategoryIntent.Diabetes;
+
+        if (q.Contains("ضغط") || q.Contains("قلب") || q.Contains("hypertension") || q.Contains("cardiac"))
+            return CategoryIntent.Hypertension;
+
+        if (q.Contains("أطفال") || q.Contains("اطفال") || q.Contains("رضع") || q.Contains("رضيع") || q.Contains("طفل") || q.Contains("بيبي") || q.Contains("pediatric"))
+            return CategoryIntent.Pediatric;
+
+        if (q.Contains("مضاد") || q.Contains("مضادات") || q.Contains("antibiotic"))
+            return CategoryIntent.Antibiotic;
+
+        if (q.Contains("مسكن") || q.Contains("مسكنات") || q.Contains("عظام") || q.Contains("روماتيزم") || q.Contains("صداع") || q.Contains("painkiller") || q.Contains("analgesic"))
+            return CategoryIntent.Painkiller;
+
+        if (q.Contains("شعر") || q.Contains("بشرة") || q.Contains("تجميل") || q.Contains("عناية") || q.Contains("كريمات") || q.Contains("شامبو") || q.Contains("cosmetics") || q.Contains("hair"))
+            return CategoryIntent.Cosmetics;
+
+        if (q.Contains("مستلزمات") || q.Contains("مطهرات") || q.Contains("شاش") || q.Contains("قطن") || q.Contains("سرنجات") || q.Contains("supplies"))
+            return CategoryIntent.Supplies;
+
+        return CategoryIntent.None;
+    }
+
+    private static bool MatchesCategoryIntent(string name, string? generic, string? dosageForm, CategoryIntent intent)
+    {
+        if (intent == CategoryIntent.None) return true;
+
+        return intent switch
+        {
+            CategoryIntent.Diabetes => IsDiabetesMedicine(name, generic),
+            CategoryIntent.Hypertension => IsHypertensionMedicine(name, generic),
+            CategoryIntent.Pediatric => IsPediatricMedicine(name, dosageForm),
+            CategoryIntent.Antibiotic => IsAntibioticMedicine(name, generic),
+            CategoryIntent.Painkiller => IsPainkillerMedicine(name, generic),
+            CategoryIntent.Cosmetics => IsPersonalCareOrCosmetics(name, generic, dosageForm),
+            CategoryIntent.Supplies => IsMedicalSupplies(name, generic, dosageForm),
+            _ => true
+        };
+    }
+
+    private static bool IsDiabetesMedicine(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+        return text.Contains("metformin") || text.Contains("cidophage") || text.Contains("amophage") ||
+               text.Contains("diabenor") || text.Contains("glimepiride") || text.Contains("daonil") ||
+               text.Contains("gliclazide") || text.Contains("diamicron") || text.Contains("insulin") ||
+               text.Contains("إنسولين") || text.Contains("انسولين") || text.Contains("اموفاج") ||
+               text.Contains("سيدوفاج") || text.Contains("ديابينور") || text.Contains("داونيل") ||
+               text.Contains("insumed") || (text.Contains("syringe") && text.Contains("insulin"));
+    }
+
+    private static bool IsOralDiabetesMedicine(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+        return text.Contains("metformin") || text.Contains("cidophage") || text.Contains("amophage") ||
+               text.Contains("diabenor") || text.Contains("glimepiride") || text.Contains("daonil") ||
+               text.Contains("gliclazide") || text.Contains("diamicron") || text.Contains("سيدوفاج") ||
+               text.Contains("اموفاج") || text.Contains("ديابينور");
+    }
+
+    private static bool IsInsulinOrSyringe(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+        return text.Contains("insulin") || text.Contains("إنسولين") || text.Contains("انسولين") ||
+               text.Contains("insumed") || (text.Contains("syringe") && text.Contains("insulin"));
+    }
+
+    private static bool IsHypertensionMedicine(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+        return text.Contains("bisoprolol") || text.Contains("bisolock") || text.Contains("concor") ||
+               text.Contains("sinopril") || text.Contains("enalapril") || text.Contains("atenolol") ||
+               text.Contains("blokium") || text.Contains("aldactone") || text.Contains("diltiazem") ||
+               text.Contains("delay tiazem") || text.Contains("rampecardin") || text.Contains("ramipril") ||
+               text.Contains("olmeborg") || text.Contains("amlodipine") || text.Contains("exforge") ||
+               text.Contains("capoten") || text.Contains("captopril") || text.Contains("ضغط") || text.Contains("قلب");
+    }
+
+    private static bool IsAntibioticMedicine(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+        return text.Contains("amox") || text.Contains("amoxil") || text.Contains("flucamox") ||
+               text.Contains("cef") || text.Contains("curisafe") || text.Contains("cifin") ||
+               text.Contains("cipro") || text.Contains("azithro") || text.Contains("augmentin") ||
+               text.Contains("gentamicin") || text.Contains("epigent") || text.Contains("clindamycin") ||
+               text.Contains("clindagram") || text.Contains("antibiotic") || text.Contains("مضاد حيوي");
+    }
+
+    private static bool IsPainkillerMedicine(string name, string? generic)
+    {
+        var text = (name + " " + (generic ?? "")).ToLowerInvariant();
+        return text.Contains("diclofenac") || text.Contains("declophen") || text.Contains("epifenac") ||
+               text.Contains("brufen") || text.Contains("ibuprofen") || text.Contains("paracetamol") ||
+               text.Contains("ketofan") || text.Contains("ketoprek") || text.Contains("actifast") ||
+               text.Contains("rheumarene") || text.Contains("adwiflam") || text.Contains("analgesic") ||
+               text.Contains("myoflex") || text.Contains("cetafen") || text.Contains("cataflam") ||
+               text.Contains("مسكن") || text.Contains("عظام") || text.Contains("روماتيزم");
+    }
+
+    private static (DateTime? StartDate, DateTime? EndDate) DetectTimeRangeFromQuestion(string question)
+    {
+        if (string.IsNullOrWhiteSpace(question)) return (null, null);
+        var q = question.ToLowerInvariant();
+
+        if (q.Contains("الشهر الماضي") || q.Contains("اخر شهر") || q.Contains("آخر شهر") || q.Contains("30 يوم") || q.Contains("شهر"))
+        {
+            return (DateTime.UtcNow.AddDays(-30), DateTime.UtcNow);
+        }
+
+        if (q.Contains("الأسبوع الماضي") || q.Contains("الاسبوع الماضي") || q.Contains("هذا الأسبوع") || q.Contains("هذا الاسبوع") || q.Contains("7 أيام") || q.Contains("7 ايام") || q.Contains("أسبوع") || q.Contains("اسبوع"))
+        {
+            return (DateTime.UtcNow.AddDays(-7), DateTime.UtcNow);
+        }
+
+        if (q.Contains("هذا العام") || q.Contains("السنة") || q.Contains("365 يوم") || q.Contains("سنة"))
+        {
+            return (DateTime.UtcNow.AddDays(-365), DateTime.UtcNow);
+        }
+
+        return (null, null);
+    }
+}
+
+public enum CategoryIntent
+{
+    None,
+    Diabetes,
+    Hypertension,
+    Pediatric,
+    Antibiotic,
+    Painkiller,
+    Cosmetics,
+    Supplies
 }
 
 public interface IPromptExecutionServiceOwner { }
