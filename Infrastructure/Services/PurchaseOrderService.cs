@@ -1,4 +1,5 @@
 ﻿using Application.DTOs.PurchaseOrder;
+using Application.DTOs.Supplier;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -52,12 +53,30 @@ namespace Infrastructure.Services
             return result;
         }
 
-        public async Task<Result<List<GetPurchaseOrderDTO>>> GetBranchOrdersAsync(Guid branchId)
+        public async Task<Result<PaginatedList<GetPurchaseOrderDTO>>> GetBranchOrdersAsync(Guid branchId, OrderFilterParams filterParams)
         {
-            var orders = await _context.PurchaseOrders
+            var query = _context.PurchaseOrders
                 .Include(po => po.Drug)
                 .Where(po => po.BranchId == branchId)
+                .AsQueryable();
+
+            if (filterParams.Status.HasValue)
+            {
+                query = query.Where(po => po.Status == filterParams.Status.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(filterParams.SearchTerm))
+            {
+                var searchTerm = filterParams.SearchTerm.Trim().ToLower();
+                query = query.Where(po => po.Drug != null && po.Drug.BrandName.ToLower().Contains(searchTerm));
+            }
+
+            var totalCount = await query.CountAsync();
+
+            var orders = await query
                 .OrderByDescending(po => po.CreatedAt)
+                .Skip((filterParams.PageNumber - 1) * filterParams.PageSize)
+                .Take(filterParams.PageSize)
                 .Select(po => new GetPurchaseOrderDTO
                 {
                     Id = po.Id,
@@ -71,7 +90,9 @@ namespace Infrastructure.Services
                 })
                 .ToListAsync();
 
-            return Result.Success(orders);
+            var result = new PaginatedList<GetPurchaseOrderDTO>(orders, filterParams.PageNumber, totalCount, filterParams.PageSize);
+
+            return Result.Success(result);
         }
     }
 }
