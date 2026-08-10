@@ -20,7 +20,16 @@ public static class DependencyInjection
 
             services.AddDbContext<AppDbContext>(options =>
             {
-                options.UseSqlServer(connectionString, sqlOptions => { sqlOptions.UseNetTopologySuite(); });
+                options.UseSqlServer(connectionString, sqlOptions => {
+                    
+                    sqlOptions.UseNetTopologySuite();
+                    sqlOptions.EnableRetryOnFailure(
+                maxRetryCount: 5,                  
+                maxRetryDelay: TimeSpan.FromSeconds(30), 
+                errorNumbersToAdd: null             
+            );
+
+                });
 
                 options.ConfigureWarnings(w => w.Ignore(RelationalEventId.PendingModelChangesWarning));
             });

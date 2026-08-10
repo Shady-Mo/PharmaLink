@@ -4,6 +4,7 @@ using Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using NetTopologySuite.Geometries;
 
@@ -12,9 +13,11 @@ using NetTopologySuite.Geometries;
 namespace Infrastructure.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260809154954_AddMissingStockReportsTable")]
+    partial class AddMissingStockReportsTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -29,27 +32,15 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AdditionalInstructions")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("AddressLine")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("ApartmentNumber")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("BuildingNumber")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("City")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FloorNumber")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Point>("GeoLocation")
                         .IsRequired()
@@ -62,9 +53,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<bool>("IsDefault")
                         .HasColumnType("bit");
-
-                    b.Property<string>("Label")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<Guid>("UserId")
                         .HasColumnType("uniqueidentifier");
@@ -127,9 +115,6 @@ namespace Infrastructure.Migrations
                     b.Property<bool>("PhoneNumberConfirmed")
                         .HasColumnType("bit");
 
-                    b.Property<string>("ProfilePictureUrl")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("SecurityStamp")
                         .HasColumnType("nvarchar(max)");
 
@@ -145,8 +130,8 @@ namespace Infrastructure.Migrations
 
                     b.Property<string>("UserType")
                         .IsRequired()
-                        .HasMaxLength(21)
-                        .HasColumnType("nvarchar(21)");
+                        .HasMaxLength(13)
+                        .HasColumnType("nvarchar(13)");
 
                     b.HasKey("Id");
 
@@ -220,51 +205,6 @@ namespace Infrastructure.Migrations
                         });
                 });
 
-            modelBuilder.Entity("Domain.Entities.DeliveryJob", b =>
-                {
-                    b.Property<Guid>("JobId")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("AcceptedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime?>("CompletedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<DateTime>("CreatedAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<decimal>("DeliveryFee")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid?>("DriverId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("LegId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("PickedUpAtUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<byte[]>("RowVersion")
-                        .IsConcurrencyToken()
-                        .IsRequired()
-                        .ValueGeneratedOnAddOrUpdate()
-                        .HasColumnType("rowversion");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.HasKey("JobId");
-
-                    b.HasIndex("DriverId");
-
-                    b.HasIndex("LegId");
-
-                    b.ToTable("DeliveryJobs");
-                });
-
             modelBuilder.Entity("Domain.Entities.Drug", b =>
                 {
                     b.Property<Guid>("DrugId")
@@ -277,64 +217,13 @@ namespace Infrastructure.Migrations
                         .HasColumnType("nvarchar(500)")
                         .UseCollation("Arabic_CI_AI");
 
-                    b.Property<string>("BrandAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("BrandEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("BrandImageUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("BrandName")
                         .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<string>("BrandSlug")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("BundleTagAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("BundleTagEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("CategoryId")
-                        .HasColumnType("int");
-
-                    b.Property<int?>("ChefaaId")
-                        .HasColumnType("int");
-
-                    b.Property<decimal>("CostPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("CouponDescriptionAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("CouponDescriptionEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("DescriptionAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("DescriptionEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("Discount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
+                    b.Property<byte>("Category")
+                        .HasColumnType("tinyint");
 
                     b.Property<string>("DrugBankId")
                         .IsRequired()
@@ -346,25 +235,10 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<decimal>("FinalPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<string>("FlowType")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Form")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FullUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("GameballPoints")
-                        .HasColumnType("int");
 
                     b.Property<string>("GenericName")
                         .IsRequired()
@@ -374,13 +248,7 @@ namespace Infrastructure.Migrations
                     b.Property<string>("ImageUrl")
                         .HasColumnType("nvarchar(max)");
 
-                    b.Property<bool>("InStock")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsActive")
-                        .HasColumnType("bit");
-
-                    b.Property<bool>("LowStock")
                         .HasColumnType("bit");
 
                     b.Property<string>("Manufacturer")
@@ -388,46 +256,14 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
-                    b.Property<int>("MaxQuantity")
-                        .HasColumnType("int");
-
-                    b.Property<string>("MetaDescriptionAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("MetaDescriptionEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("MetaKeywordsAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("MetaKeywordsEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("NdcCode")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<bool>("OutOfStock")
-                        .HasColumnType("bit");
-
                     b.Property<decimal>("Price")
                         .HasPrecision(18, 2)
                         .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("PurchaseCount")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
-
-                    b.Property<string>("RawJson")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<bool>("RequiresPrescription")
                         .HasColumnType("bit");
@@ -437,194 +273,14 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("nvarchar(50)");
 
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SortingKeywordAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("SortingKeywordEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<string>("Strength")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<string>("Type")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
                     b.HasKey("DrugId");
 
-                    b.HasIndex("CategoryId");
-
                     b.ToTable("Drugs");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugCategory", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("ImageUrl")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Level")
-                        .HasColumnType("int");
-
-                    b.Property<string>("NameAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NameEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int?>("ParentId")
-                        .HasColumnType("int");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("ParentId");
-
-                    b.ToTable("DrugCategories");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugLandingPage", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<Guid>("DrugId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TitleAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("TitleEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DrugId");
-
-                    b.ToTable("DrugLandingPages");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugSupplier", b =>
-                {
-                    b.Property<int>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("int");
-
-                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
-
-                    b.Property<decimal>("CommercialPrice")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<decimal>("Discount")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("DrugId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("NameAr")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("NameEn")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<decimal>("Price")
-                        .HasPrecision(18, 2)
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<int>("Quantity")
-                        .HasColumnType("int");
-
-                    b.Property<int>("SupplierId")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DrugId");
-
-                    b.ToTable("DrugSuppliers");
-                });
-
-            modelBuilder.Entity("Domain.Entities.InventoryForecastLog", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("ActionTaken")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("AiRationale")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<double>("AverageDailyDemand")
-                        .HasColumnType("float");
-
-                    b.Property<Guid>("BranchId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("ConfidenceScore")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.Property<Guid>("DrugId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DrugName")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime>("ForecastDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("PredictedDemand")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime?>("PredictedStockoutDate")
-                        .HasColumnType("datetime2");
-
-                    b.Property<int>("ReorderPoint")
-                        .HasColumnType("int");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("Drugs");
-                    b.ToTable("InventoryForecastLogs");
                 });
 
             modelBuilder.Entity("Domain.Entities.MedicalInquiry", b =>
@@ -676,9 +332,6 @@ namespace Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uniqueidentifier");
 
-                    b.Property<string>("AiRoutingDescription")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
@@ -719,9 +372,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTime?>("CompletedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<double?>("DistanceKm")
-                        .HasColumnType("float");
 
                     b.Property<byte>("LegStatus")
                         .HasColumnType("tinyint");
@@ -992,14 +642,8 @@ namespace Infrastructure.Migrations
                     b.Property<DateOnly>("ExpiryDate")
                         .HasColumnType("date");
 
-                    b.Property<DateTime?>("LastForecastDate")
-                        .HasColumnType("datetime2");
-
                     b.Property<DateTime>("LastSyncedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<int>("ReorderPoint")
-                        .HasColumnType("int");
 
                     b.Property<int>("ReservedQuantity")
                         .HasColumnType("int");
@@ -1132,63 +776,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("PhoneVerificationOtps", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Entities.Prescription", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime?>("ConsumedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ContentType")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("nvarchar(100)");
-
-                    b.Property<string>("FileName")
-                        .IsRequired()
-                        .HasMaxLength(255)
-                        .HasColumnType("nvarchar(255)");
-
-                    b.Property<long>("FileSize")
-                        .HasColumnType("bigint");
-
-                    b.Property<string>("FileUrl")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid?>("OrderId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("PatientId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("RejectionReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<string>("StoragePath")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("nvarchar(1000)");
-
-                    b.Property<DateTime>("UploadedAt")
-                        .HasColumnType("datetime2");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("OrderId")
-                        .IsUnique()
-                        .HasFilter("[OrderId] IS NOT NULL");
-
-                    b.HasIndex("PatientId");
-
-                    b.ToTable("Prescriptions");
-                });
-
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
                 {
                     b.Property<Guid>("PrescriptionReviewId")
@@ -1204,26 +791,11 @@ namespace Infrastructure.Migrations
                         .HasMaxLength(2000)
                         .HasColumnType("nvarchar(2000)");
 
-                    b.Property<string>("ClinicOrHospital")
-                        .HasColumnType("nvarchar(max)");
-
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
                     b.Property<Guid?>("CreatedOrderId")
                         .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("DoctorName")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("EmbeddedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("EmbeddingFailureReason")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<int>("EmbeddingStatus")
-                        .HasColumnType("int");
 
                     b.Property<string>("ExtractedText")
                         .HasColumnType("nvarchar(max)");
@@ -1263,9 +835,6 @@ namespace Infrastructure.Migrations
 
                     b.Property<DateTime?>("ReviewedAt")
                         .HasColumnType("datetime2");
-
-                    b.Property<string>("Specialty")
-                        .HasColumnType("nvarchar(max)");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");
@@ -1379,81 +948,6 @@ namespace Infrastructure.Migrations
                     b.HasIndex("SuggestedAlternativeDrugId");
 
                     b.ToTable("PrescriptionReviewMedicines");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PurchaseOrder", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<string>("AiRationale")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<DateTime?>("ApprovedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("ApprovedBy")
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<Guid>("BranchId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("datetime2");
-
-                    b.Property<Guid>("DrugId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<int>("OrderedQuantity")
-                        .HasColumnType("int");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("int");
-
-                    b.Property<Guid?>("SupplierId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("BranchId");
-
-                    b.HasIndex("DrugId");
-
-                    b.HasIndex("SupplierId");
-
-                    b.ToTable("PurchaseOrders");
-                });
-
-            modelBuilder.Entity("Domain.Entities.SupplierDrug", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<Guid>("DrugId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<bool>("IsActive")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("bit")
-                        .HasDefaultValue(true);
-
-                    b.Property<Guid>("SupplierId")
-                        .HasColumnType("uniqueidentifier");
-
-                    b.Property<decimal>("UnitPrice")
-                        .HasColumnType("decimal(18,2)");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DrugId");
-
-                    b.HasIndex("SupplierId", "DrugId")
-                        .IsUnique();
-
-                    b.ToTable("SupplierDrugs");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole<System.Guid>", b =>
@@ -1587,26 +1081,6 @@ namespace Infrastructure.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
-            modelBuilder.Entity("Domain.Entities.DeliveryDriver", b =>
-                {
-                    b.HasBaseType("Domain.Entities.AppUser");
-
-                    b.Property<Point>("CurrentLocation")
-                        .HasColumnType("geography");
-
-                    b.Property<int>("DriverAvailability")
-                        .HasColumnType("int");
-
-                    b.Property<DateTime>("LastLocationUpdateUtc")
-                        .HasColumnType("datetime2");
-
-                    b.Property<string>("VehicleInfo")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.HasDiscriminator().HasValue("DeliveryDriver");
-                });
-
             modelBuilder.Entity("Domain.Entities.Patient", b =>
                 {
                     b.HasBaseType("Domain.Entities.AppUser");
@@ -1635,21 +1109,6 @@ namespace Infrastructure.Migrations
                         .HasDatabaseName("IX_PharmacyAdmins_PharmacyId");
 
                     b.HasDiscriminator().HasValue("PharmacyAdmin");
-                });
-
-            modelBuilder.Entity("Domain.Entities.Supplier", b =>
-                {
-                    b.HasBaseType("Domain.Entities.AppUser");
-
-                    b.Property<string>("CommercialRegisterNumber")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<string>("CompanyName")
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
-                    b.HasDiscriminator().HasValue("Supplier");
                 });
 
             modelBuilder.Entity("Domain.Entities.SystemAdmin", b =>
@@ -1734,66 +1193,6 @@ namespace Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Cart");
-
-                    b.Navigation("Drug");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DeliveryJob", b =>
-                {
-                    b.HasOne("Domain.Entities.DeliveryDriver", "Driver")
-                        .WithMany("DeliveryJobs")
-                        .HasForeignKey("DriverId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Domain.Entities.OrderFulfillmentLeg", "FulfillmentLeg")
-                        .WithMany()
-                        .HasForeignKey("LegId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Driver");
-
-                    b.Navigation("FulfillmentLeg");
-                });
-
-            modelBuilder.Entity("Domain.Entities.Drug", b =>
-                {
-                    b.HasOne("Domain.Entities.DrugCategory", "Category")
-                        .WithMany("Drugs")
-                        .HasForeignKey("CategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Category");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugCategory", b =>
-                {
-                    b.HasOne("Domain.Entities.DrugCategory", "Parent")
-                        .WithMany("SubCategories")
-                        .HasForeignKey("ParentId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Parent");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugLandingPage", b =>
-                {
-                    b.HasOne("Domain.Entities.Drug", "Drug")
-                        .WithMany("LandingPages")
-                        .HasForeignKey("DrugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Drug");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugSupplier", b =>
-                {
-                    b.HasOne("Domain.Entities.Drug", "Drug")
-                        .WithMany("Suppliers")
-                        .HasForeignKey("DrugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
 
                     b.Navigation("Drug");
                 });
@@ -2016,24 +1415,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("User");
                 });
 
-            modelBuilder.Entity("Domain.Entities.Prescription", b =>
-                {
-                    b.HasOne("Domain.Entities.Order", "Order")
-                        .WithOne("Prescription")
-                        .HasForeignKey("Domain.Entities.Prescription", "OrderId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("Domain.Entities.Patient", "Patient")
-                        .WithMany()
-                        .HasForeignKey("PatientId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Order");
-
-                    b.Navigation("Patient");
-                });
-
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
                 {
                     b.HasOne("Domain.Entities.Order", "CreatedOrder")
@@ -2082,51 +1463,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("PrescriptionReview");
 
                     b.Navigation("SuggestedAlternativeDrug");
-                });
-
-            modelBuilder.Entity("Domain.Entities.PurchaseOrder", b =>
-                {
-                    b.HasOne("Domain.Entities.PharmacyBranch", "Branch")
-                        .WithMany("PurchaseOrders")
-                        .HasForeignKey("BranchId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.Drug", "Drug")
-                        .WithMany("PurchaseOrders")
-                        .HasForeignKey("DrugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.Supplier", "Supplier")
-                        .WithMany("PurchaseOrders")
-                        .HasForeignKey("SupplierId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Branch");
-
-                    b.Navigation("Drug");
-
-                    b.Navigation("Supplier");
-                });
-
-            modelBuilder.Entity("Domain.Entities.SupplierDrug", b =>
-                {
-                    b.HasOne("Domain.Entities.Drug", "Drug")
-                        .WithMany()
-                        .HasForeignKey("DrugId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("Domain.Entities.Supplier", "Supplier")
-                        .WithMany("SupplierDrugs")
-                        .HasForeignKey("SupplierId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.Navigation("Drug");
-
-                    b.Navigation("Supplier");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRoleClaim<System.Guid>", b =>
@@ -2206,20 +1542,7 @@ namespace Infrastructure.Migrations
 
                     b.Navigation("Inventories");
 
-                    b.Navigation("LandingPages");
-
                     b.Navigation("OrderItems");
-
-                    b.Navigation("PurchaseOrders");
-
-                    b.Navigation("Suppliers");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DrugCategory", b =>
-                {
-                    b.Navigation("Drugs");
-
-                    b.Navigation("SubCategories");
                 });
 
             modelBuilder.Entity("Domain.Entities.Order", b =>
@@ -2227,8 +1550,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("FulfillmentLegs");
 
                     b.Navigation("Items");
-
-                    b.Navigation("Prescription");
 
                     b.Navigation("PrescriptionReview");
                 });
@@ -2255,8 +1576,6 @@ namespace Infrastructure.Migrations
 
                     b.Navigation("PharmacistAssignments");
 
-                    b.Navigation("PurchaseOrders");
-
                     b.Navigation("SuppliedOrderItems");
 
                     b.Navigation("WorkingSchedule");
@@ -2265,11 +1584,6 @@ namespace Infrastructure.Migrations
             modelBuilder.Entity("Domain.Entities.PrescriptionReview", b =>
                 {
                     b.Navigation("Medicines");
-                });
-
-            modelBuilder.Entity("Domain.Entities.DeliveryDriver", b =>
-                {
-                    b.Navigation("DeliveryJobs");
                 });
 
             modelBuilder.Entity("Domain.Entities.Patient", b =>
@@ -2288,13 +1602,6 @@ namespace Infrastructure.Migrations
                     b.Navigation("Assignments");
 
                     b.Navigation("ReviewedPrescriptions");
-                });
-
-            modelBuilder.Entity("Domain.Entities.Supplier", b =>
-                {
-                    b.Navigation("PurchaseOrders");
-
-                    b.Navigation("SupplierDrugs");
                 });
 #pragma warning restore 612, 618
         }
