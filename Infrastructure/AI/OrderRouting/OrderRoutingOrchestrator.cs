@@ -1029,6 +1029,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                   Never change the order.
                 - For each pharmacy, write its placeholder token EXACTLY (e.g. {BRANCH_1}) followed by
                   its distanceFromPreviousKm in km. Do NOT invent or change placeholder tokens.
+                  Remember to write each branch followed by its distance.
                 - Keep it short and organized — only where to go and each pharmacy's distance. Do NOT add
                   extra details, and do NOT mention any medicines or quantities.
                 - You may end with the total trip distance in one short clause.
