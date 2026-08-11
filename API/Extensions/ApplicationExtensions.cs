@@ -11,8 +11,10 @@ public static class ApplicationExtensions
         await dbContext.Database.MigrateAsync();
 
         var roleSeeder = scope.ServiceProvider.GetRequiredService<RoleSeeder>();
-
         await roleSeeder.SeedAsync();
+
+        var adminSeeder = scope.ServiceProvider.GetRequiredService<AdminSeeder>();
+        await adminSeeder.SeedAsync();
 
         // var seeder = scope.ServiceProvider.GetRequiredService<DrugSeeder>();
         //

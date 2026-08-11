@@ -176,6 +176,7 @@ public static class DependencyInjection
 
             services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
+            services.AddScoped<AdminSeeder>();
 
 
             // Program.cs / DependencyInjection.cs
