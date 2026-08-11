@@ -20,6 +20,7 @@ builder.Services.AddScoped<IDeliveryNotificationService, DeliveryNotificationSer
 
 var app = builder.Build();
 
+app.UseMiddleware<API.Middlewares.ExceptionMiddleware>();
 
 //using (var scope = app.Services.CreateScope())
 //{
