@@ -5,17 +5,6 @@ using System.Diagnostics;
 
 namespace Infrastructure.Services;
 
-/// <summary>
-/// Splits an order across pharmacy branches using ONLY the AI Order Fulfillment Optimization
-/// Engine (<see cref="IOrderRoutingOrchestrator.OptimizeOrderFulfillmentAsync"/>) — the exact
-/// same entry point the <c>OrderRoutingController</c> preview uses.
-///
-/// The engine owns everything decision-related: it queries live inventory, computes real-world
-/// OSRM driving distances per branch, and decides the item→branch allocation (minimizing the
-/// number of fulfilling branches first, distance second). This service no longer performs any
-/// geo lookup, candidate-branch distance math, or deterministic fallback algorithm — it simply
-/// translates the engine's plan into item assignments, reserves stock, and generates legs.
-/// </summary>
 public class OrderSplittingService(
     AppDbContext context,
     IInventoryService inventoryService,
@@ -70,7 +59,6 @@ public class OrderSplittingService(
 
             order.OrderStatus = OrderStatus.Pending;
 
-            // Execute the split immediately after cleanup
             var splitResult = await ExecuteSplitInternalAsync(order, transaction, ct);
 
             sw.Stop();
@@ -84,47 +72,58 @@ public class OrderSplittingService(
     {
         const int maxRetries = 3;
         var totalSw = Stopwatch.StartNew();
+        var executionStrategy = context.Database.CreateExecutionStrategy();
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
-            await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
             try
             {
-                var loadSw = Stopwatch.StartNew();
-                var order = await LoadOrderAsync(orderId, cancellationToken);
-                if (order is null)
+                return await executionStrategy.ExecuteAsync(async () =>
                 {
-                    logger.LogWarning("[OrderId={OrderId}] Order not found.", orderId);
-                    return Result.Failure<T>(OrderSplittingErrors.OrderNotFound);
-                }
-                loadSw.Stop();
-                logger.LogInformation("[OrderId={OrderId}] Order loaded in {ElapsedMs}ms. Status={Status}, Items={Count}", orderId, loadSw.ElapsedMilliseconds, order.OrderStatus, order.Items.Count);
+                    await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+                    try
+                    {
+                        var loadSw = Stopwatch.StartNew();
+                        var order = await LoadOrderAsync(orderId, cancellationToken);
+                        if (order is null)
+                        {
+                            logger.LogWarning("[OrderId={OrderId}] Order not found.", orderId);
+                            return Result.Failure<T>(OrderSplittingErrors.OrderNotFound);
+                        }
+                        loadSw.Stop();
+                        logger.LogInformation("[OrderId={OrderId}] Order loaded in {ElapsedMs}ms. Status={Status}, Items={Count}", orderId, loadSw.ElapsedMilliseconds, order.OrderStatus, order.Items.Count);
 
-                var validationResult = ValidateOrderForSplit(order);
-                if (validationResult.IsFailure)
-                {
-                    logger.LogWarning("[OrderId={OrderId}] Order validation failed: {Error}. Marking as failed without modifying items.", orderId, validationResult.Error.Description);
-                    return Result.Failure<T>(validationResult.Error);
-                }
+                        var validationResult = ValidateOrderForSplit(order);
+                        if (validationResult.IsFailure)
+                        {
+                            logger.LogWarning("[OrderId={OrderId}] Order validation failed: {Error}. Marking as failed without modifying items.", orderId, validationResult.Error.Description);
+                            return Result.Failure<T>(validationResult.Error);
+                        }
 
-                var result = await action(order, transaction, cancellationToken);
+                        var result = await action(order, transaction, cancellationToken);
 
-                if (result.IsSuccess)
-                {
-                    await transaction.CommitAsync(cancellationToken);
-                    totalSw.Stop();
-                    logger.LogInformation("[OrderId={OrderId}] Transaction committed successfully. Total execution time: {ElapsedMs}ms.", orderId, totalSw.ElapsedMilliseconds);
-                }
-                else
-                {
-                    await transaction.RollbackAsync(cancellationToken);
-                }
+                        if (result.IsSuccess)
+                        {
+                            await transaction.CommitAsync(cancellationToken);
+                            totalSw.Stop();
+                            logger.LogInformation("[OrderId={OrderId}] Transaction committed successfully. Total execution time: {ElapsedMs}ms.", orderId, totalSw.ElapsedMilliseconds);
+                        }
+                        else
+                        {
+                            await transaction.RollbackAsync(cancellationToken);
+                        }
 
-                return result;
+                        return result;
+                    }
+                    catch
+                    {
+                        await transaction.RollbackAsync(cancellationToken);
+                        throw;
+                    }
+                });
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                await transaction.RollbackAsync(cancellationToken);
                 logger.LogWarning(ex, "[OrderId={OrderId}] Concurrency conflict detected on attempt {Attempt}/{MaxRetries}.", orderId, attempt, maxRetries);
 
                 if (attempt == maxRetries)
@@ -133,15 +132,12 @@ public class OrderSplittingService(
                     return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
                 }
 
-                // Clear the change tracker so the next attempt loads fresh data and re-evaluates all business rules.
                 context.ChangeTracker.Clear();
-                // Brief delay before retry to allow concurrent operations to settle
                 await Task.Delay(100 * attempt, cancellationToken);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "[OrderId={OrderId}] Split failed due to an unexpected error. Rolling back.", orderId);
-                await transaction.RollbackAsync(cancellationToken);
                 return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
             }
         }
@@ -156,18 +152,11 @@ public class OrderSplittingService(
         var pendingItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Pending).ToList();
         var drugIds = pendingItems.Select(i => i.DrugId).ToHashSet();
 
-        // Drug names give the fulfillment engine richer context for its reasoning; mapping the
-        // resulting plan back to items is always done by DrugId, so a missing name is harmless.
         var nameByDrug = await context.Drugs
             .Where(d => drugIds.Contains(d.DrugId))
             .Select(d => new { d.DrugId, d.BrandName })
             .ToDictionaryAsync(d => d.DrugId, d => d.BrandName, cancellationToken);
 
-        // ── DECISION BRAIN — AI Order Fulfillment Optimization Engine (identical to the
-        //    OrderRoutingController preview flow). The engine internally queries live inventory,
-        //    computes real-world OSRM driving distances per branch, and decides the optimal
-        //    item→branch allocation. There is no deterministic fallback: if the engine cannot
-        //    place items, they are simply marked Unavailable for manual intervention/re-split. ──
         var patientLocation = new GeoLocation(
             order.DeliveryAddress!.GeoLocation!.Y,
             order.DeliveryAddress!.GeoLocation!.X);
@@ -213,8 +202,6 @@ public class OrderSplittingService(
 
         ApplySplitResultToItems(pendingItems, splitResult);
 
-        // Load the authoritative inventory rows for the branches/drugs the engine chose so we can
-        // reserve stock (and re-validate against live data) inside the transaction.
         var assignedBranchIds = splitResult.Assignments.Select(a => a.BranchId).ToHashSet();
         var invSw = Stopwatch.StartNew();
         var inventorySnapshot = await LoadInventorySnapshotAsync(assignedBranchIds, drugIds, cancellationToken);
@@ -236,12 +223,10 @@ public class OrderSplittingService(
         if (!fulfilledBranchIds.Any())
         {
             logger.LogWarning("[OrderId={OrderId}] No items could be fulfilled. Order remains Processing, items Unavailable.", order.OrderId);
-            await context.SaveChangesAsync(cancellationToken); // Save empty split status
+            await context.SaveChangesAsync(cancellationToken);
             return Result.Success(plan);
         }
 
-        // Carry the AI engine's OSRM driving distance per branch onto the persisted legs so the
-        // order response returns the SAME distance as the order-routing preview (not straight-line).
         var distanceByBranchKm = plan.Legs
             .GroupBy(l => l.BranchId)
             .ToDictionary(g => g.Key, g => g.First().DistanceKm);
@@ -258,17 +243,8 @@ public class OrderSplittingService(
         return Result.Success(plan);
     }
 
-    /// <summary>
-    /// Translates the <see cref="OrderRoutingPlan"/> produced by the AI engine into per-item
-    /// <see cref="ItemAssignment"/>s. The engine already validated availability against live
-    /// inventory, so mapping is done directly by DrugId per leg; the subsequent stock-reservation
-    /// step provides the final authoritative safety check. Any pending item the plan does not
-    /// place is returned as unassigned so it is marked Unavailable downstream.
-    /// </summary>
     private SplittingResult MapPlanToSplittingResult(OrderRoutingPlan plan, List<OrderItem> pendingItems)
     {
-        // Queue the concrete pending order-items per drug so multiple lines of the same drug are
-        // each given their own assignment record against the engine's per-branch line quantity.
         var pendingByDrug = pendingItems
             .GroupBy(i => i.DrugId)
             .ToDictionary(g => g.Key, g => new Queue<OrderItem>(g));
@@ -316,7 +292,7 @@ public class OrderSplittingService(
         return await context.Orders
             .Include(o => o.Items)
             .Include(o => o.DeliveryAddress)
-            .Include(o => o.FulfillmentLegs) // Needed for Resplit cleanup
+            .Include(o => o.FulfillmentLegs)
             .AsSplitQuery()
             .FirstOrDefaultAsync(o => o.OrderId == orderId, cancellationToken);
     }
@@ -377,10 +353,6 @@ public class OrderSplittingService(
         var result = inventoryService.ReserveStockBatch(inventorySnapshot, reservations);
         if (result.IsFailure)
         {
-            // The Orchestrator does not catch DbUpdateConcurrencyException here because
-            // InventoryService no longer calls SaveChangesAsync.
-            // If validation inside ReserveStockBatchAsync fails (e.g. InsufficientStock),
-            // it means the snapshot was stale. We mark them as failed.
             failedItemIds.AddRange(assignments.Select(a => a.OrderItemId));
         }
 

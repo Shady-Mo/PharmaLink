@@ -943,6 +943,8 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 : Math.Round(legs.Sum(l => l.DistanceKm), 3);
         }
 
+        var pharmacyNameByBranch = evaluations.ToDictionary(e => e.BranchId, e => e.PharmacyName);
+
         var stops = new List<RouteStop>(order.Count);
         var prevCoordIndex = 0;
         for (int i = 0; i < order.Count; i++)
@@ -957,6 +959,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             {
                 Order = i + 1,
                 BranchId = leg.BranchId,
+                PharmacyName = pharmacyNameByBranch.GetValueOrDefault(leg.BranchId, string.Empty),
                 BranchName = leg.BranchName,
                 DistanceFromPreviousKm = hopKm,
                 ItemsToCollect = leg.Items.Select(it => it.DrugNameAr).ToList()
@@ -964,6 +967,7 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
             prevCoordIndex = legIdx + 1;
         }
+
 
         var optimizedBy = producedByAi ? "AI-MultiAgent" : "Held-Karp (TSP fallback)";
 
@@ -1062,7 +1066,13 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             }
 
             foreach (var (stop, tag) in placeholders)
-                text = text.Replace(tag, stop.BranchName, StringComparison.Ordinal);
+            {
+                var displayName = string.IsNullOrWhiteSpace(stop.PharmacyName)
+                    ? stop.BranchName
+                    : $"{stop.PharmacyName} ({stop.BranchName})";
+                text = text.Replace(tag, displayName, StringComparison.Ordinal);
+            }
+
 
             if (placeholders.Any(p => text.Contains(p.Tag, StringComparison.Ordinal))) {
                 _logger.LogWarning(

@@ -4,6 +4,8 @@ public sealed record BranchFulfillmentEvaluation
 {
     public Guid PharmacyId { get; init; }
 
+    public string PharmacyName { get; init; } = string.Empty;
+
     public Guid BranchId { get; init; }
 
     public string BranchName { get; init; } = string.Empty;

@@ -13,19 +13,8 @@ public sealed class PharmacyInventoryPlugin(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    /// <summary>
-    /// Hard distance cap (km) for PICKUP orders — the patient drives to the branch, so a branch is
-    /// only a candidate if it is within this radius regardless of the branch's own delivery radius.
-    /// </summary>
     private const double PickupMaxDistanceKm = 20.0;
 
-    /// <summary>
-    /// Fulfillment mode applied by the <c>evaluate_candidate_branches</c> kernel function when an
-    /// agent invokes it as a tool (the LLM tool signature can't carry the order's mode). The
-    /// orchestrator sets this on the per-agent plugin instance so the agent's tool call uses the
-    /// same geographic filter as the strongly-typed <see cref="EvaluateAsync"/> entry point.
-    /// Defaults to Delivery.
-    /// </summary>
     public FulfillmentMode DefaultFulfillmentMode { get; init; } = FulfillmentMode.Delivery;
 
 
@@ -48,9 +37,6 @@ public sealed class PharmacyInventoryPlugin(
         CancellationToken cancellationToken = default)
     {
         var cartItems = DeserializeCart(cartItemsJson);
-        // Use the mode the orchestrator configured for this agent instance (defaults to Delivery),
-        // so an agent-driven tool call applies the exact same geographic filter as the pre-computed
-        // authoritative evaluations for this order.
         var evaluations = await EvaluateAsync(
             new GeoLocation(patientLatitude, patientLongitude), cartItems, DefaultFulfillmentMode, cancellationToken);
 
@@ -84,9 +70,6 @@ public sealed class PharmacyInventoryPlugin(
             .GroupBy(c => c.DrugId)
             .ToDictionary(g => g.Key, g => g.First().DrugName);
 
-        // Authoritative bilingual drug names straight from the catalog (English brand name + Arabic
-        // name) so the returned plan can drive a bilingual confirmation popup. Falls back to the
-        // cart-supplied English name if a drug row is somehow missing.
         var drugNames = await db.Drugs
             .AsNoTracking()
             .Where(d => drugIds.Contains(d.DrugId))
@@ -99,7 +82,6 @@ public sealed class PharmacyInventoryPlugin(
                 : (cartNameByDrug.GetValueOrDefault(drugId, string.Empty), string.Empty);
 
 
-        // Get today's day of week to filter by working schedule.
         var today = DateTime.UtcNow.DayOfWeek;
 
         var stockRows = await db.PharmacyInventories
@@ -107,6 +89,7 @@ public sealed class PharmacyInventoryPlugin(
             .Where(i => drugIds.Contains(i.DrugId) && (i.StockQuantity - i.ReservedQuantity) > 0)
             .Select(i => new StockRow(
                 i.Branch.PharmacyId,
+                i.Branch.Pharmacy.LegalName,
                 i.BranchId,
                 i.Branch.BranchName,
                 i.Branch.GeoLocation != null ? i.Branch.GeoLocation.Y : (double?)null,
@@ -127,7 +110,6 @@ public sealed class PharmacyInventoryPlugin(
 
         var requestedCount = drugIds.Count;
 
-        // Gather all branch coordinates for the distance-matrix request. Index 0 = patient; 1..n = branches.
         var branchGroups = stockRows.GroupBy(r => r.BranchId).ToList();
         var coords = new List<(double Lat, double Lon)> { (patientLocation.Latitude, patientLocation.Longitude) };
         var branchCoordIndex = new Dictionary<Guid, int>(); // branchId → matrix index
@@ -142,8 +124,6 @@ public sealed class PharmacyInventoryPlugin(
             }
         }
 
-        // ONE OSRM /table request computes patient→branch distances for all branches at once. This
-        // replaces N individual point-to-point calls, cutting latency and OSRM load by ~10×–30×.
         var matrix = await osrmRoutingService.GetDistanceMatrixAsync(coords, cancellationToken);
         if (!matrix.IsSuccess)
         {
@@ -173,9 +153,6 @@ public sealed class PharmacyInventoryPlugin(
                         stockByDrug.TryGetValue(drugId, out var partial) ? partial.AvailableStock : 0));
             }
 
-            // Distance from the pre-computed matrix (patient = index 0, branch = branchCoordIndex[...]).
-            // If the matrix failed or the branch has no coordinates, distanceKm remains MaxValue so it
-            // sorts last rather than being misrepresented as "closest".
             var distanceKm = double.MaxValue;
             if (matrix.IsSuccess && branchCoordIndex.TryGetValue(first.BranchId, out var branchIdx))
             {
@@ -183,12 +160,6 @@ public sealed class PharmacyInventoryPlugin(
             }
 
 
-            // Mode-aware geographic feasibility gate (mirrors the real order path so the preview and
-            // the actual split never disagree on which branches are reachable):
-            //   • Delivery — branch must deliver to the patient: distance <= the branch's ServiceRadiusKm.
-            //   • Pickup   — patient drives to the branch: distance <= a fixed PickupMaxDistanceKm cap.
-            // A branch with an unknown distance (OSRM failed / no coordinates) can't be proven in-range,
-            // so it is excluded rather than risk surfacing an unreachable branch.
             var maxAllowedKm = fulfillmentMode == FulfillmentMode.Pickup
                 ? PickupMaxDistanceKm
                 : first.ServiceRadiusKm;
@@ -201,9 +172,6 @@ public sealed class PharmacyInventoryPlugin(
                 continue;
             }
 
-            // Working-hours feasibility gate: if the branch would close before delivery arrival (ETA),
-            // it is excluded. ETA = current time (UTC) + travel duration. For Pickup mode, skip this check
-            // since the patient controls their own arrival time.
             if (fulfillmentMode == FulfillmentMode.Delivery && first.TodaySchedule != null)
             {
                 var schedule = first.TodaySchedule;
@@ -215,8 +183,6 @@ public sealed class PharmacyInventoryPlugin(
                     continue;
                 }
 
-                // Duration from the matrix (patient→branch in minutes). Add a 10-minute prep buffer
-                // for the pharmacy to prepare the order before the driver leaves.
                 var durationMin = double.MaxValue;
                 if (matrix.IsSuccess && matrix.DurationsMinutes.Length > 0 && branchCoordIndex.TryGetValue(first.BranchId, out var idx))
                 {
@@ -243,6 +209,7 @@ public sealed class PharmacyInventoryPlugin(
 
             {
                 PharmacyId = first.PharmacyId,
+                PharmacyName = first.PharmacyName,
                 BranchId = first.BranchId,
                 BranchName = first.BranchName,
                 AvailableItemsCount = available.Count,
@@ -259,18 +226,11 @@ public sealed class PharmacyInventoryPlugin(
             });
         }
 
-        // Primary: coverage desc (fewest splits). Secondary: distance asc.
         evaluations = evaluations
             .OrderByDescending(e => e.AvailableItemsCount)
             .ThenBy(e => e.DistanceKm)
             .ToList();
 
-        // Performance cap: hand the AI at most 20 candidate branches so its reasoning stays fast and
-        // cheap. Naively taking the top-20 could drop a branch that is the ONLY source of a rare drug
-        // (low overall coverage + far away), which would make the whole cart look unfulfillable. So
-        // we take the best 20 by coverage/proximity, then guarantee the set still covers every drug
-        // that is stocked *somewhere* — pulling in the closest covering branch for any drug the top
-        // slice missed. This keeps the AI's input small while never sacrificing fulfillability.
         const int MaxCandidateBranches = 20;
         if (evaluations.Count > MaxCandidateBranches)
         {
@@ -287,8 +247,6 @@ public sealed class PharmacyInventoryPlugin(
             var uncovered = drugsStockedSomewhere.Except(coveredDrugs).ToHashSet();
             if (uncovered.Count > 0)
             {
-                // For each drug the top-20 missed, pull in the nearest branch that stocks it. Evaluations
-                // are already sorted by coverage then distance, so First() here is the best such branch.
                 var rescued = evaluations
                     .Skip(MaxCandidateBranches)
                     .Where(e => e.AvailableItems.Any(a => uncovered.Contains(a.DrugId)))
@@ -332,6 +290,7 @@ public sealed class PharmacyInventoryPlugin(
 
     private sealed record StockRow(
         Guid PharmacyId,
+        string PharmacyName,
         Guid BranchId,
         string BranchName,
         double? Latitude,
@@ -344,10 +303,8 @@ public sealed class PharmacyInventoryPlugin(
         decimal UnitPrice,
         ScheduleInfo? TodaySchedule);
 
-    /// <summary>Today's working-hours snapshot for a branch (closed flag + closing time).</summary>
     private sealed record ScheduleInfo(bool IsClosed, TimeOnly? CloseTime);
 
-    /// <summary>Bilingual catalog names for a drug (English brand name + Arabic name).</summary>
     private sealed record DrugNames(string En, string Ar);
 
 }
