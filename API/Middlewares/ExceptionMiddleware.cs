@@ -29,8 +29,8 @@ public class ExceptionMiddleware
             context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
 
             var response = _env.IsDevelopment()
-                ? new { statusCode = context.Response.StatusCode, message = ex.Message, details = ex.StackTrace?.ToString() }
-                : new { statusCode = context.Response.StatusCode, message = "حدث خطأ داخلي في الخادم. يرجى المحاولة لاحقاً." };
+                ? (object)new { statusCode = context.Response.StatusCode, message = ex.Message, details = ex.StackTrace?.ToString() }
+                : (object)new { statusCode = context.Response.StatusCode, message = "حدث خطأ داخلي في الخادم. يرجى المحاولة لاحقاً." };
 
             var options = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
             var json = JsonSerializer.Serialize(response, options);
