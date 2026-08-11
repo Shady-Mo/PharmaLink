@@ -13,10 +13,9 @@ public sealed class PharmacyInventoryPlugin(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private const double PickupMaxDistanceKm = 20.0;
+    private const double MaxDistanceKm = 20.0;
 
     public FulfillmentMode DefaultFulfillmentMode { get; init; } = FulfillmentMode.Delivery;
-
 
 
     [KernelFunction("evaluate_candidate_branches")]
@@ -112,7 +111,7 @@ public sealed class PharmacyInventoryPlugin(
 
         var branchGroups = stockRows.GroupBy(r => r.BranchId).ToList();
         var coords = new List<(double Lat, double Lon)> { (patientLocation.Latitude, patientLocation.Longitude) };
-        var branchCoordIndex = new Dictionary<Guid, int>(); // branchId → matrix index
+        var branchCoordIndex = new Dictionary<Guid, int>();
 
         foreach (var branchGroup in branchGroups)
         {
@@ -156,19 +155,14 @@ public sealed class PharmacyInventoryPlugin(
             var distanceKm = double.MaxValue;
             if (matrix.IsSuccess && branchCoordIndex.TryGetValue(first.BranchId, out var branchIdx))
             {
-                distanceKm = matrix.DistancesKm[0][branchIdx]; // row 0 = patient, column = branch
+                distanceKm = matrix.DistancesKm[0][branchIdx];
             }
 
-
-            var maxAllowedKm = fulfillmentMode == FulfillmentMode.Pickup
-                ? PickupMaxDistanceKm
-                : first.ServiceRadiusKm;
-
-            if (distanceKm > maxAllowedKm)
+            if (distanceKm > MaxDistanceKm)
             {
                 logger.LogDebug(
                     "PharmacyInventoryPlugin — Branch {BranchId} excluded: distance {DistanceKm}km > allowed {MaxKm}km (mode={Mode}).",
-                    first.BranchId, distanceKm, maxAllowedKm, fulfillmentMode);
+                    first.BranchId, distanceKm, MaxDistanceKm, fulfillmentMode);
                 continue;
             }
 
