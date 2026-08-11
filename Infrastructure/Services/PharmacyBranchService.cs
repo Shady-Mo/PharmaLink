@@ -24,6 +24,7 @@ public class PharmacyBranchService(
             return Result.Failure<GetPharmacyBranchResponseDTO>(PharmacyBranchErrors.DuplicateBranchName);
 
         var coordsResult = BuildPoint(dto.Latitude, dto.Longitude);
+
         if (coordsResult.IsFailure)
             return Result.Failure<GetPharmacyBranchResponseDTO>(coordsResult.Error);
 
@@ -34,31 +35,6 @@ public class PharmacyBranchService(
 
         context.PharmacyBranches.Add(branch);
         await context.SaveChangesAsync(cancellationToken);
-
-        var allDrugs = await context.Drugs
-            .Where(d => d.IsActive)
-            .Select(d => new { d.DrugId, d.FinalPrice })
-            .ToListAsync(cancellationToken);
-
-        var defaultInventories = allDrugs.Select(d => new PharmacyInventory
-        {
-            BranchId = branch.BranchId,
-            DrugId = d.DrugId,
-            StockQuantity = 10,
-            ReservedQuantity = 0,
-            UnitPrice = d.FinalPrice,
-            ExpiryDate = DateOnly.FromDateTime(DateTime.UtcNow.AddYears(1)),
-            LastSyncedAt = DateTime.UtcNow,
-            ReorderPoint = 2
-        }).ToList();
-
-        if (defaultInventories.Count != 0)
-        {
-            context.PharmacyInventories.AddRange(defaultInventories);
-            await context.SaveChangesAsync(cancellationToken);
-        }
-
-        logger.LogInformation("Created branch {BranchId} for Pharmacy {PharmacyId}", branch.BranchId, pharmacyId);
 
         var branchDto = branch.Adapt<GetPharmacyBranchResponseDTO>();
 
@@ -74,7 +50,8 @@ public class PharmacyBranchService(
             .AsNoTracking()
             .Where(b => b.PharmacyId == pharmacyId);
 
-        if (!string.IsNullOrWhiteSpace(parameters.Search)) {
+        if (!string.IsNullOrWhiteSpace(parameters.Search))
+        {
             var searchTerm = parameters.Search;
 
             branches = branches.Where(b =>
@@ -177,7 +154,7 @@ public class PharmacyBranchService(
 
         var searchResults = await context.PharmacyBranches
             .Where(b => b.PharmacyId == pharmacyId &&
-                (b.BranchName.Contains(term) || b.AddressLine.Contains(term)))
+                        (b.BranchName.Contains(term) || b.AddressLine.Contains(term)))
             .ProjectToType<PharmacyBranchSearchDTO>()
             .Take(10)
             .ToListAsync(cancellationToken);
@@ -193,10 +170,7 @@ public class PharmacyBranchService(
         if (!hasLat && !hasLng)
             return Result.Success<Point?>(null);
 
-        if (hasLat != hasLng)
-            return Result.Failure<Point?>(PharmacyBranchErrors.InvalidCoordinates);
-
-        if (latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
+        if (hasLat != hasLng || latitude < -90 || latitude > 90 || longitude < -180 || longitude > 180)
             return Result.Failure<Point?>(PharmacyBranchErrors.InvalidCoordinates);
 
         return Result.Success<Point?>(new Point(longitude!.Value, latitude!.Value) { SRID = 4326 });

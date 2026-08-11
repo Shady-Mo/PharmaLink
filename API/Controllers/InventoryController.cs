@@ -1,11 +1,14 @@
 ﻿using Application.DTOs.Supplier;
 using Application.Services.AI;
-using Infrastructure.Services;
-using Twilio.TwiML.Messaging;
 
 namespace API.Controllers;
 
-public class InventoryController(IInventoryService inventoryService, IInventoryForecastingService _forecastingService, IPurchaseOrderService _poService, IInventoryReportService _reportService, ISupplierOrderService _supplierOrderService) : BaseApiController
+public class InventoryController(
+    IInventoryService inventoryService,
+    IInventoryForecastingService _forecastingService,
+    IPurchaseOrderService _poService,
+    IInventoryReportService _reportService,
+    ISupplierOrderService _supplierOrderService) : BaseApiController
 {
     /// <summary>
     /// Retrieves a paginated inventory list, with optional text search and stock-status filtering.
@@ -28,7 +31,6 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     /// </summary>
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Pharmacist}")]
     [HttpGet("branch/{branchId:guid}")]
-
     [ProducesResponseType(typeof(PaginatedList<GetPharmacyInventoryDTO>), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> GetInventoryByBranch(
@@ -113,12 +115,10 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     public async Task<IActionResult> AdjustStock(Guid id, [FromBody] AdjustStockDTO dto,
         CancellationToken cancellationToken)
     {
-
         var result = await inventoryService.AdjustStock(id, dto, cancellationToken);
 
-        return result.IsSuccess ? Ok(new {Message = result.Value }) : result.ToProblem();
+        return result.IsSuccess ? Ok(new { Message = result.Value }) : result.ToProblem();
     }
-
 
 
     [HttpPost("trigger-forecast")]
@@ -127,31 +127,34 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> TriggerForecast([FromQuery] Guid? branchId, [FromQuery] int analysisDays = 30)
     {
+        var result = await _forecastingService.RunForecastingCycleAsync(branchId, analysisDays);
 
-        var result =  await _forecastingService.RunForecastingCycleAsync(branchId, analysisDays);
-
-       return result.IsSuccess ? Ok(new {
-           Success = true,
-           Message = branchId.HasValue
-                ? $"Forecasting cycle successfully executed for branch: {branchId}"
-                : "Forecasting cycle successfully executed for all branches.",
-           Timestamp = DateTime.UtcNow
-       }) : result.ToProblem();
-       
+        return result.IsSuccess
+            ? Ok(new
+            {
+                Success = true,
+                Message = branchId.HasValue
+                    ? $"Forecasting cycle successfully executed for branch: {branchId}"
+                    : "Forecasting cycle successfully executed for all branches.",
+                Timestamp = DateTime.UtcNow
+            })
+            : result.ToProblem();
     }
 
 
     [HttpGet("branches/{branchId}/forecast-report")]
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
     public async Task<IActionResult> GetForecastReport(Guid branchId, [FromQuery] int pageNumber = 1,
-    [FromQuery] int pageSize = 10)
+        [FromQuery] int pageSize = 10)
     {
         var (report, totalCount) = await _reportService.GetBranchForecastReportAsync(branchId, pageNumber, pageSize);
 
         if (report == null)
             return NotFound(new { Success = false, Message = "No forecast data found for this branch." });
 
-        return Ok(new { Success = true, Data = report,
+        return Ok(new
+        {
+            Success = true, Data = report,
             Pagination = new
             {
                 CurrentPage = pageNumber,
@@ -162,7 +165,7 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
         });
     }
 
-  
+
     [HttpPut("purchase-orders/{orderId}/approve")]
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin},{AppRoles.Admin}")]
     public async Task<IActionResult> ApprovePurchaseOrder(Guid orderId)
@@ -172,7 +175,8 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
         var result = await _poService.ApprovePurchaseOrderAsync(orderId, userId);
 
         if (!result)
-            return BadRequest(new { Success = false, Message = "Failed to approve. Order might not exist or is already processed." });
+            return BadRequest(new
+                { Success = false, Message = "Failed to approve. Order might not exist or is already processed." });
 
         return Ok(new { Success = true, Message = "Purchase order approved successfully." });
     }
@@ -205,7 +209,6 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
     public async Task<IActionResult> AssignSupplierToOrder(Guid orderId, Guid supplierId, Guid branchId)
     {
-
         var result = await _supplierOrderService.AssignSupplierToOrderAsync(orderId, supplierId, branchId);
 
         if (result.IsFailure)
@@ -220,7 +223,6 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
     [Authorize(Roles = $"{AppRoles.PharmacyAdmin}")]
     public async Task<IActionResult> ReceiveOrder(Guid orderId, Guid branchId)
     {
-
         var result = await _supplierOrderService.ReceiveOrderAsync(orderId, branchId);
 
         if (result.IsFailure)
@@ -242,5 +244,4 @@ public class InventoryController(IInventoryService inventoryService, IInventoryF
 
         return Ok(result.Value);
     }
-
 }

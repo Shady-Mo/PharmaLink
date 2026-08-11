@@ -1,8 +1,3 @@
-using Domain.Constants;
-using Domain.Entities;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.Extensions.Logging;
-
 namespace Infrastructure.Persistence.Seeders;
 
 public class AdminSeeder(
@@ -11,7 +6,7 @@ public class AdminSeeder(
 {
     public async Task SeedAsync()
     {
-        var adminEmail = "admin@pharmalink.com";
+        const string adminEmail = "admin@example.com";
 
         if (await userManager.FindByEmailAsync(adminEmail) != null)
         {
@@ -30,7 +25,7 @@ public class AdminSeeder(
             PhoneNumberConfirmed = true
         };
 
-        var result = await userManager.CreateAsync(adminUser, "Admin123!");
+        var result = await userManager.CreateAsync(adminUser, "P@ss1234");
 
         if (result.Succeeded)
         {
