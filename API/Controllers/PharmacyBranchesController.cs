@@ -1,6 +1,3 @@
-using Application.DTOs.PharmacyBranch.Request;
-using Application.DTOs.PharmacyBranch.Response;
-
 namespace API.Controllers;
 
 [Authorize(Roles = AppRoles.PharmacyAdmin)]
@@ -18,6 +15,7 @@ public class PharmacyBranchesController(
         CancellationToken cancellationToken)
     {
         var pharmacyId = User.GetPharmacyId();
+
         if (pharmacyId is null)
             return Result.Failure(PharmacyBranchErrors.PharmacyContextMissing).ToProblem();
 
