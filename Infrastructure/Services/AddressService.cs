@@ -19,12 +19,10 @@ public class AddressService(
 
         if (request.IsDefault)
         {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
             await UnsetOtherDefaultAddressesAsync(patientId, null, cancellationToken);
 
             dbContext.Addresses.Add(address);
             await dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
         }
         else
         {
@@ -90,12 +88,10 @@ public class AddressService(
 
         if (request.IsDefault && !address.IsDefault)
         {
-            await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
             await UnsetOtherDefaultAddressesAsync(patientId, addressId, cancellationToken);
 
             address.IsDefault = true;
             await dbContext.SaveChangesAsync(cancellationToken);
-            await transaction.CommitAsync(cancellationToken);
         }
         else if (!request.IsDefault && address.IsDefault)
             return Result.Failure<AddressResponseDTO>(AddressErrors.AddressIsTheDefault);
@@ -151,12 +147,10 @@ public class AddressService(
         if (address.IsDefault)
             return Result.Failure(AddressErrors.AddressAlreadyDefault);
 
-        await using var transaction = await dbContext.Database.BeginTransactionAsync(cancellationToken);
         await UnsetOtherDefaultAddressesAsync(patientId, addressId, cancellationToken);
 
         address.IsDefault = true;
         await dbContext.SaveChangesAsync(cancellationToken);
-        await transaction.CommitAsync(cancellationToken);
 
         return Result.Success();
     }

@@ -1,4 +1,4 @@
-﻿namespace Application.Errors
+namespace Application.Errors
 {
 
     public static class AddressErrors
@@ -26,7 +26,7 @@
 
         public static readonly Error AddressIsTheDefault =
             new("AddressIsTheDefault",
-                "this is the default address you can't delete or make it not Default . make another one default"
+                "هذا هو العنوان الافتراضي، لا يمكنك حذفه أو إلغاء تعيينه. يرجى تعيين عنوان آخر كافتراضي أولاً."
                 , StatusCodes.Status409Conflict);
 
     }
