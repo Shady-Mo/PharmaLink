@@ -4,7 +4,7 @@ namespace Infrastructure.Services.PrescriptionAudit;
 
 public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
 {
-    private const double FuzzyThreshold = 0.72;
+    private const double FuzzyThreshold = 0.65;
 
     [KernelFunction("find_best_catalog_match")]
     public async Task<DrugMatchResult> FindBestMatchAsync(
@@ -43,7 +43,7 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
                 DrugId = exact.DrugId,
                 Drug = exact,
                 Score = 1,
-                Reason = "Exact brand-name catalog match."
+                Reason = "مطابقة تامة لاسم الدواء."
             };
         }
 
@@ -76,7 +76,7 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
                 DrugId = fuzzy.Drug.DrugId,
                 Drug = fuzzy.Drug,
                 Score = Math.Min(score, 0.99),
-                Reason = "High-confidence normalized fuzzy catalog match."
+                Reason = "مطابقة محتملة بنسبة عالية مع الكتالوج."
             };
         }
 
@@ -84,7 +84,7 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
         {
             Status = PrescriptionMedicineMatchStatus.NotFound,
             Score = 0,
-            Reason = "No exact or high-confidence fuzzy catalog match was found."
+            Reason = "لم يتم العثور على مطابقة دقيقة أو محتملة في الكتالوج."
         };
     }
 

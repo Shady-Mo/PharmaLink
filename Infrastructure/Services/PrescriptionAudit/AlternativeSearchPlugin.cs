@@ -17,7 +17,7 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
             return new DrugMatchResult
             {
                 Status = PrescriptionMedicineMatchStatus.NotFound,
-                Reason = "Cannot suggest an alternative without an active ingredient or category.",
+                Reason = "لا يمكن اقتراح بديل بدون المادة الفعالة أو الفئة.",
                 Score = 0
             };
         }
@@ -72,7 +72,7 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
             return new DrugMatchResult
             {
                 Status = PrescriptionMedicineMatchStatus.NotFound,
-                Reason = "No available medicine with the same active ingredient and strength was found.",
+                Reason = "لم يتم العثور على دواء بديل بنفس المادة الفعالة والتركيز.",
                 Score = 0
             };
         }
@@ -88,7 +88,7 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
             SuggestedAlternativeDrugId = best.Drug.DrugId,
             SuggestedAlternativeDrug = best.Drug,
             Score = Math.Min(score, 0.97),
-            Reason = "Original medicine is unavailable or not found. Suggested equivalent based on the same active ingredient."
+            Reason = "الدواء الأصلي غير متوفر. تم اقتراح بديل يحتوي على نفس المادة الفعالة."
         };
     }
 }
