@@ -1,6 +1,8 @@
+using Application.Services.ReviewTeamProfile;
 using Hangfire;
 using Hangfire.SqlServer;
 using Infrastructure.BackgroundJobs;
+using Infrastructure.Services.ReviewTeamProfile;
 
 namespace Infrastructure;
 
@@ -121,6 +123,8 @@ public static class DependencyInjection
             services.AddScoped<ISupplierDrugService, SupplierDrugService>();
             services.AddScoped<ISupplierProfileService, SupplierProfileService>();
             services.AddScoped<IDriverProfileService, DriverProfileService>();
+            
+            services.AddScoped<IReviewTeamProfileService, ReviewTeamProfileService>();
 
             services.AddScoped<ISupplierOrderService, SupplierOrderService>();
             services.Configure<GeminiSettings>(
