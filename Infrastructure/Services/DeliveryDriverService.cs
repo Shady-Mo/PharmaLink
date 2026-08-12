@@ -1,4 +1,4 @@
-﻿using Application.DTOs.DeliveryDriver;
+using Application.DTOs.DeliveryDriver;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -216,7 +216,7 @@ namespace Infrastructure.Services
         public async Task<Result<PaginatedList<DeliveryJobHistoryDto>>> GetDriverHistoryAsync(Guid driverId, int pageNumber, int pageSize)
         {
             var query = context.DeliveryJobs
-                .Where(j => j.DriverId == driverId && j.Status == DeliveryJobStatus.Delivered);
+                .Where(j => j.DriverId == driverId && (j.Status == DeliveryJobStatus.Delivered || j.Status == DeliveryJobStatus.Cancelled));
 
             var totalCount = await query.CountAsync();
 
