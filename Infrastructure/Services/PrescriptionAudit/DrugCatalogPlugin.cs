@@ -26,8 +26,7 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
 
         var exact = strengthMatchedDrugs
             .Where(d => DrugTextNormalizer.Normalize(d.BrandName) == normalizedName)
-            .OrderByDescending(IsAvailable)
-            .ThenByDescending(d => DrugTextNormalizer.ContainsDosageForm(
+            .OrderByDescending(d => DrugTextNormalizer.ContainsDosageForm(
                 medicine.DosageForm, 
                 d.BrandName, 
                 d.ArabicName, 
@@ -38,25 +37,13 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
 
         if (exact is not null)
         {
-            if (IsAvailable(exact))
-            {
-                return new DrugMatchResult
-                {
-                    Status = PrescriptionMedicineMatchStatus.ExactMatch,
-                    DrugId = exact.DrugId,
-                    Drug = exact,
-                    Score = 1,
-                    Reason = "Exact brand-name catalog match."
-                };
-            }
-
             return new DrugMatchResult
             {
-                Status = PrescriptionMedicineMatchStatus.Unavailable,
+                Status = PrescriptionMedicineMatchStatus.ExactMatch,
                 DrugId = exact.DrugId,
                 Drug = exact,
                 Score = 1,
-                Reason = "Exact catalog medicine exists but is inactive or unavailable in inventory."
+                Reason = "Exact brand-name catalog match."
             };
         }
 
@@ -71,39 +58,25 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
                     d.ArabicName, 
                     d.MetaDescriptionAr, 
                     d.MetaDescriptionEn, 
-                    d.Form),
-                Available = IsAvailable(d)
+                    d.Form)
             })
             .Where(c => c.NameScore >= FuzzyThreshold)
-            .OrderByDescending(c => c.Available)
-            .ThenByDescending(c => c.FormMatch)
+            .OrderByDescending(c => c.FormMatch)
             .ThenByDescending(c => c.NameScore)
             .FirstOrDefault();
 
         if (fuzzy is not null)
         {
-            if (fuzzy.Available)
-            {
-                var score = fuzzy.NameScore;
-                if (fuzzy.FormMatch) score += 0.03;
-
-                return new DrugMatchResult
-                {
-                    Status = PrescriptionMedicineMatchStatus.FuzzyMatch,
-                    DrugId = fuzzy.Drug.DrugId,
-                    Drug = fuzzy.Drug,
-                    Score = Math.Min(score, 0.99),
-                    Reason = "High-confidence normalized fuzzy catalog match."
-                };
-            }
+            var score = fuzzy.NameScore;
+            if (fuzzy.FormMatch) score += 0.03;
 
             return new DrugMatchResult
             {
-                Status = PrescriptionMedicineMatchStatus.Unavailable,
+                Status = PrescriptionMedicineMatchStatus.FuzzyMatch,
                 DrugId = fuzzy.Drug.DrugId,
                 Drug = fuzzy.Drug,
-                Score = fuzzy.NameScore,
-                Reason = "Likely catalog medicine exists but is inactive or unavailable in inventory."
+                Score = Math.Min(score, 0.99),
+                Reason = "High-confidence normalized fuzzy catalog match."
             };
         }
 
@@ -113,11 +86,6 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
             Score = 0,
             Reason = "No exact or high-confidence fuzzy catalog match was found."
         };
-    }
-
-    internal static bool IsAvailable(Drug drug)
-    {
-        return drug.IsActive;
     }
 
     private static double GetCatalogNameScore(string extractedName, Drug drug)

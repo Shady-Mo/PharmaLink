@@ -46,7 +46,6 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
             .ToListAsync(cancellationToken);
 
         var best = alternatives
-            .Where(DrugCatalogPlugin.IsAvailable)
             .Where(d => DrugTextNormalizer.ContainsStrength(
                 medicine.Strength,
                 d.BrandName,
