@@ -145,8 +145,7 @@ public class ChefaaImporterService : IChefaaImporterService
                                 Discount = GetDecimalSafe(hit, "discount"),
                                 CostPrice = GetDecimalSafe(hit, "cost_price"),
                                 ImageUrl = hit["image"]?.GetValue<string>() ?? "",
-                                DescriptionEn = hit["description_en"]?.GetValue<string>() ?? "",
-                                DescriptionAr = hit["description_ar"]?.GetValue<string>() ?? "",
+                                MetaDescriptionAr = hit["meta_description_ar"]?.GetValue<string>() ?? "",
                                 Slug = hit["slug"]?.GetValue<string>() ?? "",
                                 BrandEn = brandData?.NameEn ?? "",
                                 BrandAr = brandData?.NameAr ?? "",
@@ -159,13 +158,6 @@ public class ChefaaImporterService : IChefaaImporterService
                                 MetaKeywordsEn = hit["meta_keywords_en"]?.GetValue<string>() ?? "",
                                 MetaKeywordsAr = hit["meta_keywords_ar"]?.GetValue<string>() ?? "",
                                 MetaDescriptionEn = hit["meta_description_en"]?.GetValue<string>() ?? "",
-                                MetaDescriptionAr = hit["meta_description_ar"]?.GetValue<string>() ?? "",
-                                SortingKeywordEn = hit["sorting_keyword_en"]?.GetValue<string>() ?? "",
-                                SortingKeywordAr = hit["sorting_keyword_ar"]?.GetValue<string>() ?? "",
-                                BundleTagEn = hit["bundle_tag_en"]?.GetValue<string>() ?? "",
-                                BundleTagAr = hit["bundle_tag_ar"]?.GetValue<string>() ?? "",
-                                CouponDescriptionEn = hit["coupon_description_en"]?.GetValue<string>() ?? "",
-                                CouponDescriptionAr = hit["coupon_description_ar"]?.GetValue<string>() ?? "",
                                 CategoryId = finalCategory?.Id,
                                 InStock = hit["in_stock"]?.GetValue<bool>() ?? false,
                                 OutOfStock = hit["out_of_stock"]?.GetValue<bool>() ?? false,
@@ -174,8 +166,7 @@ public class ChefaaImporterService : IChefaaImporterService
                                 IsActive = hit["active"]?.GetValue<bool>() ?? false,
                                 MaxQuantity = hit["max_quantity"]?.GetValue<int>() ?? 0,
                                 Quantity = hit["quantity"]?.GetValue<int>() ?? 0,
-                                PurchaseCount = hit["purchase_count"]?.GetValue<int>() ?? 0,
-                                GameballPoints = hit["gameball_points"]?.GetValue<int?>()
+                                PurchaseCount = hit["purchase_count"]?.GetValue<int>() ?? 0
                             };
 
                             var suppliersNode = hit["suppliers_info"] as JsonArray;
