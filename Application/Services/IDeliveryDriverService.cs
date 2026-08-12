@@ -1,4 +1,4 @@
-﻿using Application.DTOs.DeliveryDriver;
+using Application.DTOs.DeliveryDriver;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -15,6 +15,7 @@ namespace Application.Services
 
         Task<Result> SetStatustToOnline(Guid userId);
         Task<Result> SetStatustToOffline(Guid userId);
+        Task<Result<DeliveryJobNotificationDto?>> GetActiveJobAsync(Guid driverId);
         Task<Result<List<DeliveryJobNotificationDto>>> GetAvailableJobsAsync(double? driverLat, double? driverLng);
         Task<Result<PaginatedList<DeliveryJobHistoryDto>>> GetDriverHistoryAsync(Guid driverId, int pageNumber, int pageSize);
     }
