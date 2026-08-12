@@ -57,5 +57,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<DeliveryDriver> DeliveryDrivers { get; set; }
     public DbSet<PrescriptionVectorIndex> PrescriptionVectorIndices { get; set; }
 
+    public DbSet<MedicineReminder> MedicineReminders { get; set; }
+    public DbSet<MedicineReminderLog> MedicineReminderLogs { get; set; }
+    public DbSet<RecurringPrescription> RecurringPrescriptions { get; set; }
+    public DbSet<RecurringPrescriptionRun> RecurringPrescriptionRuns { get; set; }
 }
 

@@ -104,6 +104,9 @@ public static class DependencyInjection
             services.AddScoped<IPatientService, PatientService>();
             services.AddScoped<IPatientPharmacyService, PatientPharmacyService>();
             services.AddScoped<IPharmacyBranchScheduleService, PharmacyBranchScheduleService>();
+            services.AddScoped<IMedicineReminderService, MedicineReminderService>();
+            services.AddScoped<IRecurringPrescriptionService, RecurringPrescriptionService>();
+            services.AddHttpClient<IWhatsAppMessageService, WhapiWhatsAppMessageService>();
 
             services.AddScoped<IDashboardService, DashboardService>();
 
