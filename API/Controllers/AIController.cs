@@ -48,7 +48,7 @@ public class AIController(
     {
         if (request.File is null || request.File.Length == 0)
         {
-            return BadRequest("Prescription file is required.");
+            return BadRequest("مطلوب إرفاق صورة الروشتة.");
         }
 
         var file = await ToAIFileContentAsync(request.File, cancellationToken);
@@ -96,7 +96,7 @@ public class AIController(
     {
         if (request.File is null || request.File.Length == 0)
         {
-            return BadRequest("Medicine image file is required.");
+            return BadRequest("مطلوب إرفاق صورة الدواء.");
         }
 
         var file = await ToAIFileContentAsync(request.File, cancellationToken);
@@ -125,7 +125,7 @@ public class AIController(
     {
         if (request.File is null || request.File.Length == 0)
         {
-            return BadRequest("Medicine image file is required.");
+            return BadRequest("مطلوب إرفاق صورة الدواء.");
         }
 
         var file = await ToAIFileContentAsync(request.File, cancellationToken);

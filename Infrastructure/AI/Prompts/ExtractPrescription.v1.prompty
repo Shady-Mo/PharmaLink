@@ -7,7 +7,7 @@ Return only valid JSON. Do not include markdown or code fences.
 If the uploaded document is not a medical prescription, return:
 {
   "isValidPrescription": false,
-  "validationMessage": "The uploaded document does not appear to be a valid prescription.",
+  "validationMessage": "عفواً، المستند المرفق لا يبدو كروشتة طبية صحيحة.",
   "extractedText": null,
   "aiSummary": null,
   "extractionConfidence": 0.0,
