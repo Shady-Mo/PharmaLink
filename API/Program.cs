@@ -1,9 +1,8 @@
 using API.Hubs;
+using API.Middlewares;
 using API.Notification;
 using Application.Hubs;
-using Application.Services.AI;
 using Hangfire;
-using Infrastructure.AI;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -20,7 +19,7 @@ builder.Services.AddScoped<IDeliveryNotificationService, DeliveryNotificationSer
 
 var app = builder.Build();
 
-app.UseMiddleware<API.Middlewares.ExceptionMiddleware>();
+app.UseMiddleware<ExceptionMiddleware>();
 
 //using (var scope = app.Services.CreateScope())
 //{

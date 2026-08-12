@@ -29,6 +29,7 @@ public class PatientService(
             PhoneNumber = patient.PhoneNumber ?? string.Empty,
             Status = patient.Status.ToString(),
             CreatedAt = patient.CreatedAt,
+            ProfilePictureUrl = patient.ProfilePictureUrl,
             Addresses = patient.Addresses.Select(a => new PatientAddressDto
             {
                 AddressId = a.AddressId,
