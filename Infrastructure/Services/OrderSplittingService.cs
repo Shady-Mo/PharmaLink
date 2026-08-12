@@ -77,17 +77,20 @@ public class OrderSplittingService(
         }, cancellationToken);
     }
 
-    public async Task<Result> ResplitOrderV2Async(Guid orderId, Guid adminUserId, CancellationToken cancellationToken = default)
+    public async Task<Result> ResplitOrderV2Async(Guid orderId, Guid adminUserId,
+        CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         logger.LogInformation("Admin {AdminId} initiated re-split V2 for Order {OrderId}", adminUserId, orderId);
 
         var cleanupResult = await ExecuteWithRetryAsync(orderId, async (order, transaction, ct) =>
         {
-            var preSplitStatus = string.Join(", ", order.Items.GroupBy(i => i.ItemStatus).Select(g => $"{g.Key}: {g.Count()}"));
+            var preSplitStatus = string.Join(", ",
+                order.Items.GroupBy(i => i.ItemStatus).Select(g => $"{g.Key}: {g.Count()}"));
             logger.LogInformation("[OrderId={OrderId}] Pre-split state V2: {State}", orderId, preSplitStatus);
 
-            var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue).ToList();
+            var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue)
+                .ToList();
             var releases = awardedItems
                 .GroupBy(i => new { i.BranchId, i.DrugId })
                 .Select(g => (g.Key.BranchId!.Value, g.Key.DrugId, g.Sum(x => x.QuantityNeeded)))
@@ -97,11 +100,13 @@ public class OrderSplittingService(
             {
                 var releaseResult = await inventoryService.ReleaseReservationBatchAsync(releases, ct);
                 if (releaseResult.IsFailure)
-                    logger.LogWarning("[OrderId={OrderId}] Failed to release batched reservations during re-split V2.", orderId);
+                    logger.LogWarning("[OrderId={OrderId}] Failed to release batched reservations during re-split V2.",
+                        orderId);
             }
 
             context.OrderFulfillmentLegs.RemoveRange(order.FulfillmentLegs);
-            logger.LogInformation("[OrderId={OrderId}] Deleted {Count} existing legs V2", orderId, order.FulfillmentLegs.Count);
+            logger.LogInformation("[OrderId={OrderId}] Deleted {Count} existing legs V2", orderId,
+                order.FulfillmentLegs.Count);
             order.FulfillmentLegs.Clear();
 
             foreach (var item in order.Items.Where(i => i.ItemStatus != ItemStatus.Cancelled))
@@ -113,16 +118,18 @@ public class OrderSplittingService(
             order.OrderStatus = OrderStatus.Pending;
 
             await context.SaveChangesAsync(ct);
-            return Result.Success();
+            return Result.Success(true);
         }, cancellationToken);
 
         if (cleanupResult.IsFailure)
             return cleanupResult;
 
         var splitResult = await SplitOrderAsync(orderId, cancellationToken);
-        
+
         sw.Stop();
-        logger.LogInformation("Admin {AdminId} completed re-split V2 for Order {OrderId} in {ElapsedMs}ms. Success: {IsSuccess}", adminUserId, orderId, sw.ElapsedMilliseconds, splitResult.IsSuccess);
+        logger.LogInformation(
+            "Admin {AdminId} completed re-split V2 for Order {OrderId} in {ElapsedMs}ms. Success: {IsSuccess}",
+            adminUserId, orderId, sw.ElapsedMilliseconds, splitResult.IsSuccess);
 
         return splitResult;
     }

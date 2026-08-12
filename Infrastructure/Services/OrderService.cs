@@ -400,6 +400,8 @@ public class OrderService(
         var order = await context.Orders
             .Include(o => o.Patient)
             .Include(o => o.DeliveryAddress)
+            .Include(o => o.PrescriptionReview)
+            .Include(o => o.Prescription)
             .Include(o => o.Items)
                 .ThenInclude(i => i.Drug)
             .Include(o => o.FulfillmentLegs)
@@ -424,6 +426,8 @@ public class OrderService(
             FulfillmentMode = order.FulfillmentMode,
             CreatedAt = order.CreatedAt,
             DeliveredAt = order.DeliveredAt,
+            HasPrescription = order.PrescriptionReview != null || order.Prescription != null,
+            PrescriptionId = order.PrescriptionReview?.PrescriptionReviewId ?? order.Prescription?.Id,
             DeliveryAddress = order.DeliveryAddress != null
                 ? $"{order.DeliveryAddress.Governorate}، {order.DeliveryAddress.City}، {order.DeliveryAddress.AddressLine}"
                 : "No Address",
