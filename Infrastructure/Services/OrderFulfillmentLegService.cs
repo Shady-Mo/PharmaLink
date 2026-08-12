@@ -241,13 +241,13 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             .Select(leg => new
             {
                 leg.OrderId,
-                PatientName = leg.Order.Patient != null ? leg.Order.Patient.FullName : "غير معروف",
+                PatientName = leg.Order.Patient != null ? leg.Order.Patient.FullName : null,
                 TotalAmount = leg.Order.TotalAmount,
                 leg.LegStatus,
                 leg.ReadyByEstimate,
-                DrugsList = dbContext.OrderItems
+                Items = dbContext.OrderItems
                     .Where(oi => oi.OrderId == leg.OrderId && oi.BranchId == leg.BranchId)
-                    .Select(oi => (!string.IsNullOrWhiteSpace(oi.Drug.BrandName) ? oi.Drug.BrandName : oi.Drug.ArabicName) + " × " + oi.QuantityNeeded)
+                    .Select(oi => new { oi.Drug.BrandName, oi.Drug.ArabicName, oi.QuantityNeeded })
                     .ToList()
             })
             .ToListAsync(cancellationToken);
@@ -256,10 +256,10 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
         {
             OrderId = item.OrderId,
             OrderNumber = $"ORD-{item.OrderId.ToString().Substring(0, 8).ToUpper()}",
-            PatientName = item.PatientName,
+            PatientName = item.PatientName ?? "غير معروف",
             TotalAmount = item.TotalAmount,
             Date = item.ReadyByEstimate,
-            DrugsSummary = string.Join("، ", item.DrugsList),
+            DrugsSummary = string.Join("، ", item.Items.Select(oi => (!string.IsNullOrWhiteSpace(oi.BrandName) ? oi.BrandName : oi.ArabicName) + " × " + oi.QuantityNeeded)),
             Status = (LegStatus)item.LegStatus
         }).ToList();
 
