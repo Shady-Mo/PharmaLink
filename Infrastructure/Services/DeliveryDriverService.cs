@@ -160,6 +160,38 @@ namespace Infrastructure.Services
             return Result.Success();
         }
 
+        public async Task<Result<DeliveryJobNotificationDto?>> GetActiveJobAsync(Guid driverId)
+        {
+            var activeJob = await context.DeliveryJobs
+                .Include(j => j.FulfillmentLeg).ThenInclude(l => l.Branch)
+                .Include(j => j.FulfillmentLeg).ThenInclude(l => l.Order).ThenInclude(o => o.DeliveryAddress)
+                .Where(j => j.DriverId == driverId && j.Status == DeliveryJobStatus.Accepted)
+                .FirstOrDefaultAsync();
+
+            if (activeJob == null)
+            {
+                return Result.Success<DeliveryJobNotificationDto?>(null);
+            }
+
+            var address = activeJob.FulfillmentLeg.Order.DeliveryAddress;
+            var branch = activeJob.FulfillmentLeg.Branch;
+
+            var dto = new DeliveryJobNotificationDto
+            {
+                JobId = activeJob.JobId,
+                PharmacyName = branch.Name,
+                DeliveryFee = activeJob.DeliveryFee,
+                DistanceKm = 0, // Distance can be calculated on the frontend since it needs driver's live location
+                FullAddress = address != null ? $"{address.AddressLine}, {address.City}, {address.Governorate}" : "Unknown Address",
+                Longitude = address?.Longitude ?? 0,
+                Latitude = address?.Latitude ?? 0,
+                PharmacyLatitude = branch.GeoLocation?.Y,
+                PharmacyLongitude = branch.GeoLocation?.X
+            };
+
+            return Result.Success<DeliveryJobNotificationDto?>(dto);
+        }
+
         public async Task<Result<List<DeliveryJobNotificationDto>>> GetAvailableJobsAsync(double? driverLat, double? driverLng)
         {
             var pendingJobs = await context.DeliveryJobs

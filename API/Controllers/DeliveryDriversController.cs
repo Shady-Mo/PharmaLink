@@ -1,4 +1,4 @@
-﻿using Application.DTOs.DeliveryDriver;
+using Application.DTOs.DeliveryDriver;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 
@@ -35,6 +35,15 @@ namespace API.Controllers
             var result = await driverService.CompleteJobAsync(driverId, jobId);
 
             return result.IsSuccess ? Ok(new { Message = "تم إنهاء الطلب والتسليم بنجاح." }) : result.ToProblem();
+        }
+
+        [HttpGet("active-job")]
+        public async Task<IActionResult> GetActiveJob()
+        {
+            var driverId = User.GetUserId();
+            var result = await driverService.GetActiveJobAsync(driverId);
+
+            return result.IsSuccess ? Ok(result.Value) : BadRequest(result.Error);
         }
 
         [HttpGet("available-jobs")]
