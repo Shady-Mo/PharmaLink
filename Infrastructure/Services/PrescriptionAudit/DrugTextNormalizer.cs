@@ -50,6 +50,41 @@ internal static class DrugTextNormalizer
         return string.IsNullOrEmpty(a) || string.IsNullOrEmpty(b) || a == b;
     }
 
+    public static bool ContainsStrength(string? extractedStrength, params string?[] fields)
+    {
+        if (string.IsNullOrWhiteSpace(extractedStrength))
+            return true;
+
+        var target = NormalizeStrength(extractedStrength);
+        if (string.IsNullOrEmpty(target))
+            return true;
+
+        foreach (var field in fields)
+        {
+            if (string.IsNullOrWhiteSpace(field))
+                continue;
+
+            var normalizedField = NormalizeStrength(field);
+
+            if (normalizedField == target)
+                return true;
+
+            int idx = normalizedField.IndexOf(target, StringComparison.Ordinal);
+            while (idx != -1)
+            {
+                bool startValid = idx == 0 || !char.IsDigit(normalizedField[idx - 1]);
+                bool endValid = (idx + target.Length == normalizedField.Length) || !char.IsDigit(normalizedField[idx + target.Length]);
+
+                if (startValid && endValid)
+                    return true;
+
+                idx = normalizedField.IndexOf(target, idx + 1, StringComparison.Ordinal);
+            }
+        }
+
+        return false;
+    }
+
     public static bool SameDosageForm(string? left, string? right)
     {
         var a = Normalize(left);
@@ -60,6 +95,45 @@ internal static class DrugTextNormalizer
                || a.Contains(b, StringComparison.OrdinalIgnoreCase)
                || b.Contains(a, StringComparison.OrdinalIgnoreCase)
                || AreEquivalentDosageForms(a, b);
+    }
+
+    public static bool ContainsDosageForm(string? extractedForm, params string?[] fields)
+    {
+        if (string.IsNullOrWhiteSpace(extractedForm))
+            return true;
+
+        var target = Normalize(extractedForm);
+        if (string.IsNullOrEmpty(target))
+            return true;
+
+        var groups = new[]
+        {
+            new[] { "tab", "tabs", "tablet", "tablets" },
+            new[] { "cap", "caps", "capsule", "capsules" },
+            new[] { "sach", "sachet", "sachets" },
+            new[] { "drop", "drops" },
+            new[] { "amp", "ampoule", "ampoules", "vial", "vials", "injection", "injectable" },
+            new[] { "syr", "syrup" },
+            new[] { "susp", "suspension", "solution", "spray", "lotion", "cream", "gel", "ointment" }
+        };
+
+        var targetGroup = groups.FirstOrDefault(g => g.Contains(target)) ?? new[] { target };
+
+        foreach (var field in fields)
+        {
+            if (string.IsNullOrWhiteSpace(field))
+                continue;
+
+            var normalizedField = Normalize(field);
+
+            foreach (var term in targetGroup)
+            {
+                if (normalizedField.Contains(term, StringComparison.OrdinalIgnoreCase))
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     public static double Similarity(string? left, string? right)

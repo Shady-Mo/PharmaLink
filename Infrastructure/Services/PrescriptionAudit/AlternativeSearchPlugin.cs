@@ -10,28 +10,35 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
         Drug? unavailableDrug,
         CancellationToken cancellationToken = default)
     {
-        var genericName = unavailableDrug?.GenericName ?? medicine.GenericName;
+        var searchKey = medicine.GenericName ?? medicine.MedicineName;
 
-        if (string.IsNullOrWhiteSpace(genericName))
+        if (string.IsNullOrWhiteSpace(searchKey) && unavailableDrug?.CategoryId == null)
         {
             return new DrugMatchResult
             {
                 Status = PrescriptionMedicineMatchStatus.NotFound,
-                Reason = "Cannot suggest an alternative without an active ingredient.",
+                Reason = "Cannot suggest an alternative without an active ingredient or category.",
                 Score = 0
             };
         }
 
-        var genericKey = DrugTextNormalizer.Normalize(genericName);
+        var genericKey = DrugTextNormalizer.Normalize(searchKey);
 
-        var alternativesQuery = context.Drugs
-            .Include(d => d.Inventories)
-            .Where(d => EF.Functions.Like(d.GenericName, $"%{genericName}%"))
-            .AsNoTracking();
+        IQueryable<Drug> alternativesQuery = context.Drugs.AsNoTracking();
 
-        if (unavailableDrug is not null)
+        if (unavailableDrug?.CategoryId != null)
         {
-            alternativesQuery = alternativesQuery.Where(d => d.DrugId != unavailableDrug.DrugId);
+            alternativesQuery = alternativesQuery.Where(d => d.CategoryId == unavailableDrug.CategoryId && d.DrugId != unavailableDrug.DrugId);
+        }
+        else
+        {
+            alternativesQuery = alternativesQuery.Where(d => 
+                EF.Functions.Like(d.MetaDescriptionEn, $"%{searchKey}%") || 
+                EF.Functions.Like(d.MetaDescriptionAr, $"%{searchKey}%") ||
+                EF.Functions.Like(d.BrandName, $"%{searchKey}%") ||
+                EF.Functions.Like(d.ArabicName, $"%{searchKey}%") ||
+                EF.Functions.Like(d.MetaKeywordsEn, $"%{searchKey}%") ||
+                EF.Functions.Like(d.MetaKeywordsAr, $"%{searchKey}%"));
         }
 
         var alternatives = await alternativesQuery
@@ -39,16 +46,25 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
             .ToListAsync(cancellationToken);
 
         var best = alternatives
-            .Where(d => DrugTextNormalizer.Normalize(d.GenericName) == genericKey)
             .Where(DrugCatalogPlugin.IsAvailable)
+            .Where(d => DrugTextNormalizer.ContainsStrength(
+                medicine.Strength,
+                d.BrandName,
+                d.ArabicName,
+                d.MetaDescriptionAr,
+                d.MetaDescriptionEn))
             .Select(d => new
             {
                 Drug = d,
-                StrengthMatch = DrugTextNormalizer.SameStrength(medicine.Strength ?? unavailableDrug?.Strength, d.Strength),
-                FormMatch = DrugTextNormalizer.SameDosageForm(medicine.DosageForm ?? unavailableDrug?.Form, d.Form)
+                FormMatch = DrugTextNormalizer.ContainsDosageForm(
+                    medicine.DosageForm ?? unavailableDrug?.Form, 
+                    d.BrandName, 
+                    d.ArabicName, 
+                    d.MetaDescriptionAr, 
+                    d.MetaDescriptionEn, 
+                    d.Form)
             })
-            .OrderByDescending(a => a.StrengthMatch)
-            .ThenByDescending(a => a.FormMatch)
+            .OrderByDescending(a => a.FormMatch)
             .ThenBy(a => a.Drug.Price)
             .FirstOrDefault();
 
@@ -57,13 +73,12 @@ public class AlternativeSearchPlugin(AppDbContext context) : IAlternativeSearchP
             return new DrugMatchResult
             {
                 Status = PrescriptionMedicineMatchStatus.NotFound,
-                Reason = "No available medicine with the same active ingredient was found.",
+                Reason = "No available medicine with the same active ingredient and strength was found.",
                 Score = 0
             };
         }
 
-        var score = 0.82;
-        if (best.StrengthMatch) score += 0.1;
+        var score = 0.92;
         if (best.FormMatch) score += 0.05;
 
         return new DrugMatchResult
