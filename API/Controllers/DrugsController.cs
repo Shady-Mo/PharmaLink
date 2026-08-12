@@ -2,24 +2,7 @@ namespace API.Controllers;
 
 public class DrugsController(IDrugService drugService, IWebHostEnvironment env) : BaseApiController
 {
-    /// <summary>
-    /// Triggers the database seeding process for Egyptian drugs dataset.
-    /// </summary>
-    /// <remarks>
-    /// This endpoint reads the `egyptian-drugs.json` file and safely seeds the data into the database.
-    /// Idempotency is maintained, meaning duplicates are skipped.
-    /// </remarks>
-    [HttpPost("seed")]
-    [ProducesResponseType(StatusCodes.Status200OK)]
-    [Authorize(Roles = AppRoles.Admin)]
-    public async Task<IActionResult> SeedCatalog([FromServices] DrugSeeder seeder, CancellationToken cancellationToken)
-    {
-        var filePath = Path.Combine(env.WebRootPath, "Data", "egyptian-drugs.json");
-
-        await seeder.SeedAsync(filePath, cancellationToken);
-
-        return Ok(new { message = "Seeding process completed. Check logs for details." });
-    }
+ 
 
     /// <summary>
     /// Triggers the background import process for Chefaa catalog.

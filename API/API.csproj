@@ -32,4 +32,12 @@
     <ProjectReference Include="..\Infrastructure\Infrastructure.csproj" />
   </ItemGroup>
 
+
+  
+  <ItemGroup>
+    <_ContentIncludedByDefault Remove="wwwroot\Data\drugs_seed.json" />
+    <_ContentIncludedByDefault Remove="wwwroot\Data\egyptian-drugs.csv" />
+    <_ContentIncludedByDefault Remove="wwwroot\Data\egyptian-drugs.json" />
+  </ItemGroup>
+
 </Project>
