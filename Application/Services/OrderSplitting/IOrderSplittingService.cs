@@ -21,4 +21,9 @@ public interface IOrderSplittingService
     /// Fully audit-logged via ILogger.
     /// </summary>
     Task<Result> ResplitOrderAsync(Guid orderId, Guid adminUserId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Admin-triggered V2: cleans up reservations and legs, commits, then runs SplitOrderAsync.
+    /// </summary>
+    Task<Result> ResplitOrderV2Async(Guid orderId, Guid adminUserId, CancellationToken cancellationToken = default);
 }

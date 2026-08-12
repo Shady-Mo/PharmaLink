@@ -48,7 +48,7 @@ public class AdminOrdersController(
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> ResplitOrder(Guid orderId, CancellationToken cancellationToken)
     {
-        var result = await orderSplittingService.ResplitOrderAsync(orderId, User.GetUserId(), cancellationToken);
+        var result = await orderSplittingService.ResplitOrderV2Async(orderId, User.GetUserId(), cancellationToken);
 
         return result.IsSuccess
             ? Ok(new { message = "Order re-split completed successfully." })

@@ -1,7 +1,8 @@
+using System.Diagnostics;
 using Application.DTOs.OrderRouting;
 using Application.Services.OrderRouting;
 using Application.Services.OrderSplitting.Models;
-using System.Diagnostics;
+using Microsoft.EntityFrameworkCore.Storage;
 
 namespace Infrastructure.Services;
 
@@ -12,7 +13,8 @@ public class OrderSplittingService(
     IOrderRoutingOrchestrator orderRoutingOrchestrator,
     ILogger<OrderSplittingService> logger) : IOrderSplittingService
 {
-    public async Task<Result<OrderRoutingPlan>> SplitOrderAsync(Guid orderId, CancellationToken cancellationToken = default)
+    public async Task<Result<OrderRoutingPlan>> SplitOrderAsync(Guid orderId,
+        CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         logger.LogInformation("[OrderId={OrderId}] Starting split process.", orderId);
@@ -24,17 +26,20 @@ public class OrderSplittingService(
         }, cancellationToken);
     }
 
-    public async Task<Result> ResplitOrderAsync(Guid orderId, Guid adminUserId, CancellationToken cancellationToken = default)
+    public async Task<Result> ResplitOrderAsync(Guid orderId, Guid adminUserId,
+        CancellationToken cancellationToken = default)
     {
         var sw = Stopwatch.StartNew();
         logger.LogInformation("Admin {AdminId} initiated re-split for Order {OrderId}", adminUserId, orderId);
 
         return await ExecuteWithRetryAsync(orderId, async (order, transaction, ct) =>
         {
-            var preSplitStatus = string.Join(", ", order.Items.GroupBy(i => i.ItemStatus).Select(g => $"{g.Key}: {g.Count()}"));
+            var preSplitStatus = string.Join(", ",
+                order.Items.GroupBy(i => i.ItemStatus).Select(g => $"{g.Key}: {g.Count()}"));
             logger.LogInformation("[OrderId={OrderId}] Pre-split state: {State}", orderId, preSplitStatus);
 
-            var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue).ToList();
+            var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue)
+                .ToList();
             var releases = awardedItems
                 .GroupBy(i => new { i.BranchId, i.DrugId })
                 .Select(g => (g.Key.BranchId!.Value, g.Key.DrugId, g.Sum(x => x.QuantityNeeded)))
@@ -44,11 +49,13 @@ public class OrderSplittingService(
             {
                 var releaseResult = await inventoryService.ReleaseReservationBatchAsync(releases, ct);
                 if (releaseResult.IsFailure)
-                    logger.LogWarning("[OrderId={OrderId}] Failed to release batched reservations during re-split.", orderId);
+                    logger.LogWarning("[OrderId={OrderId}] Failed to release batched reservations during re-split.",
+                        orderId);
             }
 
             context.OrderFulfillmentLegs.RemoveRange(order.FulfillmentLegs);
-            logger.LogInformation("[OrderId={OrderId}] Deleted {Count} existing legs", orderId, order.FulfillmentLegs.Count);
+            logger.LogInformation("[OrderId={OrderId}] Deleted {Count} existing legs", orderId,
+                order.FulfillmentLegs.Count);
             order.FulfillmentLegs.Clear();
 
             foreach (var item in order.Items.Where(i => i.ItemStatus != ItemStatus.Cancelled))
@@ -62,13 +69,67 @@ public class OrderSplittingService(
             var splitResult = await ExecuteSplitInternalAsync(order, transaction, ct);
 
             sw.Stop();
-            logger.LogInformation("Admin {AdminId} completed re-split for Order {OrderId} in {ElapsedMs}ms. Success: {IsSuccess}", adminUserId, orderId, sw.ElapsedMilliseconds, splitResult.IsSuccess);
+            logger.LogInformation(
+                "Admin {AdminId} completed re-split for Order {OrderId} in {ElapsedMs}ms. Success: {IsSuccess}",
+                adminUserId, orderId, sw.ElapsedMilliseconds, splitResult.IsSuccess);
 
             return splitResult;
         }, cancellationToken);
     }
 
-    private async Task<Result<T>> ExecuteWithRetryAsync<T>(Guid orderId, Func<Order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction, CancellationToken, Task<Result<T>>> action, CancellationToken cancellationToken)
+    public async Task<Result> ResplitOrderV2Async(Guid orderId, Guid adminUserId, CancellationToken cancellationToken = default)
+    {
+        var sw = Stopwatch.StartNew();
+        logger.LogInformation("Admin {AdminId} initiated re-split V2 for Order {OrderId}", adminUserId, orderId);
+
+        var cleanupResult = await ExecuteWithRetryAsync(orderId, async (order, transaction, ct) =>
+        {
+            var preSplitStatus = string.Join(", ", order.Items.GroupBy(i => i.ItemStatus).Select(g => $"{g.Key}: {g.Count()}"));
+            logger.LogInformation("[OrderId={OrderId}] Pre-split state V2: {State}", orderId, preSplitStatus);
+
+            var awardedItems = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded && i.BranchId.HasValue).ToList();
+            var releases = awardedItems
+                .GroupBy(i => new { i.BranchId, i.DrugId })
+                .Select(g => (g.Key.BranchId!.Value, g.Key.DrugId, g.Sum(x => x.QuantityNeeded)))
+                .ToList();
+
+            if (releases.Any())
+            {
+                var releaseResult = await inventoryService.ReleaseReservationBatchAsync(releases, ct);
+                if (releaseResult.IsFailure)
+                    logger.LogWarning("[OrderId={OrderId}] Failed to release batched reservations during re-split V2.", orderId);
+            }
+
+            context.OrderFulfillmentLegs.RemoveRange(order.FulfillmentLegs);
+            logger.LogInformation("[OrderId={OrderId}] Deleted {Count} existing legs V2", orderId, order.FulfillmentLegs.Count);
+            order.FulfillmentLegs.Clear();
+
+            foreach (var item in order.Items.Where(i => i.ItemStatus != ItemStatus.Cancelled))
+            {
+                item.BranchId = null;
+                item.ItemStatus = ItemStatus.Pending;
+            }
+
+            order.OrderStatus = OrderStatus.Pending;
+
+            await context.SaveChangesAsync(ct);
+            return Result.Success();
+        }, cancellationToken);
+
+        if (cleanupResult.IsFailure)
+            return cleanupResult;
+
+        var splitResult = await SplitOrderAsync(orderId, cancellationToken);
+        
+        sw.Stop();
+        logger.LogInformation("Admin {AdminId} completed re-split V2 for Order {OrderId} in {ElapsedMs}ms. Success: {IsSuccess}", adminUserId, orderId, sw.ElapsedMilliseconds, splitResult.IsSuccess);
+
+        return splitResult;
+    }
+
+    private async Task<Result<T>> ExecuteWithRetryAsync<T>(Guid orderId,
+        Func<Order, IDbContextTransaction, CancellationToken, Task<Result<T>>>
+            action, CancellationToken cancellationToken)
     {
         const int maxRetries = 3;
         var totalSw = Stopwatch.StartNew();
@@ -90,13 +151,18 @@ public class OrderSplittingService(
                             logger.LogWarning("[OrderId={OrderId}] Order not found.", orderId);
                             return Result.Failure<T>(OrderSplittingErrors.OrderNotFound);
                         }
+
                         loadSw.Stop();
-                        logger.LogInformation("[OrderId={OrderId}] Order loaded in {ElapsedMs}ms. Status={Status}, Items={Count}", orderId, loadSw.ElapsedMilliseconds, order.OrderStatus, order.Items.Count);
+                        logger.LogInformation(
+                            "[OrderId={OrderId}] Order loaded in {ElapsedMs}ms. Status={Status}, Items={Count}",
+                            orderId, loadSw.ElapsedMilliseconds, order.OrderStatus, order.Items.Count);
 
                         var validationResult = ValidateOrderForSplit(order);
                         if (validationResult.IsFailure)
                         {
-                            logger.LogWarning("[OrderId={OrderId}] Order validation failed: {Error}. Marking as failed without modifying items.", orderId, validationResult.Error.Description);
+                            logger.LogWarning(
+                                "[OrderId={OrderId}] Order validation failed: {Error}. Marking as failed without modifying items.",
+                                orderId, validationResult.Error.Description);
                             return Result.Failure<T>(validationResult.Error);
                         }
 
@@ -106,7 +172,9 @@ public class OrderSplittingService(
                         {
                             await transaction.CommitAsync(cancellationToken);
                             totalSw.Stop();
-                            logger.LogInformation("[OrderId={OrderId}] Transaction committed successfully. Total execution time: {ElapsedMs}ms.", orderId, totalSw.ElapsedMilliseconds);
+                            logger.LogInformation(
+                                "[OrderId={OrderId}] Transaction committed successfully. Total execution time: {ElapsedMs}ms.",
+                                orderId, totalSw.ElapsedMilliseconds);
                         }
                         else
                         {
@@ -124,7 +192,9 @@ public class OrderSplittingService(
             }
             catch (DbUpdateConcurrencyException ex)
             {
-                logger.LogWarning(ex, "[OrderId={OrderId}] Concurrency conflict detected on attempt {Attempt}/{MaxRetries}.", orderId, attempt, maxRetries);
+                logger.LogWarning(ex,
+                    "[OrderId={OrderId}] Concurrency conflict detected on attempt {Attempt}/{MaxRetries}.", orderId,
+                    attempt, maxRetries);
 
                 if (attempt == maxRetries)
                 {
@@ -137,7 +207,8 @@ public class OrderSplittingService(
             }
             catch (Exception ex)
             {
-                logger.LogError(ex, "[OrderId={OrderId}] Split failed due to an unexpected error. Rolling back.", orderId);
+                logger.LogError(ex, "[OrderId={OrderId}] Split failed due to an unexpected error. Rolling back.",
+                    orderId);
                 return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
             }
         }
@@ -145,7 +216,8 @@ public class OrderSplittingService(
         return Result.Failure<T>(OrderSplittingErrors.TransactionFailed);
     }
 
-    private async Task<Result<OrderRoutingPlan>> ExecuteSplitInternalAsync(Order order, Microsoft.EntityFrameworkCore.Storage.IDbContextTransaction transaction, CancellationToken cancellationToken)
+    private async Task<Result<OrderRoutingPlan>> ExecuteSplitInternalAsync(Order order,
+        IDbContextTransaction transaction, CancellationToken cancellationToken)
     {
         order.OrderStatus = OrderStatus.Processing;
 
@@ -176,25 +248,29 @@ public class OrderSplittingService(
         {
             plan = await orderRoutingOrchestrator.OptimizeOrderFulfillmentAsync(
                 order.PatientUserId, patientLocation, cartForRouting, order.FulfillmentMode, cancellationToken);
-
         }
         catch (Exception ex)
         {
-            logger.LogWarning(ex, "[OrderId={OrderId}] AI fulfillment engine failed. Marking pending items Unavailable.", order.OrderId);
+            logger.LogWarning(ex,
+                "[OrderId={OrderId}] AI fulfillment engine failed. Marking pending items Unavailable.", order.OrderId);
             foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success(new OrderRoutingPlan());
         }
+
         algoSw.Stop();
 
         var splitResult = MapPlanToSplittingResult(plan, pendingItems);
         logger.LogInformation(
             "[OrderId={OrderId}] AI-FulfillmentEngine ({Strategy}) completed in {ElapsedMs}ms. Legs={LegCount}, Assigned={AssignedCount}, Unassigned={UnassignedCount}, TotalDistanceKm={TotalKm:F2}",
-            order.OrderId, plan.Strategy, algoSw.ElapsedMilliseconds, plan.FulfillmentLegCount, splitResult.Assignments.Count, splitResult.UnassignedItemIds.Count, plan.TotalDistanceKm);
+            order.OrderId, plan.Strategy, algoSw.ElapsedMilliseconds, plan.FulfillmentLegCount,
+            splitResult.Assignments.Count, splitResult.UnassignedItemIds.Count, plan.TotalDistanceKm);
 
         if (splitResult.Assignments.Count == 0)
         {
-            logger.LogWarning("[OrderId={OrderId}] Engine produced no fulfillable assignments. Marking items Unavailable.", order.OrderId);
+            logger.LogWarning(
+                "[OrderId={OrderId}] Engine produced no fulfillable assignments. Marking items Unavailable.",
+                order.OrderId);
             foreach (var item in pendingItems) item.ItemStatus = ItemStatus.Unavailable;
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success(plan);
@@ -206,23 +282,30 @@ public class OrderSplittingService(
         var invSw = Stopwatch.StartNew();
         var inventorySnapshot = await LoadInventorySnapshotAsync(assignedBranchIds, drugIds, cancellationToken);
         invSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Inventory snapshot for reservation loaded in {ElapsedMs}ms. {Count} records.", order.OrderId, invSw.ElapsedMilliseconds, inventorySnapshot.Count);
+        logger.LogInformation(
+            "[OrderId={OrderId}] Inventory snapshot for reservation loaded in {ElapsedMs}ms. {Count} records.",
+            order.OrderId, invSw.ElapsedMilliseconds, inventorySnapshot.Count);
 
         var resSw = Stopwatch.StartNew();
         var reservationFailures = ReserveStockBatchedAsync(splitResult.Assignments, inventorySnapshot);
         resSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Reservation logic completed in {ElapsedMs}ms.", order.OrderId, resSw.ElapsedMilliseconds);
+        logger.LogInformation("[OrderId={OrderId}] Reservation logic completed in {ElapsedMs}ms.", order.OrderId,
+            resSw.ElapsedMilliseconds);
 
         if (reservationFailures.Any())
         {
-            logger.LogWarning("[OrderId={OrderId}] Stock reservation failed for {Count} items. Marking as Unavailable.", order.OrderId, reservationFailures.Count);
+            logger.LogWarning("[OrderId={OrderId}] Stock reservation failed for {Count} items. Marking as Unavailable.",
+                order.OrderId, reservationFailures.Count);
             MarkReservationFailuresUnavailable(order.Items, reservationFailures);
         }
 
-        var fulfilledBranchIds = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded).Select(i => i.BranchId!.Value).ToHashSet();
+        var fulfilledBranchIds = order.Items.Where(i => i.ItemStatus == ItemStatus.Awarded)
+            .Select(i => i.BranchId!.Value).ToHashSet();
         if (!fulfilledBranchIds.Any())
         {
-            logger.LogWarning("[OrderId={OrderId}] No items could be fulfilled. Order remains Processing, items Unavailable.", order.OrderId);
+            logger.LogWarning(
+                "[OrderId={OrderId}] No items could be fulfilled. Order remains Processing, items Unavailable.",
+                order.OrderId);
             await context.SaveChangesAsync(cancellationToken);
             return Result.Success(plan);
         }
@@ -236,7 +319,8 @@ public class OrderSplittingService(
         context.OrderFulfillmentLegs.AddRange(newLegs!);
 
         legSw.Stop();
-        logger.LogInformation("[OrderId={OrderId}] Fulfillment legs generated in {ElapsedMs}ms.", order.OrderId, legSw.ElapsedMilliseconds);
+        logger.LogInformation("[OrderId={OrderId}] Fulfillment legs generated in {ElapsedMs}ms.", order.OrderId,
+            legSw.ElapsedMilliseconds);
 
         await context.SaveChangesAsync(cancellationToken); // Save assignments, status, and generated legs once
 
@@ -308,7 +392,8 @@ public class OrderSplittingService(
         return Result.Success();
     }
 
-    private async Task<List<PharmacyInventory>> LoadInventorySnapshotAsync(HashSet<Guid> branchIds, HashSet<Guid> drugIds, CancellationToken cancellationToken)
+    private async Task<List<PharmacyInventory>> LoadInventorySnapshotAsync(HashSet<Guid> branchIds,
+        HashSet<Guid> drugIds, CancellationToken cancellationToken)
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         return await context.PharmacyInventories
@@ -329,7 +414,8 @@ public class OrderSplittingService(
 
                 logger.LogInformation(
                     "[OrderId={OrderId}] DrugId={DrugId} Assigned to Branch={BranchId}. Reason: [Strategy={Strategy}, Coverage={Coverage}, Distance={Distance}km, RemainingStock={Stock}]",
-                    item.OrderId, item.DrugId, assignment.BranchId, assignment.Decision.Strategy, assignment.Decision.Coverage, assignment.Decision.DistanceKm, assignment.Decision.RemainingStock);
+                    item.OrderId, item.DrugId, assignment.BranchId, assignment.Decision.Strategy,
+                    assignment.Decision.Coverage, assignment.Decision.DistanceKm, assignment.Decision.RemainingStock);
             }
             else
             {
@@ -339,7 +425,8 @@ public class OrderSplittingService(
         }
     }
 
-    private List<Guid> ReserveStockBatchedAsync(IReadOnlyList<ItemAssignment> assignments, List<PharmacyInventory> inventorySnapshot)
+    private List<Guid> ReserveStockBatchedAsync(IReadOnlyList<ItemAssignment> assignments,
+        List<PharmacyInventory> inventorySnapshot)
     {
         var failedItemIds = new List<Guid>();
 

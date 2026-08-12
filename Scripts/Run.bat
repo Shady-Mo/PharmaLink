@@ -1,0 +1,3 @@
+@echo off
+echo Running the Python script to format Drugs SQL...
+python FormatDrugsSql.py
