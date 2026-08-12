@@ -44,3 +44,4 @@ Rules:
 - Use null for unknown text fields.
 - Never invent medicines.
 - Preserve spelling as written in medicineName; corrections happen in backend catalog matching.
+- IMPORTANT: You MUST translate all descriptive fields (dosageForm, route, frequency, duration, aiSummary, validationMessage, extractedText) into Arabic. Keep the medicineName exactly as written on the prescription.

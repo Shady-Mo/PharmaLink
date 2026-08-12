@@ -20,3 +20,4 @@ Rules:
 - confidence must be between 0.0 and 1.0.
 - Do not infer active ingredients unless they are visible.
 - Do not return prescription dosage instructions; this workflow is only for package identification.
+- IMPORTANT: You MUST translate all descriptive fields (strength, dosageForm, manufacturer, rawText) into Arabic. Keep the medicineName exactly as written on the package.
