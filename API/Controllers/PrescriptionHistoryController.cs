@@ -17,7 +17,7 @@ public sealed class PrescriptionHistoryController(IPrescriptionHistoryRagService
         CancellationToken cancellationToken)
     {
         if (string.IsNullOrWhiteSpace(request.Question))
-            return BadRequest(new { error = "Question is required." });
+            return BadRequest(new { error = "مطلوب إدخال السؤال." });
 
         var result = await service.AskAsync(User.GetUserId(), request.Question, cancellationToken);
         return Ok(result);

@@ -59,7 +59,7 @@ public sealed class AssistantController(
             userId, request.Message.Length);
 
         if (string.IsNullOrWhiteSpace(request.Message))
-            return BadRequest(new { error = "Message cannot be empty." });
+            return BadRequest(new { error = "الرسالة لا يمكن أن تكون فارغة." });
 
         var response = await assistantService.ChatAsync(
             userId,
@@ -175,7 +175,7 @@ public sealed class AssistantController(
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(drugName))
-            return BadRequest(new { error = "Drug name is required." });
+            return BadRequest(new { error = "مطلوب إدخال اسم الدواء." });
 
         logger.LogInformation("AssistantController.GetDrugInfo for: {DrugName}", drugName);
 
@@ -184,7 +184,7 @@ public sealed class AssistantController(
             var result = await drugInfoService.GetDrugInfoAsync(drugName, ct);
 
             if (result is null)
-                return NotFound(new { error = $"Could not retrieve information for '{drugName}'." });
+                return NotFound(new { error = $"عذراً، لم نتمكن من العثور على معلومات للدواء '{drugName}'." });
 
             return Ok(result);
         }
@@ -219,7 +219,7 @@ public sealed class AssistantController(
         CancellationToken ct)
     {
         if (request.DrugNames is null || request.DrugNames.Count < 2)
-            return BadRequest(new { error = "At least 2 drug names are required for an interaction check." });
+            return BadRequest(new { error = "مطلوب إدخال اسم دوائين على الأقل للتحقق من التفاعلات الدوائية." });
 
         logger.LogInformation(
             "AssistantController.CheckInteractions for {Count} drugs",
