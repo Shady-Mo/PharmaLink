@@ -1,19 +1,21 @@
 using System.Globalization;
+using System.Text;
 
 namespace Infrastructure.Services.PrescriptionAudit;
 
-internal static class DrugTextNormalizer
+public static class DrugTextNormalizer
 {
     private static readonly HashSet<string> DosageNoiseTokens = new(StringComparer.OrdinalIgnoreCase)
     {
         "tab", "tabs", "tablet", "tablets",
         "cap", "caps", "capsule", "capsules",
-        "sach", "sachet", "sachets",
-        "drop", "drops",
-        "amp", "ampoule", "ampoules", "vial",
+        "amp", "ampoule", "ampoules", "vial", "vials",
         "syr", "syrup", "susp", "suspension",
         "cream", "ointment", "gel",
-        "mg", "mcg", "g", "ml", "iu"
+        "mg", "mcg", "g", "ml", "iu",
+        "قرص", "أقراص", "اقراص", "كبسولة", "كبسولات", "حقن", "حقنة", "فيال", "أمبول", "امبول",
+        "شراب", "معلق", "محلول", "بخاخ", "لوشن", "كريم", "مرهم", "جل", "نقط", "قطرة", "قطرات",
+        "جم", "مجم", "مليجرام", "مل", "ميكروجرام", "ميكرو", "وحدة"
     };
 
     public static string Normalize(string? value)
@@ -36,7 +38,19 @@ internal static class DrugTextNormalizer
 
             if (char.IsLetterOrDigit(character))
             {
-                builder.Append(character);
+                // Convert Eastern Arabic numerals to Western
+                if (character >= '\u0660' && character <= '\u0669')
+                {
+                    builder.Append((char)(character - '\u0660' + '0'));
+                }
+                else if (character >= '\u06F0' && character <= '\u06F9')
+                {
+                    builder.Append((char)(character - '\u06F0' + '0'));
+                }
+                else
+                {
+                    builder.Append(character);
+                }
             }
         }
 
@@ -108,16 +122,16 @@ internal static class DrugTextNormalizer
 
         var groups = new[]
         {
-            new[] { "tab", "tabs", "tablet", "tablets" },
-            new[] { "cap", "caps", "capsule", "capsules" },
-            new[] { "sach", "sachet", "sachets" },
-            new[] { "drop", "drops" },
-            new[] { "amp", "ampoule", "ampoules", "vial", "vials", "injection", "injectable" },
-            new[] { "syr", "syrup" },
-            new[] { "susp", "suspension", "solution", "spray", "lotion", "cream", "gel", "ointment" }
+            new[] { "tab", "tablet", "قرص", "اقراص" },
+            new[] { "cap", "capsule", "كبسول" },
+            new[] { "sach", "sachet", "كيس", "اكياس", "فوار" },
+            new[] { "drop", "نقط", "قطر" },
+            new[] { "amp", "vial", "injection", "injectable", "حقن", "فيال", "امبول" },
+            new[] { "syr", "syrup", "شراب" },
+            new[] { "susp", "solution", "spray", "lotion", "cream", "gel", "ointment", "معلق", "محلول", "بخاخ", "لوشن", "كريم", "مرهم", "جل" }
         };
 
-        var targetGroup = groups.FirstOrDefault(g => g.Contains(target)) ?? new[] { target };
+        var targetGroup = groups.FirstOrDefault(g => g.Any(term => target.Contains(term, StringComparison.OrdinalIgnoreCase))) ?? new[] { target };
 
         foreach (var field in fields)
         {
@@ -204,16 +218,16 @@ internal static class DrugTextNormalizer
     {
         var groups = new[]
         {
-            new[] { "tab", "tabs", "tablet", "tablets" },
-            new[] { "cap", "caps", "capsule", "capsules" },
-            new[] { "sach", "sachet", "sachets" },
-            new[] { "drop", "drops" },
-            new[] { "amp", "ampoule", "ampoules", "vial", "injection", "injectable" },
-            new[] { "syr", "syrup" },
-            new[] { "susp", "suspension" }
+            new[] { "tab", "tablet", "قرص", "اقراص" },
+            new[] { "cap", "capsule", "كبسول" },
+            new[] { "sach", "sachet", "كيس", "اكياس", "فوار" },
+            new[] { "drop", "نقط", "قطر" },
+            new[] { "amp", "vial", "injection", "injectable", "حقن", "فيال", "امبول" },
+            new[] { "syr", "syrup", "شراب" },
+            new[] { "susp", "solution", "spray", "lotion", "cream", "gel", "ointment", "معلق", "محلول", "بخاخ", "لوشن", "كريم", "مرهم", "جل" }
         };
 
-        return groups.Any(g => g.Contains(left) && g.Contains(right));
+        return groups.Any(g => g.Any(term => left.Contains(term)) && g.Any(term => right.Contains(term)));
     }
 
     private static string NormalizeStrength(string? value)
@@ -221,7 +235,17 @@ internal static class DrugTextNormalizer
         var normalized = Normalize(value)
             .Replace("grams", "g", StringComparison.OrdinalIgnoreCase)
             .Replace("gram", "g", StringComparison.OrdinalIgnoreCase)
-            .Replace("gm", "g", StringComparison.OrdinalIgnoreCase);
+            .Replace("gm", "g", StringComparison.OrdinalIgnoreCase)
+            .Replace("جم", "g", StringComparison.OrdinalIgnoreCase)
+            .Replace("جرام", "g", StringComparison.OrdinalIgnoreCase)
+            .Replace("مجم", "mg", StringComparison.OrdinalIgnoreCase)
+            .Replace("مليجرام", "mg", StringComparison.OrdinalIgnoreCase)
+            .Replace("ملل", "ml", StringComparison.OrdinalIgnoreCase)
+            .Replace("مل", "ml", StringComparison.OrdinalIgnoreCase)
+            .Replace("ميكروجرام", "mcg", StringComparison.OrdinalIgnoreCase)
+            .Replace("ميكرو", "mcg", StringComparison.OrdinalIgnoreCase)
+            .Replace("وحدةدولية", "iu", StringComparison.OrdinalIgnoreCase)
+            .Replace("وحدة", "iu", StringComparison.OrdinalIgnoreCase);
 
         return normalized;
     }
