@@ -86,8 +86,11 @@ public static class DrugTextNormalizer
             int idx = normalizedField.IndexOf(target, StringComparison.Ordinal);
             while (idx != -1)
             {
-                bool startValid = idx == 0 || !char.IsDigit(normalizedField[idx - 1]);
-                bool endValid = (idx + target.Length == normalizedField.Length) || !char.IsDigit(normalizedField[idx + target.Length]);
+                bool targetStartsDigit = char.IsDigit(target[0]);
+                bool targetEndsDigit = char.IsDigit(target[target.Length - 1]);
+
+                bool startValid = idx == 0 || !targetStartsDigit || !char.IsDigit(normalizedField[idx - 1]);
+                bool endValid = (idx + target.Length == normalizedField.Length) || !targetEndsDigit || !char.IsDigit(normalizedField[idx + target.Length]);
 
                 if (startValid && endValid)
                     return true;
