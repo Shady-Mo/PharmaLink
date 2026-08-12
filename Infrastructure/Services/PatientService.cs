@@ -2,7 +2,8 @@ namespace Infrastructure.Services;
 
 public class PatientService(
     AppDbContext context,
-    ILogger<PatientService> logger) : IPatientService
+    ILogger<PatientService> logger,
+    IWebHostEnvironment env) : IPatientService
 {
     public async Task<Result<PatientProfileDto>> GetProfileAsync(Guid patientId, CancellationToken cancellationToken = default)
     {
@@ -107,7 +108,7 @@ public class PatientService(
             return Result.Failure<string>(PatientErrors.PatientNotFound);
         }
 
-        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
+        var uploadsFolder = Path.Combine(env.WebRootPath, "uploads", "profiles");
         if (!Directory.Exists(uploadsFolder))
         {
             Directory.CreateDirectory(uploadsFolder);

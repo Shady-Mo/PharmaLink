@@ -1,6 +1,6 @@
 namespace Infrastructure.Services.Pharmacy
 {
-    public class AdminPharmacyService(AppDbContext context, IMapper mapper) : IAdminPharmacyService
+    public class AdminPharmacyService(AppDbContext context, IMapper mapper, IWebHostEnvironment env) : IAdminPharmacyService
     {
         public async Task<Result<PaginatedList<AdminPharmacySummaryDTO>>> GetAllPharmaciesAsync(
             GetAdminPharmaciesRequest request,
@@ -63,7 +63,8 @@ namespace Infrastructure.Services.Pharmacy
 
             if (dto.LogoFile != null && dto.LogoFile.Length > 0)
             {
-                var uploadsFolder = System.IO.Path.Combine("wwwroot", "uploads", "logos");
+                var webRoot = env.WebRootPath ?? System.IO.Path.Combine(env.ContentRootPath, "wwwroot");
+                var uploadsFolder = System.IO.Path.Combine(webRoot, "uploads", "logos");
                 if (!System.IO.Directory.Exists(uploadsFolder))
                 {
                     System.IO.Directory.CreateDirectory(uploadsFolder);
@@ -117,7 +118,8 @@ namespace Infrastructure.Services.Pharmacy
 
             if (dto.LogoFile != null && dto.LogoFile.Length > 0)
             {
-                var uploadsFolder = System.IO.Path.Combine("wwwroot", "uploads", "logos");
+                var webRoot = env.WebRootPath ?? System.IO.Path.Combine(env.ContentRootPath, "wwwroot");
+                var uploadsFolder = System.IO.Path.Combine(webRoot, "uploads", "logos");
                 if (!System.IO.Directory.Exists(uploadsFolder))
                 {
                     System.IO.Directory.CreateDirectory(uploadsFolder);

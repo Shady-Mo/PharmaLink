@@ -5,7 +5,8 @@ namespace Infrastructure.Services.ReviewTeamProfile;
 
 public class ReviewTeamProfileService(
     UserManager<AppUser> userManager,
-    ILogger<ReviewTeamProfileService> logger) : IReviewTeamProfileService
+    ILogger<ReviewTeamProfileService> logger,
+    IWebHostEnvironment env) : IReviewTeamProfileService
 {
     public async Task<Result<ReviewTeamProfileResponseDto>> GetProfileAsync(Guid userId,
         CancellationToken cancellationToken = default)
@@ -76,7 +77,8 @@ public class ReviewTeamProfileService(
             return Result.Failure<ProfilePictureResponseDto>(new Error("File.Empty", "File cannot be empty.", 400));
         }
 
-        var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "profiles");
+        var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+        var uploadsFolder = Path.Combine(webRoot, "uploads", "profiles");
         if (!Directory.Exists(uploadsFolder))
         {
             Directory.CreateDirectory(uploadsFolder);

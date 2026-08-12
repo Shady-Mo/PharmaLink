@@ -11,7 +11,8 @@ public class PrescriptionReviewService(
     IValidator<UploadPrescriptionDTO> uploadValidator,
     IValidator<UpdatePrescriptionReviewDTO> updateValidator,
     IBackgroundJobClient backgroundJobClient,
-    ILogger<PrescriptionReviewService> logger)
+    ILogger<PrescriptionReviewService> logger,
+    IWebHostEnvironment env)
     : IPrescriptionReviewService
 {
     public async Task<Result<PrescriptionReviewUploadResponseDTO>> UploadAndExtractAsync(
@@ -28,7 +29,8 @@ public class PrescriptionReviewService(
         }
 
         // 1. Create uploads folder if it doesn't exist
-        var uploadsFolder = Path.Combine("wwwroot", "uploads", "prescriptions");
+        var webRoot = env.WebRootPath ?? Path.Combine(env.ContentRootPath, "wwwroot");
+        var uploadsFolder = Path.Combine(webRoot, "uploads", "prescriptions");
         if (!Directory.Exists(uploadsFolder))
         {
             Directory.CreateDirectory(uploadsFolder);
