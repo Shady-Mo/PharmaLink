@@ -79,4 +79,14 @@ public class AdminOrdersController(
         var result = await orderService.RejectOrderPrescription(orderId, request.Reason, cancellationToken);
         return result.IsSuccess ? Ok(new { message = result.Value }) : result.ToProblem();
     }
+
+    [HttpDelete("{orderId}/items/{itemId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RemoveOrderItem(Guid orderId, Guid itemId, CancellationToken cancellationToken)
+    {
+        var result = await orderService.RemoveOrderItemAsync(orderId, itemId, cancellationToken);
+        return result.IsSuccess ? Ok(new { message = result.Value }) : result.ToProblem();
+    }
 }

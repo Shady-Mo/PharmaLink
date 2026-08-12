@@ -20,6 +20,9 @@ namespace Application.Services.Order
         Task<Result<string>> ApproveOrderPrescription(Guid orderId, CancellationToken ct = default);
         Task<Result<string>> RejectOrderPrescription(Guid orderId, string reason, CancellationToken ct = default);
 
+        /// <summary>Removes a specific drug item from an order (only allowed before fulfillment).</summary>
+        Task<Result<string>> RemoveOrderItemAsync(Guid orderId, Guid orderItemId, CancellationToken ct = default);
+
         /// <summary>Exports filtered orders as xlsx or csv bytes.</summary>
         Task<Result<(byte[] Data, string ContentType, string FileName)>> ExportOrdersForAdmin(
             ExportOrdersRequest request, CancellationToken ct = default);

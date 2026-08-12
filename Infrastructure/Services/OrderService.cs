@@ -631,6 +631,40 @@ public class OrderService(
         return Result.Success("Success");
     }
 
+    public async Task<Result<string>> RemoveOrderItemAsync(Guid orderId, Guid orderItemId, CancellationToken ct = default)
+    {
+        var order = await context.Orders
+            .Include(o => o.Items)
+                .ThenInclude(i => i.Drug)
+            .FirstOrDefaultAsync(o => o.OrderId == orderId, ct);
+
+        if (order == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound);
+
+        if (order.OrderStatus != OrderStatus.PendingPrescriptionReview && order.OrderStatus != OrderStatus.Pending)
+            return Result.Failure<string>(OrderErrors.OrderCannotBeModified);
+
+        var itemToRemove = order.Items.FirstOrDefault(i => i.OrderItemId == orderItemId);
+        if (itemToRemove == null)
+            return Result.Failure<string>(OrderErrors.OrderNotFound); // Or OrderItemNotFound if it existed
+
+        // Subtract from TotalAmount
+        var lineTotal = itemToRemove.QuantityNeeded * itemToRemove.Drug.Price;
+        order.TotalAmount -= lineTotal;
+        if (order.TotalAmount < 0) order.TotalAmount = 0;
+
+        context.OrderItems.Remove(itemToRemove);
+        
+        // If it's the last item, maybe cancel the order?
+        if (order.Items.Count == 1)
+        {
+            order.OrderStatus = OrderStatus.Cancelled;
+        }
+
+        await context.SaveChangesAsync(ct);
+        return Result.Success("Success");
+    }
+
     public async Task<Result<string>> CancelOrder(Guid orderId, Guid patientUserId, CancellationToken ct = default)
     {
         var order = await context.Orders
