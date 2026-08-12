@@ -15,11 +15,25 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
         var normalizedName = DrugTextNormalizer.Normalize(name);
         var drugs = await LoadCandidateDrugsAsync(medicine, cancellationToken);
 
-        var exact = drugs
+        var strengthMatchedDrugs = drugs
+            .Where(d => DrugTextNormalizer.ContainsStrength(
+                medicine.Strength, 
+                d.BrandName, 
+                d.ArabicName, 
+                d.MetaDescriptionAr, 
+                d.MetaDescriptionEn))
+            .ToList();
+
+        var exact = strengthMatchedDrugs
             .Where(d => DrugTextNormalizer.Normalize(d.BrandName) == normalizedName)
             .OrderByDescending(IsAvailable)
-            .ThenByDescending(d => DrugTextNormalizer.SameStrength(medicine.Strength, d.Strength))
-            .ThenByDescending(d => DrugTextNormalizer.SameDosageForm(medicine.DosageForm, d.Form))
+            .ThenByDescending(d => DrugTextNormalizer.ContainsDosageForm(
+                medicine.DosageForm, 
+                d.BrandName, 
+                d.ArabicName, 
+                d.MetaDescriptionAr, 
+                d.MetaDescriptionEn, 
+                d.Form))
             .FirstOrDefault();
 
         if (exact is not null)
@@ -46,18 +60,22 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
             };
         }
 
-        var fuzzy = drugs
+        var fuzzy = strengthMatchedDrugs
             .Select(d => new
             {
                 Drug = d,
                 NameScore = GetCatalogNameScore(name, d),
-                StrengthMatch = DrugTextNormalizer.SameStrength(medicine.Strength, d.Strength),
-                FormMatch = DrugTextNormalizer.SameDosageForm(medicine.DosageForm, d.Form),
+                FormMatch = DrugTextNormalizer.ContainsDosageForm(
+                    medicine.DosageForm, 
+                    d.BrandName, 
+                    d.ArabicName, 
+                    d.MetaDescriptionAr, 
+                    d.MetaDescriptionEn, 
+                    d.Form),
                 Available = IsAvailable(d)
             })
             .Where(c => c.NameScore >= FuzzyThreshold)
             .OrderByDescending(c => c.Available)
-            .ThenByDescending(c => c.StrengthMatch)
             .ThenByDescending(c => c.FormMatch)
             .ThenByDescending(c => c.NameScore)
             .FirstOrDefault();
@@ -67,7 +85,6 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
             if (fuzzy.Available)
             {
                 var score = fuzzy.NameScore;
-                if (fuzzy.StrengthMatch) score += 0.05;
                 if (fuzzy.FormMatch) score += 0.03;
 
                 return new DrugMatchResult
@@ -100,24 +117,20 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
 
     internal static bool IsAvailable(Drug drug)
     {
-        return drug.IsActive && drug.Inventories.Any(i => i.StockQuantity - i.ReservedQuantity > 0);
+        return drug.IsActive;
     }
 
     private static double GetCatalogNameScore(string extractedName, Drug drug)
     {
-        var directScore = Math.Max(
-            DrugTextNormalizer.Similarity(extractedName, drug.BrandName),
-            DrugTextNormalizer.Similarity(extractedName, drug.GenericName));
+        var directScore = DrugTextNormalizer.Similarity(extractedName, drug.BrandName);
 
         var tokenScore = DrugTextNormalizer.TokenOverlapScore(
             extractedName,
             drug.BrandName,
-            drug.GenericName,
             drug.ArabicName);
 
         var containsScore =
             DrugTextNormalizer.ContainsMeaningfulName(extractedName, drug.BrandName)
-            || DrugTextNormalizer.ContainsMeaningfulName(extractedName, drug.GenericName)
             || DrugTextNormalizer.ContainsMeaningfulName(extractedName, drug.ArabicName)
                 ? 0.9
                 : 0;
@@ -141,12 +154,14 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
             var likePattern = $"%{token}%";
 
             var tokenCandidates = await context.Drugs
-                .Include(d => d.Inventories)
                 .AsNoTracking()
                 .Where(d =>
                     EF.Functions.Like(d.BrandName, likePattern)
-                    || EF.Functions.Like(d.GenericName, likePattern)
-                    || EF.Functions.Like(d.ArabicName, likePattern))
+                    || EF.Functions.Like(d.ArabicName, likePattern)
+                    || EF.Functions.Like(d.MetaDescriptionEn, likePattern)
+                    || EF.Functions.Like(d.MetaDescriptionAr, likePattern)
+                    || EF.Functions.Like(d.MetaKeywordsEn, likePattern)
+                    || EF.Functions.Like(d.MetaKeywordsAr, likePattern))
                 .Take(50)
                 .ToListAsync(cancellationToken);
 
@@ -163,7 +178,6 @@ public class DrugCatalogPlugin(AppDbContext context) : IDrugCatalogPlugin
 
         // Fallback keeps OCR-heavy cases working, but should be rare after token prefiltering.
         return await context.Drugs
-            .Include(d => d.Inventories)
             .AsNoTracking()
             .Take(500)
             .ToListAsync(cancellationToken);

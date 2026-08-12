@@ -38,10 +38,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         Guid? Id = null,
         string? Name = null,
         string? ArabicName = null,
-        string? GenericName = null,
         string? Category = null,
         string? Form = null,
-        string? Strength = null,
         bool? RequiresPrescription = null,
         string? Manufacturer = null
     );
@@ -56,10 +54,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         Guid Id,
         string Name,
         string? ArabicName,
-        string GenericName,
         string Category,
-        string Form,
-        string? Strength = null
+        string Form
     );
 
     // -------------------------------------------------------------------------
@@ -86,19 +82,17 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         var drug = await db.Drugs
             .AsNoTracking()
             .Where(d => EF.Functions.Like(d.BrandName, $"%{drugName}%") ||
-                        EF.Functions.Like(d.GenericName, $"%{drugName}%") ||
-                        EF.Functions.Like(d.ArabicName, $"%{drugName}%"))
+                        EF.Functions.Like(d.ArabicName, $"%{drugName}%") ||
+                        EF.Functions.Like(d.MetaDescriptionEn, $"%{drugName}%"))
             .Select(d => new
             {
                 DrugId = d.DrugId,
                 Name = d.BrandName,
-                d.ArabicName,
-                d.GenericName,
-                Category = d.DrugClass,
-                d.Form,
-                d.Strength,
-                d.RequiresPrescription,
-                d.Manufacturer
+                ArabicName = d.ArabicName,
+                Category = d.Category != null ? d.Category.NameEn : string.Empty,
+                Form = d.Form,
+                RequiresPrescription = d.RequiresPrescription,
+                Manufacturer = d.Manufacturer
             })
             .FirstOrDefaultAsync(cancellationToken);
 
@@ -115,10 +109,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
             Id: drug.DrugId,
             Name: drug.Name,
             ArabicName: drug.ArabicName,
-            GenericName: drug.GenericName,
             Category: drug.Category,
             Form: drug.Form,
-            Strength: drug.Strength,
             RequiresPrescription: drug.RequiresPrescription,
             Manufacturer: drug.Manufacturer
         );
@@ -142,10 +134,10 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         var drugs = await db.Drugs
             .AsNoTracking()
             .Where(d => EF.Functions.Like(d.BrandName, $"%{searchTerm}%") ||
-                        EF.Functions.Like(d.GenericName, $"%{searchTerm}%") ||
-                        EF.Functions.Like(d.ArabicName, $"%{searchTerm}%"))
+                        EF.Functions.Like(d.ArabicName, $"%{searchTerm}%") ||
+                        EF.Functions.Like(d.MetaDescriptionEn, $"%{searchTerm}%"))
             .Select(d => new
-                { Id = d.DrugId, Name = d.BrandName, d.ArabicName, GenericName = d.GenericName, Category = d.DrugClass, d.Form })
+                { Id = d.DrugId, Name = d.BrandName, d.ArabicName, Category = d.Category != null ? d.Category.NameEn : string.Empty, d.Form })
             .Take(8)
             .ToListAsync(cancellationToken);
 
@@ -156,7 +148,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Search returned {Count} drugs", drugs.Count);
-        var summaries = drugs.Select(d => new DrugSummary(d.Id, d.Name, d.ArabicName, d.GenericName, d.Category, d.Form)).ToList();
+        var summaries = drugs.Select(d => new DrugSummary(d.Id, d.Name, d.ArabicName, d.Category, d.Form)).ToList();
         return new DrugSearchResult(Found: true, Drugs: summaries);
     }
 
@@ -176,8 +168,8 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
 
         var drugs = await db.Drugs
             .AsNoTracking()
-            .Where(d => d.DrugClass == category)
-            .Select(d => new { Id = d.DrugId, Name = d.BrandName, d.ArabicName, GenericName = d.GenericName, Category = d.DrugClass, d.Form, d.Strength })
+            .Where(d => d.Category != null && d.Category.NameEn == category)
+            .Select(d => new { Id = d.DrugId, Name = d.BrandName, d.ArabicName, Category = d.Category.NameEn, d.Form })
             .Take(10)
             .ToListAsync(cancellationToken);
 
@@ -188,7 +180,7 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         }
 
         logger.LogWarning("[DEBUG-PLUGIN] Category returned {Count} drugs", drugs.Count);
-        var summaries = drugs.Select(d => new DrugSummary(Guid.Empty, d.Name, d.ArabicName, d.GenericName, "", d.Form, d.Strength)).ToList();
+        var summaries = drugs.Select(d => new DrugSummary(Guid.Empty, d.Name, d.ArabicName, "", d.Form)).ToList();
         return new DrugSearchResult(Found: true, Drugs: summaries);
     }
 }

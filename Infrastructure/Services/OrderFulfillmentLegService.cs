@@ -247,7 +247,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
                 leg.ReadyByEstimate,
                 DrugsList = dbContext.OrderItems
                     .Where(oi => oi.OrderId == leg.OrderId && oi.BranchId == leg.BranchId)
-                    .Select(oi => (oi.Drug.BrandName ?? oi.Drug.GenericName) + " × " + oi.QuantityNeeded)
+                    .Select(oi => (!string.IsNullOrWhiteSpace(oi.Drug.BrandName) ? oi.Drug.BrandName : oi.Drug.ArabicName) + " × " + oi.QuantityNeeded)
                     .ToList()
             })
             .ToListAsync(cancellationToken);
@@ -317,10 +317,9 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             Items = order.Items.Where(i => i.BranchId == assignedLeg.BranchId).Select(i => new PharmacistOrderItemDto
             {
                 DrugId = i.DrugId,
-                DrugName = !string.IsNullOrWhiteSpace(i.Drug.BrandName) ? i.Drug.BrandName : i.Drug.GenericName,
+                DrugName = !string.IsNullOrWhiteSpace(i.Drug.BrandName) ? i.Drug.BrandName : i.Drug.ArabicName,
                 ImageUrl = i.Drug.ImageUrl,
                 Quantity = i.QuantityNeeded,
-                Strength = i.Drug.Strength,
                 DosageForm = i.Drug.Form
             }).ToList(),
             Notes = order.PrescriptionReview?.ReviewNotes,

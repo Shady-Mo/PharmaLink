@@ -178,7 +178,6 @@ public static class DependencyInjection
             // and it is consumed by the singleton PharmacyInventoryPlugin, so it must not be scoped.
             services.AddSingleton<IOsrmRoutingService, OsrmRoutingService>();
 
-            services.AddScoped<DrugSeeder>();
             services.AddScoped<RoleSeeder>();
             services.AddScoped<AdminSeeder>();
 

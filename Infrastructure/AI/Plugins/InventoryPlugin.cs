@@ -56,28 +56,26 @@ public sealed class InventoryPlugin(IServiceScopeFactory scopeFactory, ILogger<I
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        var inventoryItems = await db.PharmacyInventories
+        var drugs = await db.Drugs
             .AsNoTracking()
-            .Include(i => i.Drug)
-            .Include(i => i.Branch)
-            .Where(i => (EF.Functions.Like(i.Drug.BrandName, $"%{drugName}%") ||
-                         EF.Functions.Like(i.Drug.GenericName, $"%{drugName}%")) &&
-                        i.StockQuantity > 0)
-            .Select(i => new InventoryItem(
-                i.Branch.BranchName ?? "Unknown Branch",
-                (i.Branch.AddressLine != null ? i.Branch.AddressLine + ", " : "") + (i.Branch.City ?? ""),
-                i.Drug.BrandName ?? "Unknown Drug",
-                i.StockQuantity,
-                i.UnitPrice.ToString()
+            .Where(d => (EF.Functions.Like(d.BrandName, $"%{drugName}%") ||
+                         EF.Functions.Like(d.ArabicName, $"%{drugName}%")) &&
+                        d.IsActive)
+            .Select(d => new InventoryItem(
+                "PharmaLink Central",
+                "Online Pharmacy",
+                d.BrandName ?? "Unknown Drug",
+                100,
+                d.Price.ToString()
             ))
             .Take(5)
             .ToListAsync(cancellationToken);
 
-        if (!inventoryItems.Any())
-            return new InventoryCheckResult(Found: false, Message: $"'{drugName}' is currently out of stock at all PharmaLink branches. Consider checking back later or ask your doctor about an alternative.");
+        if (!drugs.Any())
+            return new InventoryCheckResult(Found: false, Message: $"'{drugName}' is not found in the PharmaLink database.");
 
-        logger.LogDebug("Found {Count} branches with '{DrugName}' in stock", inventoryItems.Count, drugName);
-        return new InventoryCheckResult(Found: true, Branches: inventoryItems);
+        logger.LogDebug("Found {Count} drugs matching '{DrugName}' in database", drugs.Count, drugName);
+        return new InventoryCheckResult(Found: true, Branches: drugs);
     }
 
     [KernelFunction("get_branch_inventory")]

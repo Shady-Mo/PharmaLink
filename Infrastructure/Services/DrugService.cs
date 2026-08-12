@@ -14,9 +14,12 @@ public class DrugService(AppDbContext context) : IDrugService
             var searchTerm = filters.SearchValue.Trim();
 
             query = query.Where(d =>
-                d.GenericName.Contains(searchTerm) ||
                 d.BrandName.Contains(searchTerm) ||
-                d.ArabicName.Contains(searchTerm));
+                d.ArabicName.Contains(searchTerm) ||
+                d.MetaDescriptionAr.Contains(searchTerm) ||
+                d.MetaDescriptionEn.Contains(searchTerm) ||
+                d.MetaKeywordsAr.Contains(searchTerm) ||
+                d.MetaKeywordsEn.Contains(searchTerm));
         }
 
         if (!string.IsNullOrWhiteSpace(filters.Form))
@@ -137,17 +140,19 @@ public class DrugService(AppDbContext context) : IDrugService
                 EF.Functions.FreeText(m.BrandName, term) ||
                 EF.Functions.FreeText(m.ArabicName, term) ||
                 m.BrandName.Contains(term) ||
-                m.ArabicName.Contains(term))
+                m.ArabicName.Contains(term) ||
+                m.MetaDescriptionAr.Contains(term) ||
+                m.MetaDescriptionEn.Contains(term) ||
+                m.MetaKeywordsAr.Contains(term) ||
+                m.MetaKeywordsEn.Contains(term))
             .Select(m => new MedicineSearchDTO
             {
                 Id = m.DrugId,
                 Name = m.BrandName,
-                GenericName = m.GenericName,
+                Category = m.Category != null ? m.Category.NameEn : string.Empty,
                 ArabicName = m.ArabicName,
-                Strength = m.Strength,
                 DosageForm = m.Form,
                 Route = m.Form,
-                Category = m.DrugClass,
                 Company = m.Manufacturer,
                 Price = m.Price
             })
