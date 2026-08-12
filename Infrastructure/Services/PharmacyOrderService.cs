@@ -113,7 +113,6 @@ public class PharmacyOrderService(
                         DrugId = i.DrugId,
                         DrugName = i.Drug.BrandName,
                         ArabicName = i.Drug.ArabicName,
-                        Strength = i.Drug.Strength,
                         Form = i.Drug.Form,
                         Quantity = i.QuantityNeeded,
                         UnitPrice = i.Drug.Price,

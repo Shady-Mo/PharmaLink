@@ -1,4 +1,4 @@
-﻿using API.Notification;
+using API.Notification;
 using Application.DTOs.Notification;
 
 namespace Infrastructure.Services
@@ -149,7 +149,7 @@ namespace Infrastructure.Services
                 {
                     DrugId = item.DrugId,
                     BranchId = item.BranchId,
-                    DrugName = item.Drug.GenericName,
+                    DrugName = !string.IsNullOrWhiteSpace(item.Drug.BrandName) ? item.Drug.BrandName : item.Drug.ArabicName,
                     ForecastDate = DateTime.UtcNow,
                     AverageDailyDemand = add,
                     ReorderPoint = rop,

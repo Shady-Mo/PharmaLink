@@ -432,8 +432,6 @@ public class OrderService(
                 OrderItemId = i.OrderItemId,
                 DrugId = i.DrugId,
                 DrugName = i.Drug?.BrandName ?? "Unknown",
-                GenericName = i.Drug?.GenericName,
-                Strength = i.Drug?.Strength ?? string.Empty,
                 DosageForm = i.Drug?.Form ?? string.Empty,
                 QuantityNeeded = i.QuantityNeeded,
                 UnitPrice = i.Drug?.Price ?? 0,
