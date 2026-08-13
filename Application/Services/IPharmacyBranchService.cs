@@ -1,7 +1,4 @@
-using Application.DTOs.PharmacyBranch.Request;
-using Application.DTOs.PharmacyBranch.Response;
-
-namespace Application.Services.Pharmacy
+namespace Application.Services
 {
     public interface IPharmacyBranchService
     {

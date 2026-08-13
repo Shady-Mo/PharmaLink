@@ -1,4 +1,4 @@
-namespace Application.Services.Pharmacist;
+namespace Application.Services;
 
 public interface IPharmacistManagementService
 {

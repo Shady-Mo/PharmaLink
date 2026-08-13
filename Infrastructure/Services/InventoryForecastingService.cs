@@ -1,4 +1,3 @@
-using API.Notification;
 using Application.DTOs.Notification;
 
 namespace Infrastructure.Services

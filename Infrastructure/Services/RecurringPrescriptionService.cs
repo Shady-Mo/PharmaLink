@@ -1,11 +1,4 @@
 using Application.DTOs.RecurringPrescription;
-using Application.Services;
-using Domain.Entities;
-using Infrastructure.Data;
-using Microsoft.EntityFrameworkCore;
-using Application.Common;
-using Application.Services.OrderSplitting;
-using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
@@ -45,7 +38,9 @@ public class RecurringPrescriptionService(
     {
         var recurring = await context.RecurringPrescriptions
             .FirstOrDefaultAsync(r => r.Id == id && r.PatientId == patientId);
-        if (recurring is null) return Result.Failure<RecurringResponseDto>(new Error("RecurringPrescription.NotFound", $"RecurringPrescription with id {id} not found.", 404));
+        if (recurring is null)
+            return Result.Failure<RecurringResponseDto>(new Error("RecurringPrescription.NotFound",
+                $"RecurringPrescription with id {id} not found.", 404));
 
         recurring.Name = request.Name;
         recurring.Notes = request.Notes;
@@ -64,7 +59,9 @@ public class RecurringPrescriptionService(
     {
         var recurring = await context.RecurringPrescriptions
             .FirstOrDefaultAsync(r => r.Id == id && r.PatientId == patientId);
-        if (recurring is null) return Result.Failure(new Error("RecurringPrescription.NotFound", $"RecurringPrescription with id {id} not found.", 404));
+        if (recurring is null)
+            return Result.Failure(new Error("RecurringPrescription.NotFound",
+                $"RecurringPrescription with id {id} not found.", 404));
 
         recurring.Status = RecurringStatus.Paused;
         await context.SaveChangesAsync();
@@ -75,7 +72,9 @@ public class RecurringPrescriptionService(
     {
         var recurring = await context.RecurringPrescriptions
             .FirstOrDefaultAsync(r => r.Id == id && r.PatientId == patientId);
-        if (recurring is null) return Result.Failure(new Error("RecurringPrescription.NotFound", $"RecurringPrescription with id {id} not found.", 404));
+        if (recurring is null)
+            return Result.Failure(new Error("RecurringPrescription.NotFound",
+                $"RecurringPrescription with id {id} not found.", 404));
 
         recurring.Status = RecurringStatus.Active;
         // Recalculate next run date if in past
@@ -93,7 +92,9 @@ public class RecurringPrescriptionService(
     {
         var recurring = await context.RecurringPrescriptions
             .FirstOrDefaultAsync(r => r.Id == id && r.PatientId == patientId);
-        if (recurring is null) return Result.Failure(new Error("RecurringPrescription.NotFound", $"RecurringPrescription with id {id} not found.", 404));
+        if (recurring is null)
+            return Result.Failure(new Error("RecurringPrescription.NotFound",
+                $"RecurringPrescription with id {id} not found.", 404));
 
         context.RecurringPrescriptions.Remove(recurring);
         await context.SaveChangesAsync();
@@ -119,7 +120,9 @@ public class RecurringPrescriptionService(
             .FirstOrDefaultAsync(r => r.Id == runId && r.ConfirmationToken == token);
 
         if (run is null) return Result.Failure(new Error("Run.NotFound", $"Run with id {runId} not found.", 404));
-        if (run.Status != RecurringRunStatus.PendingConfirmation) return Result.Failure(new Error("Run.Validation", "Run is not pending confirmation", 400));
+        
+        if (run.Status != RecurringRunStatus.PendingConfirmation)
+            return Result.Failure(new Error("Run.Validation", "Run is not pending confirmation", 400));
 
         run.Status = RecurringRunStatus.Confirmed;
         run.ProcessedAt = DateTime.UtcNow;
@@ -128,7 +131,8 @@ public class RecurringPrescriptionService(
         run.OrderId = orderId;
 
         // Advance next run date
-        run.RecurringPrescription.NextRunDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(run.RecurringPrescription.IntervalDays);
+        run.RecurringPrescription.NextRunDate =
+            DateOnly.FromDateTime(DateTime.UtcNow).AddDays(run.RecurringPrescription.IntervalDays);
 
         await context.SaveChangesAsync();
         return Result.Success();
@@ -143,19 +147,25 @@ public class RecurringPrescriptionService(
         if (run is null) return Result.Failure(new Error("Run.NotFound", $"Run with id {runId} not found.", 404));
 
         run.Status = RecurringRunStatus.Skipped;
+     
         run.ProcessedAt = DateTime.UtcNow;
-        run.RecurringPrescription.NextRunDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(run.RecurringPrescription.IntervalDays);
+     
+        run.RecurringPrescription.NextRunDate =
+            DateOnly.FromDateTime(DateTime.UtcNow).AddDays(run.RecurringPrescription.IntervalDays);
 
         await context.SaveChangesAsync();
+       
         return Result.Success();
     }
 
     public async Task ProcessDueRecurringAsync()
     {
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
+      
         var recurrings = await context.RecurringPrescriptions
             .Include(r => r.Patient)
-            .Where(r => r.Status == RecurringStatus.Active && r.NextRunDate <= today && (r.EndDate == null || r.EndDate >= today))
+            .Where(r => r.Status == RecurringStatus.Active && r.NextRunDate <= today &&
+                        (r.EndDate == null || r.EndDate >= today))
             .ToListAsync();
 
         foreach (var recurring in recurrings)
@@ -165,18 +175,22 @@ public class RecurringPrescriptionService(
                 Id = Guid.NewGuid(),
                 RecurringPrescriptionId = recurring.Id,
                 ScheduledAt = DateTime.UtcNow,
-                Status = recurring.RequireConfirmation ? RecurringRunStatus.PendingConfirmation : RecurringRunStatus.Confirmed
+                Status = recurring.RequireConfirmation
+                    ? RecurringRunStatus.PendingConfirmation
+                    : RecurringRunStatus.Confirmed
             };
 
             if (recurring.RequireConfirmation)
             {
                 run.ConfirmationToken = Guid.NewGuid().ToString("N");
                 run.ConfirmationDeadline = DateTime.UtcNow.AddHours(24);
-                
+
                 if (!string.IsNullOrEmpty(recurring.Patient.Email))
                 {
-                    var confirmLink = $"https://pharmalink.com/api/recurring-prescriptions/runs/{run.Id}/confirm?token={run.ConfirmationToken}";
-                    var body = $"<h2>تأكيد طلب الروشتة الدورية: {recurring.Name}</h2><p>الرجاء الضغط على الرابط لتأكيد الطلب:</p><a href='{confirmLink}'>تأكيد الطلب</a>";
+                    var confirmLink =
+                        $"https://pharmalink.com/api/recurring-prescriptions/runs/{run.Id}/confirm?token={run.ConfirmationToken}";
+                    var body =
+                        $"<h2>تأكيد طلب الروشتة الدورية: {recurring.Name}</h2><p>الرجاء الضغط على الرابط لتأكيد الطلب:</p><a href='{confirmLink}'>تأكيد الطلب</a>";
                     await emailService.SendEmailAsync(recurring.Patient.Email, $"تأكيد طلب: {recurring.Name}", body);
                 }
             }
@@ -197,6 +211,7 @@ public class RecurringPrescriptionService(
     public async Task AutoConfirmExpiredRunsAsync()
     {
         var now = DateTime.UtcNow;
+       
         var expiredRuns = await context.RecurringPrescriptionRuns
             .Include(r => r.RecurringPrescription)
             .Where(r => r.Status == RecurringRunStatus.PendingConfirmation && r.ConfirmationDeadline <= now)
@@ -208,7 +223,8 @@ public class RecurringPrescriptionService(
             run.ProcessedAt = now;
             var orderId = await ProcessRunOrder(run.RecurringPrescription);
             run.OrderId = orderId;
-            run.RecurringPrescription.NextRunDate = DateOnly.FromDateTime(now).AddDays(run.RecurringPrescription.IntervalDays);
+            run.RecurringPrescription.NextRunDate =
+                DateOnly.FromDateTime(now).AddDays(run.RecurringPrescription.IntervalDays);
         }
 
         await context.SaveChangesAsync();
@@ -232,7 +248,8 @@ public class RecurringPrescriptionService(
 
             if (recurring.PrescriptionId.HasValue)
             {
-                var originalPrescription = await context.Prescriptions.FirstOrDefaultAsync(p => p.Id == recurring.PrescriptionId.Value);
+                var originalPrescription =
+                    await context.Prescriptions.FirstOrDefaultAsync(p => p.Id == recurring.PrescriptionId.Value);
                 if (originalPrescription != null)
                 {
                     // Create a clone for the new order
@@ -263,9 +280,9 @@ public class RecurringPrescriptionService(
                 context.OrderFulfillmentLegs.Add(leg);
                 order.OrderStatus = OrderStatus.Processing;
             }
-            
+
             await context.SaveChangesAsync();
-            
+
             if (!recurring.PreferredBranchId.HasValue)
             {
                 // Trigger AI Routing
@@ -305,7 +322,7 @@ public class RecurringPrescriptionService(
                 ScheduledAt = run.ScheduledAt,
                 ProcessedAt = run.ProcessedAt,
                 OrderId = run.OrderId
-            }).ToList() ?? new()
+            }).ToList() ?? []
         };
     }
 }

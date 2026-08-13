@@ -1,5 +1,3 @@
-using Application.Services.Order;
-
 namespace API.Controllers;
 
 [Authorize(Roles = AppRoles.PharmacyAdmin)]

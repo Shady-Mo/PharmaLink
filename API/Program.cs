@@ -65,17 +65,17 @@ app.UseAuthorization();
 app.UseHangfireDashboard();
 
 // Register recurring Hangfire jobs
-RecurringJob.AddOrUpdate<Application.Services.IMedicineReminderService>(
+RecurringJob.AddOrUpdate<IMedicineReminderService>(
     "medicine-reminders-every-minute",
     job => job.ProcessDueRemindersAsync(),
     Cron.Minutely);
 
-RecurringJob.AddOrUpdate<Application.Services.IRecurringPrescriptionService>(
+RecurringJob.AddOrUpdate<IRecurringPrescriptionService>(
     "recurring-prescriptions-daily",
     job => job.ProcessDueRecurringAsync(),
     "0 8 * * *"); // 8 AM daily
 
-RecurringJob.AddOrUpdate<Application.Services.IRecurringPrescriptionService>(
+RecurringJob.AddOrUpdate<IRecurringPrescriptionService>(
     "recurring-prescriptions-auto-confirm",
     job => job.AutoConfirmExpiredRunsAsync(),
     "0 */6 * * *"); // every 6 hours

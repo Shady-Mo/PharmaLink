@@ -15,6 +15,7 @@ public class RecurringResponseDto
     public bool RequireConfirmation { get; set; }
     public string Status { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
+    public string? PrescriptionImageUrl { get; set; }
     public List<RecurringRunDto> RecentRuns { get; set; } = new();
 }
 

@@ -1,4 +1,4 @@
-namespace Application.Services.PrescriptionReview;
+namespace Application.Services;
 
 public interface IPrescriptionReviewService
 {

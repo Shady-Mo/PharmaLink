@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Infrastructure.Services
+﻿namespace Application.Services.AI
 {
     public class InventoryForecastingCalculator : IInventoryForecastingCalculator
     {

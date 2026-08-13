@@ -1,9 +1,9 @@
+using Infrastructure.Services.Chefaa;
+
 namespace API.Controllers;
 
-public class DrugsController(IDrugService drugService, IWebHostEnvironment env) : BaseApiController
+public class DrugsController(IDrugService drugService) : BaseApiController
 {
- 
-
     /// <summary>
     /// Triggers the background import process for Chefaa catalog.
     /// </summary>
@@ -11,11 +11,21 @@ public class DrugsController(IDrugService drugService, IWebHostEnvironment env) 
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     //[Authorize(Roles = AppRoles.Admin)]
-    public async Task<IActionResult> ImportChefaa([FromServices] Infrastructure.Services.Chefaa.IChefaaImporterService importerService, CancellationToken cancellationToken)
+    public Task<IActionResult> ImportChefaa(
+        [FromServices] IChefaaImporterService importerService,
+        CancellationToken cancellationToken)
     {
-        // Fire and forget or background job would be better, but we can start it here
-        _ = Task.Run(() => importerService.StartImportAsync(CancellationToken.None));
-        return Ok(new { message = "Chefaa import started in the background. Check logs for details." });
+        try
+        {
+            // Fire and forget or background job would be better, but we can start it here
+            _ = Task.Run(() => importerService.StartImportAsync(CancellationToken.None), cancellationToken);
+            return Task.FromResult<IActionResult>(Ok(new
+                { message = "Chefaa import started in the background. Check logs for details." }));
+        }
+        catch (Exception exception)
+        {
+            return Task.FromException<IActionResult>(exception);
+        }
     }
 
     /// <summary>

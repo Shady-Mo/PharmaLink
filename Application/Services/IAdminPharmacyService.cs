@@ -1,6 +1,4 @@
-using Application.DTOs.Pharmacy.Responses;
-
-namespace Application.Services.Pharmacy
+namespace Application.Services
 {
     public interface IAdminPharmacyService
     {
