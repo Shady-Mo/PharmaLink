@@ -36,7 +36,7 @@ public class AuthService(
                 return Result.Failure<RegisterResponseDTO>(AuthErrors.PhoneAlreadyExists);
             }
         }
-            
+
         var patient = request.Adapt<Patient>();
 
         var createResult = await userManager.CreateAsync(patient, request.Password);
@@ -213,12 +213,8 @@ public class AuthService(
         if (user is null)
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidEmail);
 
-        var token = await userManager.GeneratePasswordResetTokenAsync(user);
-        var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-
-        var resetLink = $"http://localhost:4200/auth/reset-password?email={email}&token={encodedToken}";
-
-        await emailService.SendEmailAsync(email, "Reset Password", $"Click here to reset your password: {resetLink}");
+        await emailService.SendEmailAsync(email, "Reset Password",
+            $"Click here to reset your password: https://pharma-link-front-end.vercel.app/auth/reset-password?email={email}&token={WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(await userManager.GeneratePasswordResetTokenAsync(user)))}");
 
         return Result.Success();
     }
@@ -350,6 +346,4 @@ public class AuthService(
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
     }
-
-    
 }

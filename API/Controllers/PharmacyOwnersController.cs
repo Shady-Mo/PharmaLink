@@ -1,6 +1,5 @@
 using Application.DTOs.PharmacyOwner.Request;
 using Application.DTOs.PharmacyOwner.Responses;
-using Application.Services.PharmacyOwner;
 
 namespace API.Controllers
 {

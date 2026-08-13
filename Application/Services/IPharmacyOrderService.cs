@@ -1,4 +1,4 @@
-namespace Application.Services.Order
+namespace Application.Services
 {
     public interface IPharmacyOrderService
     {

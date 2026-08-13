@@ -1,4 +1,4 @@
-namespace Application.Services.Cart;
+namespace Application.Services;
 
 public interface ICartService
 {

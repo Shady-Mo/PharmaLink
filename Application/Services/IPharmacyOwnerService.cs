@@ -1,12 +1,7 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
-using Application.Common;
-using Application.DTOs;
 using Application.DTOs.PharmacyOwner.Request;
 using Application.DTOs.PharmacyOwner.Responses;
 
-namespace Application.Services.PharmacyOwner
+namespace Application.Services
 {
     public interface IPharmacyOwnerService
     {

@@ -1,7 +1,5 @@
 namespace Domain.Entities;
 
-using Domain.Enums;
-
 public class MedicalInquiry
 {
     public Guid MedicalInquiryId { get; set; }
