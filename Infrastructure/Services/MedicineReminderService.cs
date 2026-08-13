@@ -106,15 +106,10 @@ public class MedicineReminderService(
 
         var localNow = TimeZoneInfo.ConvertTimeFromUtc(utcNow, egyptTimeZone);
         var today = DateOnly.FromDateTime(localNow);
-        var currentTime = TimeOnly.FromDateTime(localNow);
-        var windowStart = currentTime.AddMinutes(-1);
-        var windowEnd = currentTime.AddMinutes(1);
 
         logger.LogInformation("--- START ProcessDueRemindersAsync ---");
         logger.LogInformation("UTC Now: {UtcNow}", utcNow);
         logger.LogInformation("Egypt Local Now: {LocalNow}", localNow);
-        logger.LogInformation("Current Egypt Time: {CurrentTime}", currentTime);
-        logger.LogInformation("Window: {WindowStart} - {WindowEnd}", windowStart, windowEnd);
 
         var reminders = await context.MedicineReminders
             .Include(r => r.Patient)
@@ -138,22 +133,35 @@ public class MedicineReminderService(
                     continue;
                 }
 
-                if (reminderTime < windowStart || reminderTime > windowEnd)
+                // Construct exact local DateTime for this reminder today
+                var reminderDateTimeLocal = localNow.Date + reminderTime.ToTimeSpan();
+
+                // If it's in the future, it's not due yet
+                if (localNow < reminderDateTimeLocal)
                 {
                     continue;
                 }
 
-                logger.LogInformation("Reminder Time: {TimeStr}", timeStr);
-                logger.LogInformation("MATCH FOUND");
+                // If we missed it by more than 45 minutes (e.g. server was down), skip it to avoid spam
+                if (localNow - reminderDateTimeLocal > TimeSpan.FromMinutes(45))
+                {
+                    continue;
+                }
 
-                // Check if already sent in this window (within last 2 minutes)
+                logger.LogInformation("Reminder Time {TimeStr} is DUE! (Local Reminder Time: {ReminderDateTimeLocal})", timeStr, reminderDateTimeLocal);
+
+                var reminderDateTimeUtc = TimeZoneInfo.ConvertTimeToUtc(reminderDateTimeLocal, egyptTimeZone);
+
+                // Check if already sent for this specific occurrence (within a logical timeframe around the reminder time)
                 var alreadySent = await context.MedicineReminderLogs
                     .AnyAsync(l => l.ReminderId == reminder.Id
-                                   && l.SentAt >= utcNow.AddMinutes(-2)
+                                   && l.SentAt >= reminderDateTimeUtc.AddMinutes(-5)
+                                   && l.SentAt <= reminderDateTimeUtc.AddMinutes(50)
                                    && l.IsSuccess);
+                                   
                 if (alreadySent)
                 {
-                    logger.LogInformation("Reminder {Id}: Already sent successfully within the last 2 minutes. Skipping.", reminder.Id);
+                    logger.LogInformation("Reminder {Id}: Already sent successfully for {TimeStr} occurrence. Skipping.", reminder.Id, timeStr);
                     continue;
                 }
 
