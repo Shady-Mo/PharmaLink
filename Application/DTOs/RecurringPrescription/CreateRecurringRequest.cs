@@ -1,5 +1,3 @@
-using Domain.Entities;
-
 namespace Application.DTOs.RecurringPrescription;
 
 public class CreateRecurringRequest

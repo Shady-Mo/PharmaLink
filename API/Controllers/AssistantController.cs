@@ -1,9 +1,7 @@
 using System.Net.Mime;
 using System.Text;
-using API.Extensions;
+using System.Text.Json;
 using Application.Services.AI;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace API.Controllers;
 
@@ -125,7 +123,7 @@ public sealed class AssistantController(
             {
                 // SSE format: "data: <content>\n\n"
                 // Using JSON serialization to safely encode newlines and spaces.
-                var sseData = $"data: {System.Text.Json.JsonSerializer.Serialize(chunk)}\n\n";
+                var sseData = $"data: {JsonSerializer.Serialize(chunk)}\n\n";
                 await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(sseData), ct);
                 await Response.Body.FlushAsync(ct);
             }
@@ -142,7 +140,8 @@ public sealed class AssistantController(
         catch (Exception ex) when (ex.ToString().Contains("429"))
         {
             logger.LogWarning("Rate limit exceeded for user {UserId}", userId);
-            var errorData = "data: عذراً، لقد تجاوزت الحد الأقصى للطلبات المجانية للذكاء الاصطناعي. يرجى الانتظار لمدة دقيقة والمحاولة مرة أخرى.\n\n";
+            var errorData =
+                "data: عذراً، لقد تجاوزت الحد الأقصى للطلبات المجانية للذكاء الاصطناعي. يرجى الانتظار لمدة دقيقة والمحاولة مرة أخرى.\n\n";
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(errorData), ct);
             await Response.Body.FlushAsync(ct);
         }
@@ -190,7 +189,11 @@ public sealed class AssistantController(
         }
         catch (Exception ex) when (ex.ToString().Contains("429"))
         {
-            return StatusCode(429, new { error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى." });
+            return StatusCode(429,
+                new
+                {
+                    error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى."
+                });
         }
     }
 
@@ -232,7 +235,11 @@ public sealed class AssistantController(
         }
         catch (Exception ex) when (ex.ToString().Contains("429"))
         {
-            return StatusCode(429, new { error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى." });
+            return StatusCode(429,
+                new
+                {
+                    error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى."
+                });
         }
     }
 

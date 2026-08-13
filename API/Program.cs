@@ -1,15 +1,16 @@
 using API.Hubs;
 using API.Middlewares;
 using API.Notification;
+using API.Services;
 using Application.Hubs;
 using Hangfire;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services
-    .AddApiServices()
-    .AddApplicationServices()
-    .AddInfrastructureServices(builder.Configuration);
+builder.Services.AddApiServices();
+builder.Services.AddApplicationServices();
+builder.Services.AddInfrastructureServices(builder.Configuration);
+builder.Services.AddScoped<IReminderPushService, SignalRReminderPushService>();
 
 builder.Services.AddHealthChecks();
 builder.Services.AddSignalR();
@@ -87,5 +88,6 @@ app.MapHealthChecks("/health");
 
 app.MapHub<InventoryHub>("/inventory-hub");
 app.MapHub<DeliveryHub>("/hubs/delivery");
+app.MapHub<MedicineReminderHub>("/hubs/reminders");
 
 app.Run();

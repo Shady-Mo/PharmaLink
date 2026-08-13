@@ -37,6 +37,9 @@ public class RecurringPrescriptionService(
     public async Task<Result<RecurringResponseDto>> UpdateAsync(Guid id, Guid patientId, CreateRecurringRequest request)
     {
         var recurring = await context.RecurringPrescriptions
+            .Include(r => r.Prescription)
+            .Include(r => r.PreferredBranch)
+            .Include(r => r.Runs)
             .FirstOrDefaultAsync(r => r.Id == id && r.PatientId == patientId);
         if (recurring is null)
             return Result.Failure<RecurringResponseDto>(new Error("RecurringPrescription.NotFound",
@@ -50,6 +53,12 @@ public class RecurringPrescriptionService(
         recurring.PreferredBranchId = request.PreferredBranchId;
         recurring.DeliveryAddressId = request.DeliveryAddressId;
         recurring.RequireConfirmation = request.RequireConfirmation;
+        if (request.PrescriptionId.HasValue)
+        {
+            recurring.PrescriptionId = request.PrescriptionId;
+            // To get the updated image url immediately in the response, we should load it
+            await context.Entry(recurring).Reference(r => r.Prescription).LoadAsync();
+        }
 
         await context.SaveChangesAsync();
         return Result.Success(MapToDto(recurring));
@@ -105,6 +114,7 @@ public class RecurringPrescriptionService(
     {
         var recurring = await context.RecurringPrescriptions
             .Include(r => r.PreferredBranch)
+            .Include(r => r.Prescription)
             .Include(r => r.Runs.OrderByDescending(run => run.ScheduledAt).Take(5))
             .Where(r => r.PatientId == patientId)
             .OrderByDescending(r => r.CreatedAt)
@@ -315,6 +325,7 @@ public class RecurringPrescriptionService(
             RequireConfirmation = r.RequireConfirmation,
             Status = r.Status.ToString(),
             CreatedAt = r.CreatedAt,
+            PrescriptionImageUrl = r.Prescription?.FileUrl,
             RecentRuns = r.Runs?.Select(run => new RecurringRunDto
             {
                 Id = run.Id,
