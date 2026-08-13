@@ -7,7 +7,7 @@ using Domain.Constants;
 
 namespace API.Controllers;
 
-[Route("api/medicine-reminders")]
+[Route("api/v1/medicine-reminders")]
 [ApiController]
 [Authorize(Roles = AppRoles.Patient)]
 public class MedicineRemindersController(IMedicineReminderService service) : BaseApiController
@@ -16,6 +16,7 @@ public class MedicineRemindersController(IMedicineReminderService service) : Bas
     public async Task<IActionResult> Create([FromBody] CreateReminderRequest request)
     {
         var result = await service.CreateAsync(User.GetUserId(), request);
+     
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -23,6 +24,7 @@ public class MedicineRemindersController(IMedicineReminderService service) : Bas
     public async Task<IActionResult> GetAll()
     {
         var result = await service.GetPatientRemindersAsync(User.GetUserId());
+        
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -30,6 +32,7 @@ public class MedicineRemindersController(IMedicineReminderService service) : Bas
     public async Task<IActionResult> Update(Guid id, [FromBody] CreateReminderRequest request)
     {
         var result = await service.UpdateAsync(id, User.GetUserId(), request);
+        
         return result.IsSuccess ? Ok(result.Value) : result.ToProblem();
     }
 
@@ -37,6 +40,7 @@ public class MedicineRemindersController(IMedicineReminderService service) : Bas
     public async Task<IActionResult> Delete(Guid id)
     {
         var result = await service.DeleteAsync(id, User.GetUserId());
+        
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 
@@ -44,6 +48,7 @@ public class MedicineRemindersController(IMedicineReminderService service) : Bas
     public async Task<IActionResult> Toggle(Guid id)
     {
         var result = await service.ToggleAsync(id, User.GetUserId());
+        
         return result.IsSuccess ? NoContent() : result.ToProblem();
     }
 }
