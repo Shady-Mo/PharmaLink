@@ -9,12 +9,12 @@ namespace Application.Errors
 
         public static readonly Error AdminNotFound =
             new("Admin.NotFound",
-                "The authenticated Admin profile was not found.",
+                "تعذّر العثور على ملف تعريف المسؤول الموثّق.",
                 StatusCodes.Status404NotFound);
 
         public static readonly Error PhoneAlreadyExists =
             new("Admin.PhoneAlreadyExists",
-                "An admin with the specified phone number already exists.",
+                "يوجد مسؤول مسجل بالفعل برقم الهاتف المحدد.",
                 StatusCodes.Status409Conflict);
     }
 }

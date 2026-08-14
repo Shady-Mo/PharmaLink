@@ -4,7 +4,7 @@ namespace Application.Errors
     public static class AddressErrors
     {
         public static readonly Error NotFound =
-            new("Address.NotFound", "Address not found.", StatusCodes.Status404NotFound);
+            new("Address.NotFound", "العنوان غير موجود.", StatusCodes.Status404NotFound);
 
         public static readonly Error Forbidden =
             new("Address.Forbidden",
