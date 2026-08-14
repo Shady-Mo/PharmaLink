@@ -711,8 +711,8 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
                 Legs = [leg],
                 UnfulfillableItems = [],
                 TotalDistanceKm = singleCover.DistanceKm,
-                Reasoning = $"Branch '{singleCover.BranchName}' fulfills 100% of the cart from a single " +
-                            $"location ({singleCover.DistanceKm:F2} km), avoiding any order split."
+                Reasoning = $"فرع '{singleCover.BranchName}' يغطي كافة المنتجات (100%) من شحنة واحدة " +
+                            $"على بعد ({singleCover.DistanceKm:F2} كم) دون الحاجة لتقسيم الطلب."
             };
         }
 
@@ -764,9 +764,9 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             UnfulfillableItems = unfulfillable,
             TotalDistanceKm = Math.Round(legs.Sum(l => l.DistanceKm), 3),
             Reasoning = legs.Count == 0
-                ? "No branch can supply the requested items."
-                : $"AI router unavailable — assigned each item to its nearest stocking branch across " +
-                  $"{legs.Count} branch(es) as a safety fallback."
+                ? "لا يوجد أي فرع قادر على توفير المنتجات المطلوبة."
+                : $"تعذّر استخدام موجه الذكاء الاصطناعي — تم توزيع الأصناف على أقرب الفروع المتوفرة بها عبر " +
+                  $"{legs.Count} فرع كإجراء بديل."
         };
     }
 
