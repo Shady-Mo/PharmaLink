@@ -86,7 +86,7 @@ public class MedicineReminderService(
     public async Task ProcessDueRemindersAsync()
     {
         var utcNow = DateTime.UtcNow;
-        
+
         TimeZoneInfo egyptTimeZone;
         try
         {
@@ -123,7 +123,8 @@ public class MedicineReminderService(
         foreach (var reminder in reminders)
         {
             var times = JsonSerializer.Deserialize<List<string>>(reminder.ReminderTimesJson) ?? new();
-            logger.LogInformation("Checking Reminder {Id} ({Name}) - Times: {TimesJson}", reminder.Id, reminder.MedicineName, reminder.ReminderTimesJson);
+            logger.LogInformation("Checking Reminder {Id} ({Name}) - Times: {TimesJson}", reminder.Id,
+                reminder.MedicineName, reminder.ReminderTimesJson);
 
             foreach (var timeStr in times)
             {
@@ -148,7 +149,8 @@ public class MedicineReminderService(
                     continue;
                 }
 
-                logger.LogInformation("Reminder Time {TimeStr} is DUE! (Local Reminder Time: {ReminderDateTimeLocal})", timeStr, reminderDateTimeLocal);
+                logger.LogInformation("Reminder Time {TimeStr} is DUE! (Local Reminder Time: {ReminderDateTimeLocal})",
+                    timeStr, reminderDateTimeLocal);
 
                 var reminderDateTimeUtc = TimeZoneInfo.ConvertTimeToUtc(reminderDateTimeLocal, egyptTimeZone);
 
@@ -158,14 +160,17 @@ public class MedicineReminderService(
                                    && l.SentAt >= reminderDateTimeUtc.AddMinutes(-5)
                                    && l.SentAt <= reminderDateTimeUtc.AddMinutes(50)
                                    && l.IsSuccess);
-                                   
+
                 if (alreadySent)
                 {
-                    logger.LogInformation("Reminder {Id}: Already sent successfully for {TimeStr} occurrence. Skipping.", reminder.Id, timeStr);
+                    logger.LogInformation(
+                        "Reminder {Id}: Already sent successfully for {TimeStr} occurrence. Skipping.", reminder.Id,
+                        timeStr);
                     continue;
                 }
 
-                logger.LogInformation("Reminder {Id}: Ready to send! Patient: {PatientId}", reminder.Id, reminder.PatientId);
+                logger.LogInformation("Reminder {Id}: Ready to send! Patient: {PatientId}", reminder.Id,
+                    reminder.PatientId);
                 var patient = reminder.Patient;
 
                 if (reminder.NotifyByEmail && !string.IsNullOrEmpty(patient.Email))
@@ -176,7 +181,8 @@ public class MedicineReminderService(
 
                 if (reminder.NotifyByWhatsApp && !string.IsNullOrEmpty(patient.PhoneNumber))
                 {
-                    logger.LogInformation("Reminder {Id}: Sending WhatsApp to {Phone}", reminder.Id, patient.PhoneNumber);
+                    logger.LogInformation("Reminder {Id}: Sending WhatsApp to {Phone}", reminder.Id,
+                        patient.PhoneNumber);
                     await TrySendWhatsApp(reminder, patient.PhoneNumber, utcNow);
                 }
 
@@ -198,6 +204,7 @@ public class MedicineReminderService(
                 }
             }
         }
+
         logger.LogInformation("--- END ProcessDueRemindersAsync ---");
     }
 
@@ -243,6 +250,7 @@ public class MedicineReminderService(
                           + (reminder.Notes != null ? $"\nملاحظات: {reminder.Notes}" : "");
 
             await whatsAppService.SendMessageAsync(phone, message);
+
             context.MedicineReminderLogs.Add(new MedicineReminderLog
             {
                 ReminderId = reminder.Id, SentAt = now, Channel = ReminderChannel.WhatsApp, IsSuccess = true

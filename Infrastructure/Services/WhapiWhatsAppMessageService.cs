@@ -1,9 +1,4 @@
-using Application.Services;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.Logging;
 using System.Net.Http.Headers;
-using System.Text;
-using System.Text.Json;
 
 namespace Infrastructure.Services;
 
@@ -21,9 +16,11 @@ public class WhapiWhatsAppMessageService(
         if (formattedPhone.StartsWith("0")) formattedPhone = "2" + formattedPhone;
         else if (!formattedPhone.StartsWith("20")) formattedPhone = "20" + formattedPhone;
 
-        var payload = new { to = formattedPhone, body = message };
+        var payload = new { to = formattedPhone, body = message, typing_time = 10 };
         var jsonContent = new StringContent(JsonSerializer.Serialize(payload), Encoding.UTF8, "application/json");
 
+        httpClient.DefaultRequestHeaders.Clear();
+        httpClient.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
         httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", apiToken);
         var response = await httpClient.PostAsync("https://gate.whapi.cloud/messages/text", jsonContent);
 
