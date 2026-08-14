@@ -62,7 +62,17 @@ public class WebPushNotificationService : IWebPushNotificationService
                     body = message,
                     icon = "/icons/icon-192x192.png",
                     badge = "/icons/icon-72x72.png",
-                    data = new { url = url ?? "/" },
+                    data = new 
+                    { 
+                        onActionClick = new 
+                        {
+                            @default = new 
+                            {
+                                operation = "navigateLastFocusedOrOpen",
+                                url = url ?? "/"
+                            }
+                        }
+                    },
                     vibrate = new[] { 100, 50, 100 }
                 }
             });
