@@ -25,7 +25,7 @@ namespace API.Controllers
         [HttpPost("subscribe")]
         public async Task<IActionResult> Subscribe([FromBody] PushSubscriptionRequest request)
         {
-            var userIdStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            var userIdStr = User.FindFirst("UserID")?.Value ?? User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out Guid userId))
             {
                 return Unauthorized();
