@@ -92,7 +92,7 @@ public class LegStatusTransitionService(
             leg.CompletedAt = DateTime.UtcNow;
             
             bool anyIncomplete = await context.OrderFulfillmentLegs
-                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Delivered, cancellationToken);
+                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Delivered && l.LegStatus != LegStatus.Cancelled, cancellationToken);
 
             if (!anyIncomplete)
                 leg.Order.OrderStatus = OrderStatus.Completed;

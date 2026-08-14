@@ -83,7 +83,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             ChangedAtUtc = DateTime.UtcNow
         });
 
-        if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered))
+        if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered || l.LegStatus == LegStatus.Cancelled))
             leg.Order.OrderStatus = OrderStatus.Completed;
 
 

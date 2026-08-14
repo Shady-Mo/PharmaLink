@@ -112,11 +112,11 @@ public class DeliveryDriverService(AppDbContext context, IDeliveryNotificationSe
 
         job.Driver?.DriverAvailability = DriverStatus.Available;
 
-        var allLegsDelivered = await context.OrderFulfillmentLegs
-            .Where(l => l.OrderId == job.FulfillmentLeg.OrderId)
+        var allOtherLegsCompleted = await context.OrderFulfillmentLegs
+            .Where(l => l.OrderId == job.FulfillmentLeg.OrderId && l.LegId != job.FulfillmentLeg.LegId)
             .AllAsync(l => l.LegStatus == LegStatus.Delivered || l.LegStatus == LegStatus.Cancelled);
 
-        if (allLegsDelivered)
+        if (allOtherLegsCompleted)
         {
             job.FulfillmentLeg.Order.OrderStatus = OrderStatus.Completed;
         }
