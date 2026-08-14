@@ -381,7 +381,7 @@ public class OrderService(
             OrderId = o.OrderId,
             OrderNumber = "ORD-" + o.OrderId.ToString().Substring(0, 8).ToUpper(),
             PatientName = o.Patient?.FullName ?? "Unknown",
-            PrimaryPharmacyName = o.FulfillmentLegs.FirstOrDefault()?.Branch?.Pharmacy?.LegalName ?? "Not Assigned",
+            PrimaryPharmacyName = o.FulfillmentLegs.FirstOrDefault()?.Branch?.Pharmacy?.LegalName ?? "لم يتم التعيين",
             MedicineNames = o.Items.Select(i => i.Drug?.BrandName ?? "Unknown").Distinct().ToList(),
             TotalAmount = o.TotalAmount,
             OrderStatus = o.OrderStatus,
