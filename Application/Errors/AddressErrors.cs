@@ -8,20 +8,20 @@ namespace Application.Errors
 
         public static readonly Error Forbidden =
             new("Address.Forbidden",
-                "You do not have permission to access this address.",
+                "عذراً، لا تملك الصلاحية للوصول إلى هذا العنوان.",
                 StatusCodes.Status403Forbidden);
 
         public static readonly Error AuditReasonRequired =
             new("Address.AuditReasonRequired",
-                "A reason is required when a System Admin accesses a patient's address.",
+                "يُلزم مسؤول النظام بتقديم سبب عند الوصول إلى عنوان المريض.",
                 StatusCodes.Status400BadRequest);
         public static readonly Error InUse =
           new("Address.InUse",
-              "This address is linked to existing orders and cannot be deleted.",
+              "هذا العنوان مرتبط بطلبات حالية ولا يمكن حذفه.",
               StatusCodes.Status409Conflict);
         public static readonly Error AddressAlreadyDefault =
             new("AddressAlreadyDefault",
-                "This address is already the default address."
+                "هذا العنوان هو العنوان الافتراضي بالفعل."
                 , StatusCodes.Status409Conflict);
 
         public static readonly Error AddressIsTheDefault =
