@@ -845,9 +845,9 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
     private static string DefaultReasoning(string strategy, int legCount) =>
         strategy == "SinglePharmacy"
-            ? "A single pharmacy covers the cart, minimizing splits and travel."
-            : $"No single branch covers the cart; split across {legCount} branches to maximize coverage " +
-            "while keeping distance low.";
+            ? "تتولى صيدلية واحدة تغطية السلة، مما يقلل من تقسيم الطلبات ومسافات التنقل."
+            : $"لا يوجد فرع بمفرده يغطي السلة بالكامل؛ تم تقسيم الطلب على {legCount} فروع لتحقيق أقصى تغطية ممكنة " +
+            "مع الإبقاء على مسافة التوصيل قصيرة.";
 
     private static OrderRoutingPlan EmptyPlan(string reason) => new()
     {
