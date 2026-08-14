@@ -213,12 +213,23 @@ public class MedicineReminderService(
         try
         {
             var body = $"""
-                        <div dir="rtl" style="font-family: Arial; padding: 20px;">
-                            <h2>💊 تذكير بموعد الدواء</h2>
-                            <p>حان موعد تناول دوائك: <strong>{reminder.MedicineName}</strong></p>
-                            {(reminder.Dosage != null ? $"<p>الجرعة: <strong>{reminder.Dosage}</strong></p>" : "")}
-                            {(reminder.Notes != null ? $"<p>ملاحظات: {reminder.Notes}</p>" : "")}
-                            <p style="color: #666; font-size: 12px;">فارما لينك - رعاية صحتك أولويتنا 🌿</p>
+                        <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: #f0fdfa; padding: 40px 20px; text-align: center;">
+                            <div style="max-width: 500px; margin: 0 auto; background-color: #ffffff; padding: 30px; border-radius: 16px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); border-top: 5px solid #0d9488;">
+                                <h2 style="color: #0d9488; margin-top: 0; font-size: 24px;">💊 حان موعد الدواء!</h2>
+                                <p style="font-size: 16px; color: #334155; line-height: 1.6;">نتمنى لك دوام الصحة والعافية، نذكرك بأنه قد حان موعد تناول جرعتك الآن.</p>
+                                
+                                <div style="background-color: #f8fafc; border-radius: 12px; padding: 20px; margin: 25px 0; border: 1px solid #e2e8f0; text-align: right;">
+                                    <p style="margin: 0 0 10px 0; font-size: 18px; color: #0f172a;">اسم الدواء: <strong style="color: #0d9488;">{reminder.MedicineName}</strong></p>
+                                    {(reminder.Dosage != null ? $"<p style=\"margin: 0 0 10px 0; color: #475569;\">الجرعة: <strong>{reminder.Dosage}</strong></p>" : "")}
+                                    {(reminder.Notes != null ? $"<p style=\"margin: 0; color: #64748b; font-size: 14px;\">ملاحظات: {reminder.Notes}</p>" : "")}
+                                </div>
+                                
+                                <a href="https://pharmalink.vercel.app/patient/reminders" style="display: inline-block; background-color: #0d9488; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: bold; margin-top: 10px;">عرض التذكيرات في التطبيق</a>
+                                
+                                <div style="margin-top: 30px; border-top: 1px solid #e2e8f0; padding-top: 15px;">
+                                    <p style="color: #94a3b8; font-size: 12px; margin: 0;">فارما لينك - رعاية صحتك أولويتنا 🌿</p>
+                                </div>
+                            </div>
                         </div>
                         """;
 
