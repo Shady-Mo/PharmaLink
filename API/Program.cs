@@ -74,13 +74,12 @@ RecurringJob.AddOrUpdate<IMedicineReminderService>(
 RecurringJob.AddOrUpdate<IRecurringPrescriptionService>(
     "recurring-prescriptions-daily",
     job => job.ProcessDueRecurringAsync(),
-    "0 8 * * *"); // 8 AM daily
+    "0 8 * * *"); 
 
 RecurringJob.AddOrUpdate<IRecurringPrescriptionService>(
     "recurring-prescriptions-auto-confirm",
     job => job.AutoConfirmExpiredRunsAsync(),
-    "0 */6 * * *"); // every 6 hours
-
+    "0 */6 * * *"); 
 
 app.MapControllers();
 

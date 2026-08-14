@@ -61,5 +61,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<MedicineReminderLog> MedicineReminderLogs { get; set; }
     public DbSet<RecurringPrescription> RecurringPrescriptions { get; set; }
     public DbSet<RecurringPrescriptionRun> RecurringPrescriptionRuns { get; set; }
+    public DbSet<PushSubscription> PushSubscriptions { get; set; }
 }
 
