@@ -8,22 +8,22 @@ namespace Application.Errors
     {
         public static readonly Error NotFound =
         new("SupplierOrderErrors.NotFound",
-            "Supplier Order not found.",
+            "تعذّر العثور على طلب المورّد.",
             StatusCodes.Status404NotFound);
 
         public static readonly Error BadRequest =
         new("SupplierOrderErrors.BadRequest",
-            "Invalid Status.",
+            "حالة غير صالحة.",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error NoSuppliersFoundForDrug =
         new("SupplierOrderErrors.BadRequest",
-            "No Suppliers Found For Drug.",
+            "لم يتم العثور على موردين للدواء.",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error SupplierDoesNotHaveDrug =
             new("SupplierOrderErrors.BadRequest",
-            "Supplier Does Not Have Drug.",
+            "المورد لا يملك هذا الدواء.",
             StatusCodes.Status400BadRequest);
-            }
+    }
 }

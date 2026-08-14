@@ -4,27 +4,27 @@ public static class PharmacistErrors
 {
     public static readonly Error PharmacistNotFound =
         new("Pharmacist.NotFound",
-            "No pharmacist account was found for the provided ID.",
+            "لا يوجد حساب صيدلي مرتبط بهذا المعرّف.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error EmailAlreadyExists =
         new("Pharmacist.EmailAlreadyExists",
-            "An account with this email address already exists.",
+            "يوجد بالفعل حساب صيدلي مسجل بهذا البريد الإلكتروني.",
             StatusCodes.Status409Conflict);
 
     public static readonly Error PhoneAlreadyExists =
         new("Pharmacist.PhoneAlreadyExists",
-            "An account with this phone number already exists.",
+            "يوجد بالفعل حساب صيدلي مسجل بهذا الرقم.",
             StatusCodes.Status409Conflict);
 
     public static readonly Error RegistrationFailed =
         new("Pharmacist.RegistrationFailed",
-            "Failed to create the pharmacist account due to a server error. Please try again.",
+            "فشل في إنشاء حساب الصيدلي بسبب خطأ في الخادم. يُرجى المحاولة مرة أخرى.",
             StatusCodes.Status500InternalServerError);
 
     public static readonly Error AlreadyAssigned =
         new("Pharmacist.AlreadyAssigned",
-            "This pharmacist already has an active assignment. Use the reassign endpoint to change their pharmacy.",
+            "هذا الصيدلي معين بالفعل في صيدلية أخرى. يرجى استخدام خيار (إعادة التعيين) لتغيير صيدليته.",
             StatusCodes.Status409Conflict);
 
     public static readonly Error AlreadyAssignedToBranch =
@@ -34,12 +34,12 @@ public static class PharmacistErrors
 
     public static readonly Error NoActiveAssignment =
         new("Pharmacist.NoActiveAssignment",
-            "This pharmacist does not have an active assignment to terminate.",
+            "هذا الصيدلي ليس لديه تعيين نشط لإنهاء خدمته أو إلغائه.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error PharmacyNotFound =
         new("Pharmacist.PharmacyNotFound",
-            "The target pharmacy was not found.",
+            "الصيدلية المستهدفة غير موجودة.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error BranchNotFound =
@@ -49,11 +49,11 @@ public static class PharmacistErrors
 
     public static readonly Error AdminNotFound =
         new("Pharmacist.AdminNotFound",
-            "The authenticated admin account could not be resolved.",
+            "تعذّر العثور على بيانات حساب المشرف الحالي.",
             StatusCodes.Status401Unauthorized);
 
     public static readonly Error AdminNotAssignedToPharmacy =
         new("Pharmacist.AdminNotAssigned",
-            "The authenticated admin is not assigned to any pharmacy.",
+            "حساب المشرف الحالي غير مرتبط بأي صيدلية.",
             StatusCodes.Status403Forbidden);
 }

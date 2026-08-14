@@ -4,37 +4,37 @@ namespace Application.Errors
     {
         public static readonly Error PharmacyNotFound =
         new("Pharmacy.PharmacyNotFound",
-            "No Pharmacy was found for the provided ID.",
+            "لا توجد صيدلية مرتبطة بهذا المعرّف.",
             StatusCodes.Status404NotFound);
 
         public static readonly Error Forbidden = new(
             "Pharmacy.Forbidden",
-            "You are not allowed to access this Pharmacy.",
+            "لا تملك صلاحية الدخول لهذه الصيدلية.",
             StatusCodes.Status403Forbidden);
 
         public static readonly Error LicenseNumberNotUnique = new(
             "Pharmacy.LicenseNumberNotUnique",
-            "A pharmacy with this license number already exists.",
+            "رقم الترخيص هذا مستخدم بالفعل لصيدلية أخرى.",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error InvalidOwnerUserId =
         new("Pharmacy.InvalidOwnerUserId",
-            "Invalid OwnerUserId",
+            "معرّف المالك غير صالح.",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error PharmacyNotEligible =
         new("Pharmacy.NotEligible",
-            "The pharmacy is deleted or rejected and cannot have an assigned owner.",
+            "لا يمكن تعيين مالك لصيدلية محذوفة أو مرفوضة.",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error InvalidLogoType = new(
             "Pharmacy.InvalidLogoType",
-            "Logo must be an image file (.jpg, .jpeg, .png, .webp).",
+            "يجب أن يكون الشعار ملف صورة بصيغة (.jpg أو .jpeg أو .png أو .webp).",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error LogoFileTooLarge = new(
             "Pharmacy.LogoFileTooLarge",
-            "Logo file size must not exceed 2 MB.",
+            "يجب ألا يتجاوز حجم ملف الشعار 2 ميجابايت.",
             StatusCodes.Status400BadRequest);
     }
 }

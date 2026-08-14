@@ -6,42 +6,42 @@ namespace Application.Errors
     {
         public static readonly Error PharmacyOwnerNotFound =
             new("PharmacyOwner.NotFound",
-                "No pharmacy owner account was found for the provided ID.",
+                "لا يوجد حساب مالك صيدلية مرتبط بهذا المعرّف.",
                 StatusCodes.Status404NotFound);
 
         public static readonly Error EmailAlreadyExists =
             new("PharmacyOwner.EmailAlreadyExists",
-                "An account with this email address already exists.",
+                "البريد الإلكتروني هذا مستخدم بالفعل بحساب آخر.",
                 StatusCodes.Status409Conflict);
 
         public static readonly Error PhoneAlreadyExists =
             new("PharmacyOwner.PhoneAlreadyExists",
-                "An account with this phone number already exists.",
+                "رقم الهاتف هذا مستخدم بالفعل بحساب آخر.",
                 StatusCodes.Status409Conflict);
 
         public static readonly Error RegistrationFailed =
             new("PharmacyOwner.RegistrationFailed",
-                "Failed to create the pharmacy owner account due to validation or server errors.",
+                "فشل إنشاء حساب مالك الصيدلية بسبب أخطاء في التحقق من صحة البيانات أو خطأ في الخادم.",
                 StatusCodes.Status500InternalServerError);
 
         public static readonly Error RoleAssignmentFailed =
             new("PharmacyOwner.RoleAssignmentFailed",
-                "Failed to assign the Pharmacy Admin role to the owner account.",
+                "تعذّر تعيين صلاحية مدير صيدلية لحساب المالك.",
                 StatusCodes.Status500InternalServerError);
 
         public static readonly Error InvalidUserRole =
             new("PharmacyOwner.InvalidUserRole",
-                "The specified user is not registered as a Pharmacy Admin and cannot be assigned as an owner.",
+                "المستخدم المحدد ليس لديه صلاحية مدير صيدلية، لذا لا يمكن إسناده كمالك.",
                 StatusCodes.Status400BadRequest);
 
         public static readonly Error OwnerNotActive =
             new("PharmacyOwner.OwnerNotActive",
-                "The owner user account is not active and is not eligible to be a pharmacy owner.",
+                "حساب مالك الصيدلية ليس نشطاً ولا يمكن أن يكون مالكاً لصيدلية.",
                 StatusCodes.Status400BadRequest);
 
         public static readonly Error PharmacyNotEligible =
             new("PharmacyOwner.PharmacyNotEligible",
-                "The target pharmacy is deleted or rejected and cannot have an assigned owner.",
+                "تعذّر تعيين مالك لأن حالة الصيدلية المستهدفة محذوفة أو مرفوضة.",
                 StatusCodes.Status400BadRequest);
     }
 }

@@ -4,22 +4,22 @@ namespace Application.Errors
     {
         public static readonly Error BranchNotFound = new(
             "PharmacyBranch.NotFound",
-            "No branch was found for the provided ID within your pharmacy.",
+            "لا يوجد فرع مرتبط بهذا المعرّف ضمن صيدليتك.",
             StatusCodes.Status404NotFound);
 
         public static readonly Error PharmacyContextMissing = new(
             "PharmacyBranch.PharmacyContextMissing",
-            "The authenticated user is not associated with any pharmacy.",
+            "حساب المستخدم الحالي غير مسجل ضمن أي صيدلية.",
             StatusCodes.Status403Forbidden);
 
         public static readonly Error DuplicateBranchName = new(
             "PharmacyBranch.DuplicateName",
-            "A branch with this name already exists in your pharmacy.",
+            "اسم الفرع هذا مستخدم بالفعل في صيدليتك.",
             StatusCodes.Status400BadRequest);
 
         public static readonly Error InvalidCoordinates = new(
             "PharmacyBranch.InvalidCoordinates",
-            "Latitude and Longitude must both be provided together and within valid ranges.",
+            "يلزم توفير إحداثيات خط الطول وخط العرض معاً وضمن الحدود المسموح بها.",
             StatusCodes.Status400BadRequest);
     }
 }

@@ -7,8 +7,8 @@ namespace Application.Errors
     public static class SupplierDrugErrors
     {
         public static readonly Error NotFound =
-       new("SupplierOrderErrors.NotFound",
-           "Supplier Order not found.",
+        new("SupplierOrderErrors.NotFound",
+           "تعذّر العثور على طلب المورّد.",
            StatusCodes.Status404NotFound);
 
         public static readonly Error BadRequest =

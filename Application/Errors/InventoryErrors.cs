@@ -4,67 +4,67 @@ public static class InventoryErrors
 {
     public static readonly Error InventoryNotFound = new(
         "Inventory.NotFound",
-        "The specified inventory record was not found.",
+        "تعذّر العثور على سجل المخزون المحدد.",
         StatusCodes.Status404NotFound);
 
     public static readonly Error InvalidQuantityV2 = new(
         "Inventory.InvalidQuantity",
-        "Quantity must be greater than 0",
+        "يجب أن تكون الكمية أكبر من 0",
         StatusCodes.Status400BadRequest);
 
     public static readonly Error InvalidQuantityV3 = new(
         "Inventory.InvalidQuantity",
-        "Quantity must be less than Avilable quantity(Stock Q + Reserved Q)",
+        "يجب أن تكون الكمية أقل من الكمية المتاحة (كمية المخزون + الكمية المحجوزة).",
         StatusCodes.Status400BadRequest);
 
     public static readonly Error InsufficientStock = new(
         "Inventory.InsufficientStock",
-        "Available stock is insufficient for the requested quantity.",
+        "الكمية المتاحة غير كافية للطلب.",
         StatusCodes.Status409Conflict);
 
     public static readonly Error ReleaseExceedsReserved = new(
         "Inventory.ReleaseExceedsReserved",
-        "The quantity to release exceeds the currently reserved quantity.",
+        "الكمية المراد إلغاء حجزها تتجاوز الكمية المحجوزة حالياً.",
         StatusCodes.Status409Conflict);
 
     public static readonly Error ConcurrencyConflict = new(
         "Inventory.ConcurrencyConflict",
-        "A concurrency conflict occurred while updating the inventory. Please retry the operation.",
+        "حدث تعارض في التزامن أثناء تحديث المخزون. يُرجى إعادة المحاولة.",
         StatusCodes.Status409Conflict);
 
     public static readonly Error InvalidQuantity = new(
         "Inventory.InvalidQuantity",
-        "Quantity must be greater than zero.",
+        "يجب أن تكون الكمية أكبر من 0.",
         StatusCodes.Status400BadRequest);
 
     public static readonly Error InvalidIdentifier = new(
         "Inventory.InvalidIdentifier",
-        "Branch identifier and drug identifier must be valid non-empty values.",
+        "يجب أن يكون معرّف الفرع ومعرّف الدواء قيماً صحيحة وغير فارغة.",
         StatusCodes.Status400BadRequest);
 
     public static readonly Error AlreadyExist = new(
         "Inventory.AlreadyExist",
-        "This drug already exist",
+        "هذا الدواء موجود بالفعل",
         StatusCodes.Status409Conflict);
 
     public static readonly Error DifferentBranch = new(
         "Inventory.DifferentBranch",
-        "You do not have permission to manage inventory for this branch",
+        "عذراً، لا تملك صلاحية إدارة المخزون الخاص بهذا الفرع.",
         StatusCodes.Status403Forbidden);
 
     public static readonly Error StockLowerThanReserved = new(
         "Inventory.StockLowerThanReserved",
-        "Cannot set stock quantity lower than currently reserved quantity.",
+        "لا يمكن تحديد كمية المخزون بقيمة أقل من الكمية المحجوزة حالياً.",
         StatusCodes.Status400BadRequest);
 
     public static readonly Error DrugNotFound = new(
         "Inventory.DrugNotFound",
-        "The specified drug does not exist in the catalog.",
+        "الدواء المحدد غير موجود في الكتالوج.",
         StatusCodes.Status404NotFound);
 
     public static readonly Error HasReservedStock = new(
         "Inventory.HasReservedStock",
-        "This inventory item cannot be deleted because it has reserved stock tied to pending orders.",
+        "لا يمكن حذف هذا الصنف من المخزون لوجود كميات محجوزة منه مرتبطة بطلبات قيد الانتظار.",
         StatusCodes.Status409Conflict);
 }
 

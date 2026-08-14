@@ -4,31 +4,26 @@ public static class OtpErrors
 {
     public static readonly Error UserNotFound =
         new("Otp.UserNotFound",
-            "No account was found for the provided user ID.",
+            "لا يوجد حساب مرتبط بمعرّف المستخدم هذا.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error PhoneAlreadyVerified =
         new("Otp.PhoneAlreadyVerified",
-            "This phone number is already verified.",
+            "تم التحقق من رقم الهاتف هذا بالفعل.",
             StatusCodes.Status409Conflict);
 
     public static readonly Error RateLimitExceeded =
         new("Otp.RateLimitExceeded",
-            "Too many OTP attempts. Please wait 5 minutes before trying again.",
+            "تجاوزت الحد المسموح به لمحاولات إدخال رمز التحقق. يُرجى الانتظار 5 دقائق قبل المحاولة مرة أخرى.",
             StatusCodes.Status429TooManyRequests);
 
-    /// <summary>
-    /// Returned for both incorrect code AND expired code.
-    /// A single error intentionally prevents an attacker from distinguishing
-    /// between "wrong code" and "timed out".
-    /// </summary>
     public static readonly Error InvalidOrExpired =
         new("Otp.InvalidOrExpired",
-            "The OTP code is invalid or has expired.",
+            "رمز التحقق غير صالح أو منتهي الصلاحية.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error WebhookFailed =
         new("Otp.WebhookFailed",
-            "Failed to dispatch the verification code. Please try again later.",
+            "فشل في إرسال رمز التحقق. يُرجى المحاولة مرة أخرى لاحقًا.",
             StatusCodes.Status503ServiceUnavailable);
 }

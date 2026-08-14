@@ -4,11 +4,11 @@ public static class PatientPharmacyErrors
 {
     public static readonly Error InvalidCoordinates = new(
         "PatientPharmacy.InvalidCoordinates",
-        "Latitude must be between -90 and 90, and Longitude must be between -180 and 180.",
+        "يجب أن تقع قيمة خط العرض بين -90 و90، وخط الطول بين -180 و180.",
         StatusCodes.Status400BadRequest);
 
     public static readonly Error NoPharmaciesFound = new(
         "PatientPharmacy.NoPharmaciesFound",
-        "No pharmacy branches were found within the specified radius.",
+        "لم يتم العثور على صيدليات ضمن النطاق المحدد.",
         StatusCodes.Status404NotFound);
 }

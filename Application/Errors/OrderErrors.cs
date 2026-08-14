@@ -4,57 +4,57 @@ public static class OrderErrors
 {
     public static readonly Error OrderMustContainItems =
         new("Order.MustContainItems",
-            "Order must contain at least one item.",
+            "يجب أن يحتوي الطلب على صنف واحد على الأقل.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error InvalidDeliveryAddress =
         new("Order.InvalidDeliveryAddress",
-            "DeliveryAddressID must belong to the requesting Patient.",
+            "عنوان التوصيل المحدد لا يخص المريض الحالي.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error InvalidDrugIds =
         new("Order.InvalidDrugIds",
-            "One or more invalid DrugID(s) provided.",
+            "أحد معرّفات الأدوية المدخلة (أو أكثر) غير صحيح.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error OrderNotFound =
         new("Order.NotFound",
-            "Order not found or does not belong to this patient.",
+            "تعذّر العثور على الطلب أو أنه لا ينتمي إلى هذا المريض.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error UnauthorizedOrderAccess =
         new("Order.UnauthorizedAccess",
-            "You do not have permission to access this order.",
+            "عذراً، لا تملك صلاحية عرض هذا الطلب.",
             StatusCodes.Status403Forbidden);
 
     public static readonly Error OrderNotEligibleForResplit =
         new("Order.NotEligibleForResplit",
-            "Only Pending or Processing orders can be re-split.",
+            "يُسمح بإعادة تقسيم الطلبات المعلقة أو قيد التنفيذ فقط.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error OrderDeliveryAddressHasNoLocation =
         new("Order.DeliveryAddressHasNoLocation",
-            "The delivery address does not have a geo-location set. Cannot find nearby branches.",
+            "عنوان التوصيل لا يحتوي على موقع جغرافي محدد. لا يمكن إيجاد الفروع القريبة.",
             StatusCodes.Status400BadRequest);
 
     public static Error CreateInvalidDrugIdsError(IEnumerable<Guid> invalidIds) =>
         new("Order.InvalidDrugIds",
-            $"Invalid DrugID(s): {string.Join(", ", invalidIds)}",
+            $"معرّف الدواء (أو المعرّفات) غير صالح: {string.Join(", ", invalidIds)}",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error PrescriptionRequired =
         new("Order.PrescriptionRequired",
-            "This order contains products that require a valid prescription.",
+            "يحتوي هذا الطلب على منتجات تتطلب وصفة طبية صالحة.",
             StatusCodes.Status422UnprocessableEntity);
 
     public static readonly Error OrderCannotBeModified =
         new("Order.CannotBeModified",
-            "This order cannot be modified at this stage.",
+            "لا يمكن تعديل هذا الطلب في هذه المرحلة.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error InvalidPrescription =
         new("Order.InvalidPrescription",
-            "The provided prescription is invalid, expired, or already used.",
+            "الوصفة المقدمة غير صالحة أو منتهية الصلاحية أو تم استخدامها بالفعل.",
             StatusCodes.Status400BadRequest);
 }
 

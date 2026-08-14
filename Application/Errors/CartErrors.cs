@@ -4,21 +4,21 @@ public static class CartErrors
 {
     public static readonly Error DrugNotFound =
         new("Cart.DrugNotFound",
-            "The specified drug does not exist or is inactive.",
+            "الدواء المحدد غير موجود أو غير نشط.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error CartItemNotFound =
         new("Cart.ItemNotFound",
-            "The cart item was not found or does not belong to this patient's cart.",
+            "تعذّر العثور على العنصر أو أنه لا ينتمي إلى سلة هذا المريض.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error CartNotFound =
         new("Cart.NotFound",
-            "Cart not found.",
+            "السلة غير موجودة.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error InvalidQuantity =
         new("Cart.InvalidQuantity",
-            "Quantity must be greater than 0.",
+            "يجب أن تكون الكمية أكبر من 0.",
             StatusCodes.Status400BadRequest);
 }

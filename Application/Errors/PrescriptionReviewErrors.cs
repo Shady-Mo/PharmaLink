@@ -6,32 +6,32 @@ public static class PrescriptionReviewErrors
 {
     public static readonly Error NotFound =
         new("PrescriptionReview.NotFound",
-            "Prescription review not found.",
+            "تعذّر العثور على مراجعة الروشتة.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error AlreadyReviewed =
         new("PrescriptionReview.AlreadyReviewed",
-            "This prescription has already been reviewed.",
+            "تمت مراجعة هذه الروشتة بالفعل.",
             StatusCodes.Status409Conflict);
 
     public static readonly Error NotApproved =
         new("PrescriptionReview.NotApproved",
-            "Only approved prescriptions can proceed to order creation.",
+            "يجب اعتماد الوصفة الطبية أولاً لتتمكن من إنشاء الطلب.",
             StatusCodes.Status400BadRequest);
 
     public static readonly Error OrderAlreadyCreated =
         new("PrescriptionReview.OrderAlreadyCreated",
-            "An order has already been created from this prescription.",
+            "تم إنشاء طلب بالفعل من هذه الروشتة.",
             StatusCodes.Status409Conflict);
 
     public static readonly Error AIExtractionFailed =
         new("PrescriptionReview.AIExtractionFailed",
-            "AI extraction failed. Please try again later.",
+            "تعذّرت قراءة البيانات عبر الذكاء الاصطناعي. الرجاء إعادة المحاولة لاحقاً.",
             StatusCodes.Status502BadGateway);
 
     public static readonly Error AIReturnedNoMedicines =
         new("PrescriptionReview.AIReturnedNoMedicines",
-            "The AI could not detect any medicines in the uploaded image. Please upload a clearer image of the prescription.",
+            "لم يتمكن الذكاء الاصطناعي من التعرف على أي أدوية في الصورة المرفوعة. يُرجى رفع صورة أوضح للروشتة.",
             StatusCodes.Status422UnprocessableEntity);
 
     public static Error InvalidPrescription(string message) =>
@@ -41,16 +41,16 @@ public static class PrescriptionReviewErrors
 
     public static readonly Error MedicineNotFound =
         new("PrescriptionReview.MedicineNotFound",
-            "One or more medicines in your request were not found in this review.",
+            "لم يتم العثور على واحد أو أكثر من الأدوية المطلوبة في نتيجة المراجعة.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error MedicineCannotBeAddedToCart =
         new("PrescriptionReview.MedicineCannotBeAddedToCart",
-            "One or more selected medicines cannot be added to the cart because they are unavailable, not found, or not approved alternatives.",
+            "تعذّرت إضافة دواء أو أكثر إلى السلة إما لعدم توفره، أو لعدم العثور عليه، أو لأنه ليس بديلاً معتمداً.",
             StatusCodes.Status422UnprocessableEntity);
 
     public static readonly Error Forbidden =
         new("PrescriptionReview.Forbidden",
-            "You do not have permission to access this prescription review.",
+            "ليس لديك إذن بالوصول إلى مراجعة هذه الروشتة.",
             StatusCodes.Status403Forbidden);
 }

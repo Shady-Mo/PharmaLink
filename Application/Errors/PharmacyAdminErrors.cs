@@ -8,12 +8,12 @@ namespace Application.Errors
     {
         public static readonly Error PhoneAlreadyExists =
         new("PharmacyAdmin.PhoneAlreadyExists",
-            "An account with this phone number already exists.",
+            "رقم الهاتف هذا مستخدم بالفعل بحساب آخر.",
             StatusCodes.Status409Conflict);
 
         public static readonly Error PharmacistNotFound =
         new("PharmacyAdmin.NotFound",
-            "No Pharmacy Admin account was found for the provided ID.",
+            "لا يوجد حساب مدير صيدلية مرتبط بهذا المعرّف.",
             StatusCodes.Status404NotFound);
     }
 }

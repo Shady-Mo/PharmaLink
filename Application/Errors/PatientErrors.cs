@@ -4,11 +4,11 @@ public static class PatientErrors
 {
     public static readonly Error PatientNotFound =
         new("Patient.NotFound",
-            "The authenticated patient profile was not found.",
+            "تعذّر العثور على الملف الشخصي للمريض المسجل حالياً.",
             StatusCodes.Status404NotFound);
 
     public static readonly Error PhoneAlreadyExists =
         new("Patient.PhoneAlreadyExists",
-            "A patient with the specified phone number already exists.",
+            "رقم الهاتف هذا مستخدم بالفعل لحساب مريض آخر.",
             StatusCodes.Status409Conflict);
 }

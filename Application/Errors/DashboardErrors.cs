@@ -4,31 +4,31 @@ public static class DashboardErrors
 {
     public static readonly Error PharmacyContextMissing = new(
         "Dashboard.PharmacyContextMissing",
-        "No pharmacy is associated with the authenticated user.",
+        "لا توجد صيدلية مرتبطة بالمستخدم الحالي.",
         StatusCodes.Status403Forbidden);
 
     public static readonly Error BranchContextMissing = new(
         "Dashboard.BranchContextMissing",
-        "No branch is associated with the authenticated user.",
+        "لا يوجد فرع مرتبط بالمستخدم الحالي.",
         StatusCodes.Status403Forbidden);
 
     public static readonly Error PharmacyNotFound = new(
         "Dashboard.PharmacyNotFound",
-        "The pharmacy associated with the authenticated user was not found.",
+        "تعذّر العثور على الصيدلية المرتبطة بالمستخدم الحالي.",
         StatusCodes.Status404NotFound);
 
     public static readonly Error BranchNotFound = new(
         "Dashboard.BranchNotFound",
-        "The branch associated with the authenticated user was not found.",
+        "تعذّر العثور على الفرع المرتبط بالمستخدم الحالي.",
         StatusCodes.Status404NotFound);
 
     public static readonly Error PharmacyRetrievalFailed = new(
         "Dashboard.PharmacyRetrievalFailed",
-        "Failed to retrieve the pharmacy dashboard.",
+        "فشل تحميل لوحة تحكم الصيدلية.",
         StatusCodes.Status500InternalServerError);
 
     public static readonly Error BranchRetrievalFailed = new(
         "Dashboard.BranchRetrievalFailed",
-        "Failed to retrieve the branch dashboard.",
+        "فشل تحميل لوحة تحكم الفرع.",
         StatusCodes.Status500InternalServerError);
 }

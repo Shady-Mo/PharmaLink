@@ -8,12 +8,12 @@ namespace Application.Errors
     {
         public static readonly Error DeliveryNotFound = new(
         "Delivery.NotFound",
-        "Delivery was not found.",
+        "لم يتم العثور على التوصيل.",
         StatusCodes.Status404NotFound);
 
         public static readonly Error DeliveryPicked = new(
         "Delivery.DeliveryPicked",
-        "Delivery was picked by another driver.",
+        "تم اختيار التوصيل بواسطة سائق آخر.",
         StatusCodes.Status404NotFound);
     }
 }

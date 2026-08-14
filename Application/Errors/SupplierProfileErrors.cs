@@ -8,7 +8,7 @@ namespace Application.Errors
     {
         public static readonly Error NotFound =
         new("SupplierProfileErrors.NotFound",
-            "Supplier Profile Order not found.",
+            "طلب المورّد غير موجود في هذا الملف الشخصي.",
             StatusCodes.Status404NotFound);
 
         public static readonly Error BadRequest =
