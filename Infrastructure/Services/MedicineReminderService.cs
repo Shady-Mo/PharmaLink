@@ -256,9 +256,13 @@ public class MedicineReminderService(
     {
         try
         {
-            var message = $"💊 تذكير فارما لينك\n\nحان موعد تناول دوائك: *{reminder.MedicineName}*"
-                          + (reminder.Dosage != null ? $"\nالجرعة: {reminder.Dosage}" : "")
-                          + (reminder.Notes != null ? $"\nملاحظات: {reminder.Notes}" : "");
+            var message = $"*💊 تذكير من فارما لينك*\n" +
+                          $"نتمنى لك دوام الصحة والعافية 🌿\n\n" +
+                          $"حان الآن موعد تناول دوائك:\n" +
+                          $"🔹 *{reminder.MedicineName}*\n" +
+                          (reminder.Dosage != null ? $"⚖️ الجرعة: {reminder.Dosage}\n" : "") +
+                          (reminder.Notes != null ? $"📝 ملاحظات: _{reminder.Notes}_\n" : "") +
+                          $"\nمع تحيات فريق فارما لينك 💚";
 
             await whatsAppService.SendMessageAsync(phone, message);
 
