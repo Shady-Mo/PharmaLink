@@ -79,6 +79,19 @@ public class AuthController(IAuthService authService) : BaseApiController
         return result.IsFailure ? result.ToProblem() : Ok(result.Value);
     }
 
+    [HttpPost("google-login")]
+    [ProducesResponseType(typeof(LoginResponseDTO), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GoogleLogin(
+        [FromBody] GoogleLoginRequestDTO request,
+        CancellationToken cancellationToken)
+    {
+        var result = await authService.GoogleLoginAsync(request, cancellationToken);
+
+        return result.IsFailure ? result.ToProblem() : Ok(result.Value);
+    }
+
     [HttpPost("ForgotPassword")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

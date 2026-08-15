@@ -1,3 +1,5 @@
+using Application.DTOs.Auth;
+
 namespace Application.Services;
 
 public interface IAuthService
@@ -19,6 +21,10 @@ public interface IAuthService
 
     Task<Result<LoginResponseDTO>> LoginAsync(
         LoginRequestDTO request,
+        CancellationToken cancellationToken = default);
+
+    Task<Result<LoginResponseDTO>> GoogleLoginAsync(
+        GoogleLoginRequestDTO request,
         CancellationToken cancellationToken = default);
 
     Task<Result<LoginResponseDTO>> GenerateTokenForUserAsync(
