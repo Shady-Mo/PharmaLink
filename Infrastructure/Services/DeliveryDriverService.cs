@@ -2,7 +2,7 @@ using Application.DTOs.DeliveryDriver;
 
 namespace Infrastructure.Services;
 
-public class DeliveryDriverService(AppDbContext context, IDeliveryNotificationService notificationService)
+public class DeliveryDriverService(AppDbContext context, IDeliveryNotificationService notificationService, IWebPushNotificationService pushNotificationService)
     : IDeliveryDriverService
 {
     public async Task<Result> UpdateLocationAsync(Guid driverId, double longitude, double latitude)
@@ -119,6 +119,23 @@ public class DeliveryDriverService(AppDbContext context, IDeliveryNotificationSe
         if (allOtherLegsCompleted)
         {
             job.FulfillmentLeg.Order.OrderStatus = OrderStatus.Completed;
+            job.FulfillmentLeg.Order.DeliveredAt = DateTime.UtcNow;
+
+            await pushNotificationService.SendNotificationAsync(
+                job.FulfillmentLeg.Order.PatientUserId,
+                "تم توصيل طلبك بنجاح 🎉",
+                $"لقد تم توصيل جميع شحنات طلبك رقم {job.FulfillmentLeg.OrderId.ToString()[..8].ToUpper()}. شكراً لتعاملك معنا!",
+                "/patient/orders"
+            );
+        }
+        else
+        {
+            await pushNotificationService.SendNotificationAsync(
+                job.FulfillmentLeg.Order.PatientUserId,
+                "تم توصيل شحنة من طلبك 📦",
+                $"لقد تم توصيل شحنة من طلبك رقم {job.FulfillmentLeg.OrderId.ToString()[..8].ToUpper()}. جاري تجهيز باقي الشحنات.",
+                "/patient/orders"
+            );
         }
 
         await context.SaveChangesAsync();

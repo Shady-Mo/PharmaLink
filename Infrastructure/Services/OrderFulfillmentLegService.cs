@@ -4,7 +4,11 @@ using Application.DTOs.OrderFulfillmentLeg.Responses;
 
 namespace Infrastructure.Services;
 
-public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverService driverService, IDeliveryNotificationService notificationService) : IOrderFulfillmentLegService
+public class OrderFulfillmentLegService(
+    AppDbContext dbContext,
+    IDeliveryDriverService driverService,
+    IDeliveryNotificationService notificationService,
+    IWebPushNotificationService pushNotificationService) : IOrderFulfillmentLegService
 {
     public async Task<Result<OrderFulfillmentLegDto>> GetByIdAsync(
         Guid legId,
@@ -83,14 +87,16 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             ChangedAtUtc = DateTime.UtcNow
         });
 
-        if (leg.Order.FulfillmentLegs.All(l => l.LegStatus == LegStatus.Delivered || l.LegStatus == LegStatus.Cancelled))
+        if (leg.Order.FulfillmentLegs.All(l =>
+                l.LegStatus == LegStatus.Delivered || l.LegStatus == LegStatus.Cancelled))
             leg.Order.OrderStatus = OrderStatus.Completed;
 
 
         if (request.Status == LegStatus.OutForDelivery && leg.LegType == LegType.Delivery)
         {
             var address = leg.Order.DeliveryAddress;
-            var fullAddress = $"{address.BuildingNumber} عمارة, دور {address.FloorNumber}, {address.AddressLine}, {address.City}";
+            var fullAddress =
+                $"{address.BuildingNumber} عمارة, دور {address.FloorNumber}, {address.AddressLine}, {address.City}";
 
             double distanceKm = 0;
             if (leg.Branch.GeoLocation != null && address.GeoLocation != null)
@@ -145,10 +151,41 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
                 await notificationService.BroadcastNewDeliveryJobAsync(nearbyDriversResult.Value, jobDetails);
             }
         }
-        else
+
+        var title = "";
+        var message = "";
+
+        switch (request.Status)
         {
-            await dbContext.SaveChangesAsync(cancellationToken);
+            case LegStatus.Preparing:
+                title = "جاري تحضير طلبك ⏳";
+                message = $"تم البدء في تجهيز جزء من طلبك من صيدلية {leg.Branch.BranchName}.";
+                break;
+            case LegStatus.ReadyForPickup:
+                title = "طلبك جاهز للاستلام 🛍️";
+                message = $"جزء من طلبك جاهز الآن للاستلام من صيدلية {leg.Branch.BranchName}.";
+                break;
+            case LegStatus.OutForDelivery:
+                title = "طلبك في الطريق إليك 🚚";
+                message = $"شحنة من طلبك خرجت للتوصيل من صيدلية {leg.Branch.BranchName}.";
+                break;
+            case LegStatus.Cancelled:
+                title = "تم إلغاء شحنة من طلبك ❌";
+                message = $"تم إلغاء شحنة من طلبك من صيدلية {leg.Branch.BranchName} لعدم التوفر.";
+                break;
         }
+
+        if (!string.IsNullOrEmpty(title))
+        {
+            await pushNotificationService.SendNotificationAsync(
+                leg.Order.PatientUserId,
+                title,
+                message,
+                "/patient/orders"
+            );
+        }
+
+        await dbContext.SaveChangesAsync(cancellationToken);
 
 
         return Result.Success(ToDto(leg));
@@ -168,10 +205,12 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
     }
 
     private static bool UserHasBranchScope(ClaimsPrincipal user, Guid branchId) =>
-         user.Claims
-             .Where(c => c.Type.Equals("BranchId", StringComparison.OrdinalIgnoreCase) || c.Type == JwtClaimTypes.BranchId)
-             .Select(c => c.Value)
-             .Any(value => Guid.TryParse(value, out var claimBranchId) && claimBranchId == branchId);
+        user.Claims
+            .Where(c => c.Type.Equals("BranchId", StringComparison.OrdinalIgnoreCase) ||
+                        c.Type == JwtClaimTypes.BranchId)
+            .Select(c => c.Value)
+            .Any(value => Guid.TryParse(value, out var claimBranchId) && claimBranchId == branchId);
+
     private static Guid? GetCurrentUserId(ClaimsPrincipal user) =>
         Guid.TryParse(user.FindFirstValue(JwtClaimTypes.UserId), out var userId)
             ? userId
@@ -204,6 +243,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             c.Type.Equals("RoleName", StringComparison.OrdinalIgnoreCase) ||
             c.Type.Equals("role", StringComparison.OrdinalIgnoreCase) ||
             c.Type == JwtClaimTypes.RoleName)?.Value;
+
     private static List<Guid> GetUserBranchIds(ClaimsPrincipal user) =>
         user.Claims
             .Where(c => c.Type.Equals("BranchId", StringComparison.OrdinalIgnoreCase) || c.Type == "branch_id")
@@ -259,11 +299,15 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             PatientName = item.PatientName ?? "غير معروف",
             TotalAmount = item.TotalAmount,
             Date = item.ReadyByEstimate,
-            DrugsSummary = string.Join("، ", item.Items.Select(oi => (!string.IsNullOrWhiteSpace(oi.BrandName) ? oi.BrandName : oi.ArabicName) + " × " + oi.QuantityNeeded)),
+            DrugsSummary = string.Join("، ",
+                item.Items.Select(oi =>
+                    (!string.IsNullOrWhiteSpace(oi.BrandName) ? oi.BrandName : oi.ArabicName) + " × " +
+                    oi.QuantityNeeded)),
             Status = (LegStatus)item.LegStatus
         }).ToList();
 
-        var paginatedList = new PaginatedList<BranchOrderRowDto>(dtos, request.PageNumber, totalCount, request.PageSize);
+        var paginatedList =
+            new PaginatedList<BranchOrderRowDto>(dtos, request.PageNumber, totalCount, request.PageSize);
 
         return Result.Success(paginatedList);
     }
@@ -284,7 +328,7 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
             .Include(o => o.Patient)
             .Include(o => o.PrescriptionReview)
             .Include(o => o.Items)
-                .ThenInclude(i => i.Drug)
+            .ThenInclude(i => i.Drug)
             .Include(o => o.FulfillmentLegs)
             .AsNoTracking()
             .FirstOrDefaultAsync(o => o.OrderId == orderId, cancellationToken);
@@ -343,5 +387,4 @@ public class OrderFulfillmentLegService(AppDbContext dbContext, IDeliveryDriverS
     }
 
     private static double ToRadians(double angle) => Math.PI * angle / 180.0;
-
 }

@@ -27,10 +27,16 @@ public class AdminUserService : IAdminUserService
         AppRoles.DeliveryDriver
     ];
 
-    public AdminUserService(UserManager<AppUser> userManager, RoleManager<IdentityRole<Guid>> roleManager)
+    private readonly IWebPushNotificationService _pushNotificationService;
+
+    public AdminUserService(
+        UserManager<AppUser> userManager, 
+        RoleManager<IdentityRole<Guid>> roleManager,
+        IWebPushNotificationService pushNotificationService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
+        _pushNotificationService = pushNotificationService;
     }
 
     public async Task<Result<PaginatedList<AdminUserDto>>> GetUsersAsync(AdminUserFilterDto filter, CancellationToken cancellationToken = default)
@@ -120,6 +126,24 @@ public class AdminUserService : IAdminUserService
         if (!updateResult.Succeeded)
         {
             return Result.Failure(AdminUserErrors.UpdateFailed);
+        }
+
+        string title = "";
+        string message = "";
+        if (dto.Status == UserStatus.Active)
+        {
+            title = "تم تفعيل حسابك ✅";
+            message = "تم تفعيل حسابك ويمكنك الآن استخدام جميع خدمات فارما لينك.";
+        }
+        else if (dto.Status == UserStatus.Suspended)
+        {
+            title = "تم إيقاف حسابك ⚠️";
+            message = "تم إيقاف حسابك مؤقتاً. يرجى التواصل مع الإدارة للاستفسار.";
+        }
+
+        if (!string.IsNullOrEmpty(title))
+        {
+            await _pushNotificationService.SendNotificationAsync(userId, title, message);
         }
 
         return Result.Success();

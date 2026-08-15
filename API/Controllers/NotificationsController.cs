@@ -65,6 +65,69 @@ public class NotificationsController(AppDbContext context, IWebPushNotificationS
 
         return Ok(new { message = "Unsubscribed successfully." });
     }
+
+    [HttpGet]
+    public async Task<IActionResult> GetNotifications()
+    {
+        var userId = User.GetUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var notifications = await context.AppNotifications
+            .Where(n => n.UserId == userId)
+            .OrderByDescending(n => n.CreatedAt)
+            .Take(50)
+            .Select(n => new Application.DTOs.Notification.AppNotificationDto
+            {
+                Id = n.Id,
+                Title = n.Title,
+                Message = n.Message,
+                Url = n.Url,
+                Type = n.Type,
+                IsRead = n.IsRead,
+                CreatedAt = n.CreatedAt,
+                RelatedEntityId = n.RelatedEntityId
+            })
+            .ToListAsync();
+
+        return Ok(notifications);
+    }
+
+    [HttpPut("{id}/read")]
+    public async Task<IActionResult> MarkAsRead(Guid id)
+    {
+        var userId = User.GetUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var notification = await context.AppNotifications
+            .FirstOrDefaultAsync(n => n.Id == id && n.UserId == userId);
+
+        if (notification == null) return NotFound();
+
+        notification.IsRead = true;
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
+
+    [HttpPut("read-all")]
+    public async Task<IActionResult> MarkAllAsRead()
+    {
+        var userId = User.GetUserId();
+        if (userId == Guid.Empty) return Unauthorized();
+
+        var unreadNotifications = await context.AppNotifications
+            .Where(n => n.UserId == userId && !n.IsRead)
+            .ToListAsync();
+
+        foreach (var notification in unreadNotifications)
+        {
+            notification.IsRead = true;
+        }
+
+        await context.SaveChangesAsync();
+
+        return NoContent();
+    }
 }
 
 public class PushSubscriptionRequest

@@ -186,6 +186,17 @@ public class MedicineReminderService(
                     await TrySendWhatsApp(reminder, patient.PhoneNumber, utcNow);
                 }
 
+                var logId = Guid.NewGuid();
+                var log = new MedicineReminderLog
+                {
+                    Id = logId,
+                    ReminderId = reminder.Id,
+                    SentAt = utcNow,
+                    Channel = ReminderChannel.PushNotification,
+                    IsSuccess = true
+                };
+                context.MedicineReminderLogs.Add(log);
+
                 logger.LogInformation("Sending SignalR notification to Patient_{PatientId}", reminder.PatientId);
                 try
                 {
@@ -195,7 +206,8 @@ public class MedicineReminderService(
                         reminder.MedicineName,
                         reminder.Dosage,
                         reminder.Notes,
-                        timeStr);
+                        timeStr,
+                        logId);
                     logger.LogInformation("SignalR notification sent successfully");
                 }
                 catch (Exception ex)
