@@ -36,6 +36,12 @@ public sealed class CartOrderPlugin(IServiceScopeFactory scopeFactory, ILogger<C
     {
         logger.LogInformation("CartOrderPlugin.AddToCartAsync Drug {DrugId} Qty {Qty} for Patient {PatientId}", drugId,
             quantity, patientUserId);
+
+        if (quantity > 5)
+        {
+            return new { Success = false, Error = "الحد الأقصى لطلب أي دواء هو 5 عبوات فقط. يرجى إبلاغ المريض والاعتذار له." };
+        }
+
         await using var scope = scopeFactory.CreateAsyncScope();
         var cartService = scope.ServiceProvider.GetRequiredService<ICartService>();
 
