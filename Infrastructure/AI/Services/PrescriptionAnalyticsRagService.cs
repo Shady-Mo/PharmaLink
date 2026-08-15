@@ -28,7 +28,7 @@ public sealed class PrescriptionAnalyticsRagService(
         {
             return new PrescriptionAnalyticsAnswerResponse
             {
-                Answer = "لم أجد روشتات تحليليّة مطابقة بدرجة كافية لدعم إجابة هذا السؤال (درجة التوافق أقل من 0.70).",
+                Answer = "لم أجد روشتات تحليليّة مطابقة بدرجة كافية لدعم إجابة هذا السؤال.",
                 Sources = []
             };
         }
@@ -73,11 +73,68 @@ public sealed class PrescriptionAnalyticsRagService(
             }
         }, cancellationToken);
 
+        var (answer, filteredIds) = ParseLlmResponse(aiResult.RawResponse);
+        logger.LogWarning(aiResult.RawResponse);
+        var finalSources = sources;
+        if (filteredIds != null)
+        {
+            finalSources = sources
+                .Where(s => filteredIds.Contains(s.PrescriptionId))
+                .ToList();
+        }
+
         return new PrescriptionAnalyticsAnswerResponse
         {
-            Answer = aiResult.RawResponse,
-            Sources = sources
+            Answer = answer,
+            Sources = finalSources
         };
+    }
+
+    private static (string Answer, List<Guid>? FilteredIds) ParseLlmResponse(string rawResponse)
+    {
+        if (string.IsNullOrWhiteSpace(rawResponse))
+            return (rawResponse, null);
+
+        try
+        {
+            var cleaned = rawResponse.Trim();
+            if (cleaned.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            {
+                cleaned = cleaned.Substring(7);
+                if (cleaned.EndsWith("```"))
+                    cleaned = cleaned.Substring(0, cleaned.Length - 3);
+            }
+            else if (cleaned.StartsWith("```"))
+            {
+                cleaned = cleaned.Substring(3);
+                if (cleaned.EndsWith("```"))
+                    cleaned = cleaned.Substring(0, cleaned.Length - 3);
+            }
+
+            cleaned = cleaned.Trim();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var parsed = JsonSerializer.Deserialize<PrescriptionAnalyticsLlmOutput>(cleaned, options);
+
+            if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Answer))
+            {
+                return (parsed.Answer, parsed.RelevantPrescriptionIds);
+            }
+        }
+        catch
+        {
+            // Ignore parse errors and fallback to raw response
+        }
+
+        return (rawResponse, null);
+    }
+
+    private class PrescriptionAnalyticsLlmOutput
+    {
+        [JsonPropertyName("answer")]
+        public string? Answer { get; set; }
+
+        [JsonPropertyName("relevant_prescription_ids")]
+        public List<Guid>? RelevantPrescriptionIds { get; set; }
     }
 
     public async Task<int> QueueReindexAsync(CancellationToken cancellationToken = default)
