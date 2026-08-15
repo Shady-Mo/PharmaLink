@@ -138,7 +138,7 @@ public class PrescriptionAuditAgent(
                 PrescriptionReviewMedicineId = Guid.NewGuid(),
                 PrescriptionReviewId = review.PrescriptionReviewId,
                 MedicineName = extractedMedicine.MedicineName,
-                OriginalMedicineName = null,
+                OriginalMedicineName = extractedMedicine.OriginalMedicineName,
                 GenericName = extractedMedicine.GenericName ?? match.Drug?.BrandName ?? match.SuggestedAlternativeDrug?.BrandName,
                 Strength = extractedMedicine.Strength,
                 DosageForm = extractedMedicine.DosageForm,

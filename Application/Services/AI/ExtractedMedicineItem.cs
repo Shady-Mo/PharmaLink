@@ -3,6 +3,7 @@ namespace Application.Services.AI;
 public class ExtractedMedicineItem
 {
     public string MedicineName { get; set; } = string.Empty;
+    public string? OriginalMedicineName { get; set; }
     public string? GenericName { get; set; }
     public string? Strength { get; set; }
     public string? DosageForm { get; set; }

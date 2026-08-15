@@ -50,6 +50,7 @@ public class GeminiExtractionService(
                 "- extractionConfidence (number between 0.0 and 1.0)\n" +
                 "- medicines (array, never null)\n\n" +
                 "Each medicine object must contain the following fields:\n" +
+                "- originalMedicineName (string, required): The EXACT literal text written in the prescription (before correction).\n" +
                 "- medicineName (string, required): The CORRECTED commercial/brand name of the drug.\n" +
                 "- genericName (string or null): The active ingredient(s) of the drug.\n" +
                 "- strength (string or null)\n" +
@@ -77,6 +78,7 @@ public class GeminiExtractionService(
                 "  \"extractionConfidence\": 0.95,\n" +
                 "  \"medicines\": [\n" +
                 "    {\n" +
+                "      \"originalMedicineName\": \"string\",\n" +
                 "      \"medicineName\": \"string\",\n" +
                 "      \"genericName\": null,\n" +
                 "      \"strength\": null,\n" +
@@ -206,6 +208,7 @@ public class GeminiExtractionService(
 
                 medicinesList.Add(new ExtractedMedicineItem
                 {
+                    OriginalMedicineName = item.OriginalMedicineName,
                     MedicineName = item.MedicineName,
                     GenericName = item.GenericName,
                     Strength = item.Strength,
@@ -311,6 +314,7 @@ public class GeminiExtractionService(
 
     private class GeminiExtractedMedicineItem
     {
+        public string? OriginalMedicineName { get; set; }
         public string MedicineName { get; set; } = string.Empty;
         public string? GenericName { get; set; }
         public string? Strength { get; set; }
