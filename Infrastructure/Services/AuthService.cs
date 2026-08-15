@@ -379,7 +379,7 @@ public class AuthService(
 
             if (user == null)
             {
-                user = new AppUser
+                user = new Patient
                 {
                     UserName = email,
                     Email = email,
