@@ -1,4 +1,12 @@
+using Application.Abstractions;
+using Application.DTOs.AI;
+using Application.Services.AI;
+using Application.Services.AI.Models;
+using Domain.Entities;
 using Hangfire;
+using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Infrastructure.AI.Services;
 
@@ -60,7 +68,19 @@ public sealed class PrescriptionAnalyticsRagService(
             };
         }
 
-        var contextJson = JsonSerializer.Serialize(sources);
+        var contextForLlm = sources.Select(s => new
+        {
+            shortId = s.PrescriptionId.ToString()[..8],
+            doctorName = s.DoctorName,
+            specialty = s.Specialty,
+            clinicOrHospital = s.ClinicOrHospital,
+            visitDate = s.VisitDate,
+            diagnosisNotes = s.DiagnosisNotes,
+            patientAddress = s.PatientAddress,
+            medicines = s.Medicines
+        }).ToList();
+
+        var contextJson = JsonSerializer.Serialize(contextForLlm);
         var aiResult = await promptExecutionService.ExecuteAsync(new PromptExecutionRequest
         {
             PromptName = "PrescriptionAnalyticsRag",
@@ -73,13 +93,21 @@ public sealed class PrescriptionAnalyticsRagService(
             }
         }, cancellationToken);
 
-        var (answer, filteredIds) = ParseLlmResponse(aiResult.RawResponse);
-        logger.LogWarning(aiResult.RawResponse);
+        var (answer, reasoning, filteredIdStrings) = ParseLlmResponse(aiResult.RawResponse);
+
+        if (!string.IsNullOrWhiteSpace(reasoning))
+        {
+            logger.LogInformation("Analytics RAG Reasoning: {Reasoning}", reasoning);
+        }
+
         var finalSources = sources;
-        if (filteredIds != null)
+        if (filteredIdStrings != null)
         {
             finalSources = sources
-                .Where(s => filteredIds.Contains(s.PrescriptionId))
+                .Where(s => filteredIdStrings.Any(idStr =>
+                    !string.IsNullOrWhiteSpace(idStr) &&
+                    (s.PrescriptionId.ToString().StartsWith(idStr.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                     idStr.Trim().StartsWith(s.PrescriptionId.ToString()[..8], StringComparison.OrdinalIgnoreCase))))
                 .ToList();
         }
 
@@ -90,10 +118,10 @@ public sealed class PrescriptionAnalyticsRagService(
         };
     }
 
-    private static (string Answer, List<Guid>? FilteredIds) ParseLlmResponse(string rawResponse)
+    private static (string Answer, string? Reasoning, List<string>? FilteredIdStrings) ParseLlmResponse(string rawResponse)
     {
         if (string.IsNullOrWhiteSpace(rawResponse))
-            return (rawResponse, null);
+            return (rawResponse, null, null);
 
         try
         {
@@ -117,7 +145,7 @@ public sealed class PrescriptionAnalyticsRagService(
 
             if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Answer))
             {
-                return (parsed.Answer, parsed.RelevantPrescriptionIds);
+                return (parsed.Answer, parsed.Reasoning, parsed.RelevantPrescriptionIds);
             }
         }
         catch
@@ -125,16 +153,19 @@ public sealed class PrescriptionAnalyticsRagService(
             // Ignore parse errors and fallback to raw response
         }
 
-        return (rawResponse, null);
+        return (rawResponse, null, null);
     }
 
     private class PrescriptionAnalyticsLlmOutput
     {
+        [JsonPropertyName("reasoning")]
+        public string? Reasoning { get; set; }
+
         [JsonPropertyName("answer")]
         public string? Answer { get; set; }
 
         [JsonPropertyName("relevant_prescription_ids")]
-        public List<Guid>? RelevantPrescriptionIds { get; set; }
+        public List<string>? RelevantPrescriptionIds { get; set; }
     }
 
     public async Task<int> QueueReindexAsync(CancellationToken cancellationToken = default)
