@@ -137,6 +137,11 @@ public static class SemanticKernelDependencyInjection
             kernel.Plugins.AddFromObject(
             new PatientPrescriptionSearchPlugin(scopeFactory),
             pluginName: "PatientPrescriptionSearch");
+
+            kernel.Plugins.AddFromObject(
+                new ReminderPlugin(scopeFactory, loggerFactory.CreateLogger<ReminderPlugin>()),
+                pluginName: "ReminderPlugin");
+
             return kernel;
         }
     }

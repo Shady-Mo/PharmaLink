@@ -268,6 +268,7 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
 
         var existingRefreshToken = user.RefreshTokens.First(t => t.Token == refreshToken && t.IsActive);
+        
         existingRefreshToken.RevokedOn = DateTime.UtcNow;
 
         var roles = await userManager.GetRolesAsync(user);

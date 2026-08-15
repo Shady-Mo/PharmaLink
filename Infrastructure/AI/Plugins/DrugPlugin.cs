@@ -183,4 +183,80 @@ public sealed class DrugPlugin(IServiceScopeFactory scopeFactory, ILogger<DrugPl
         var summaries = drugs.Select(d => new DrugSummary(Guid.Empty, d.Name, d.ArabicName, "", d.Form)).ToList();
         return new DrugSearchResult(Found: true, Drugs: summaries);
     }
+
+    [KernelFunction("find_drug_alternatives")]
+    [Description(
+        "Finds cheaper alternatives or generic equivalents for a specific drug. " +
+        "Use this when a user complains about the price of a drug or asks for a cheaper alternative.")]
+    public async Task<DrugSearchResult> FindDrugAlternativesAsync(
+        [Description("The exact drug ID of the original drug")] Guid drugId,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("DrugPlugin.FindDrugAlternativesAsync called for drug: {DrugId}", drugId);
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var originalDrug = await db.Drugs
+            .AsNoTracking()
+            .Where(d => d.DrugId == drugId)
+            .Select(d => new { d.CategoryId, d.Form })
+            .FirstOrDefaultAsync(cancellationToken);
+
+        if (originalDrug == null || originalDrug.CategoryId == null)
+        {
+            return new DrugSearchResult(Found: false, Message: "Could not find alternatives because the original drug or its category was not found.");
+        }
+
+        var alternatives = await db.Drugs
+            .AsNoTracking()
+            .Where(d => d.CategoryId == originalDrug.CategoryId && d.Form == originalDrug.Form && d.DrugId != drugId)
+            .OrderBy(d => d.FinalPrice)
+            .Select(d => new { Id = d.DrugId, Name = d.BrandName, d.ArabicName, Category = d.Category != null ? d.Category.NameEn : "", d.Form, d.FinalPrice })
+            .Take(5)
+            .ToListAsync(cancellationToken);
+
+        if (!alternatives.Any())
+        {
+            return new DrugSearchResult(Found: false, Message: "No cheaper alternatives found for this drug in the same category and form.");
+        }
+
+        var summaries = alternatives.Select(d => new DrugSummary(d.Id, $"{d.Name} ({d.FinalPrice} EGP)", d.ArabicName, d.Category, d.Form)).ToList();
+        return new DrugSearchResult(Found: true, Drugs: summaries);
+    }
+
+    [KernelFunction("recommend_otc_drugs")]
+    [Description(
+        "Recommends Over-The-Counter (OTC) drugs based on symptoms (e.g. 'headache', 'cold', 'cough', 'fever', 'صداع', 'كحة'). " +
+        "Use this when the user describes mild symptoms and asks for a recommendation.")]
+    public async Task<DrugSearchResult> RecommendOtcDrugsAsync(
+        [Description("The symptom described by the user (e.g., headache, fever, cough, stomach ache, رشح, زكام).")] string symptom,
+        CancellationToken cancellationToken = default)
+    {
+        logger.LogInformation("DrugPlugin.RecommendOtcDrugsAsync called for symptom: {Symptom}", symptom);
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var drugs = await db.Drugs
+            .AsNoTracking()
+            .Where(d => !d.RequiresPrescription && 
+                        (EF.Functions.Like(d.MetaKeywordsEn, $"%{symptom}%") ||
+                         EF.Functions.Like(d.MetaKeywordsAr, $"%{symptom}%") ||
+                         EF.Functions.Like(d.MetaDescriptionEn, $"%{symptom}%") ||
+                         EF.Functions.Like(d.MetaDescriptionAr, $"%{symptom}%") ||
+                         EF.Functions.Like(d.BrandName, $"%{symptom}%") ||
+                         EF.Functions.Like(d.ArabicName, $"%{symptom}%")))
+            .Select(d => new { Id = d.DrugId, Name = d.BrandName, d.ArabicName, Category = d.Category != null ? d.Category.NameEn : "", d.Form, d.FinalPrice })
+            .Take(5)
+            .ToListAsync(cancellationToken);
+
+        if (!drugs.Any())
+        {
+            return new DrugSearchResult(Found: false, Message: $"No suitable OTC medicines found for the symptom '{symptom}'. Advise the user to consult a doctor.");
+        }
+
+        var summaries = drugs.Select(d => new DrugSummary(d.Id, $"{d.Name} ({d.FinalPrice} EGP)", d.ArabicName, d.Category, d.Form)).ToList();
+        return new DrugSearchResult(Found: true, Drugs: summaries);
+    }
 }
