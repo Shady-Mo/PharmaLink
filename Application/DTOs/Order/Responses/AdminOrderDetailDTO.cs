@@ -17,6 +17,7 @@ public class AdminOrderDetailDTO
     public DateTime? DeliveredAt { get; set; }
     public bool HasPrescription { get; set; }
     public Guid? PrescriptionId { get; set; }
+    public string? PrescriptionImageUrl { get; set; }
 
     /// <summary>Delivery address summary.</summary>
     public string DeliveryAddress { get; set; } = string.Empty;

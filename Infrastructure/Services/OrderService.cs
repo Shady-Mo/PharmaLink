@@ -459,6 +459,9 @@ public class OrderService(
             DeliveredAt = order.DeliveredAt,
             HasPrescription = order.PrescriptionReview != null || order.Prescription != null,
             PrescriptionId = order.PrescriptionReview?.PrescriptionReviewId ?? order.Prescription?.Id,
+            PrescriptionImageUrl = order.PrescriptionReview != null
+                ? order.PrescriptionReview.PrescriptionImagePath
+                : order.Prescription?.FileUrl,
             DeliveryAddress = order.DeliveryAddress != null
                 ? $"{order.DeliveryAddress.Governorate}، {order.DeliveryAddress.City}، {order.DeliveryAddress.AddressLine}"
                 : "No Address",
