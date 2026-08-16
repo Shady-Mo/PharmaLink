@@ -16,6 +16,6 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasValue<PharmacyAdmin>("PharmacyAdmin")
             .HasValue<Supplier>("Supplier")
             .HasValue<DeliveryDriver>("DeliveryDriver")
-            .HasValue<ReviewTeam>("ReviewTeam");
+            .HasValue<PrescriptionReviewTeam>("PrescriptionReviewTeam");
     }
 }
