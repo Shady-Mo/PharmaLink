@@ -26,7 +26,7 @@ class Program
         var serviceProvider = services.BuildServiceProvider();
         var osrmRoutingService = serviceProvider.GetRequiredService<IOsrmRoutingService>();
 
-        var connectionString = "Server=db58883.public.databaseasp.net; Database=db58883; User Id=db58883; Password=4e%ZT=8hbK+7; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;";
+        var connectionString = "Server=; Database=; User Id=; Password=; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;";
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(connectionString, x => x.UseNetTopologySuite());
         

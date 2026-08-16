@@ -257,8 +257,6 @@ public sealed class PharmacyInventoryPlugin(
             evaluations.Count, MaxBranchesPerDrug);
 
         return evaluations;
-
-
     }
 
     private static IReadOnlyList<CartItemDto> DeserializeCart(string cartItemsJson)
