@@ -4,6 +4,7 @@ using Application.Services.AI;
 using Application.Services.AI.Models;
 using Application.Services.PrescriptionAudit;
 using Microsoft.SemanticKernel;
+using Infrastructure.AI.Options;
 
 namespace API.Controllers;
 
@@ -16,6 +17,38 @@ public class AIController(
     IConfiguration configuration)
     : ControllerBase
 {
+    [HttpGet("debug/config")]
+    public IActionResult GetDebugConfig()
+    {
+        string MaskKey(string? key)
+        {
+            if (string.IsNullOrWhiteSpace(key)) return "NOT_SET";
+            if (key.Length <= 8) return "***";
+            return $"{key.Substring(0, 4)}...{key.Substring(key.Length - 4)}";
+        }
+
+        var geminiKey = Environment.GetEnvironmentVariable("GEMINI_API_KEY") ?? configuration["AI:Providers:Gemini:ApiKey"];
+        var groqKey = Environment.GetEnvironmentVariable("GROQ_API_KEY") ?? configuration["AI:Providers:Groq:ApiKey"];
+        var itiKey = Environment.GetEnvironmentVariable("ITI_API_KEY") ?? configuration["AI:Providers:ITI:ApiKey"];
+
+        return Ok(new
+        {
+            Keys = new
+            {
+                Gemini = MaskKey(geminiKey),
+                Groq = MaskKey(groqKey),
+                ITI = MaskKey(itiKey)
+            },
+            Routing = new
+            {
+                Chat = configuration.GetSection("AI:TaskRouting:Chat").Get<TaskRouteConfig>(),
+                Vision = configuration.GetSection("AI:TaskRouting:Vision").Get<TaskRouteConfig>(),
+                Rag = configuration.GetSection("AI:TaskRouting:Rag").Get<TaskRouteConfig>()
+            },
+            ITIOrderSplitting = configuration.GetSection("AI:Providers:ITIOrderSplitting").Get<ITIOptions>()
+        });
+    }
+
     [HttpGet("agents")]
     [ProducesResponseType(typeof(IReadOnlyList<AgentProfile>), StatusCodes.Status200OK)]
     public IActionResult GetAgents()
