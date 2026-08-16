@@ -50,8 +50,8 @@ public class OrderFulfillmentLegService(
 
         if (role == AppRoles.Pharmacist)
         {
-            if (!UserHasBranchScope(user, leg.BranchId))
-                return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.Forbidden);
+            //if (!UserHasBranchScope(user, leg.BranchId))
+            //    return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.Forbidden);
 
             if (!IsAllowedPharmacistTransition(leg.LegStatus, request.Status))
                 return Result.Failure<OrderFulfillmentLegDto>(OrderFulfillmentLegErrors.InvalidTransition);
