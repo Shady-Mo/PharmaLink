@@ -8,13 +8,16 @@ using System.Text;
 using System.IO;
 
 
+using Application.Abstractions;
+
 namespace Infrastructure.Services;
 
 public class OrderService(
     AppDbContext context,
     IOrderSplittingService orderSplittingService,
     CartCacheService cartCacheService,
-    IInventoryService inventoryService) : IOrderService
+    IInventoryService inventoryService,
+    IWebPushNotificationService webPushService) : IOrderService
 {
     public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId,
         CreateOrderDTO createOrderDTO)
@@ -604,6 +607,7 @@ public class OrderService(
         order.OrderStatus = OrderStatus.Pending; // Return it to normal pending state so it can be fulfilled
         
         await context.SaveChangesAsync(ct);
+        await webPushService.SendNotificationAsync(order.PatientUserId, "تم قبول الروشتة ✅", "تمت مراجعة الروشتة الخاصة بطلبك وقبولها بنجاح. جاري تجهيز الطلب.", $"/patient/orders/{order.OrderId}");
         return Result.Success("Success");
     }
 
@@ -628,9 +632,10 @@ public class OrderService(
         prescription.RejectionReason = reason;
         context.Prescriptions.Update(prescription);
 
-        order.OrderStatus = OrderStatus.Cancelled;
+        order.OrderStatus = OrderStatus.Cancelled; // If prescription is rejected, order cannot proceed
         
         await context.SaveChangesAsync(ct);
+        await webPushService.SendNotificationAsync(order.PatientUserId, "تم رفض الروشتة ❌", $"عذراً، تم رفض الروشتة المرفقة بطلبك. السبب: {reason}", $"/patient/orders/{order.OrderId}");
         return Result.Success("Success");
     }
 

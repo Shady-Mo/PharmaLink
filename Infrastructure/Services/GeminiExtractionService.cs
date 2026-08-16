@@ -31,12 +31,15 @@ public class GeminiExtractionService(
             };
 
             const string promptText =
-                "You are a prescription audit extraction engine for a pharmacy system. " +
+                "You are an expert pharmacist and a prescription audit extraction engine for a pharmacy system. " +
                 "First decide whether the uploaded image or PDF is a valid medical prescription. " +
                 "Support handwritten, printed, and PDF prescriptions. " +
                 "Reject invoices, product photos, insurance cards, lab reports, empty pages, and unrelated documents. " +
                 "If it is not a prescription, return isValidPrescription=false, a validationMessage, and an empty medicines array. " +
                 "If it is a prescription, extract all medicines. " +
+                "CRITICAL INSTRUCTION FOR MEDICINE NAMES: Doctors often have poor handwriting or misspell drug names. " +
+                "You MUST act as a pharmacist: carefully review the extracted name, correct any spelling mistakes, and output the standard, correct commercial brand name of the drug in the 'medicineName' field. " +
+                "For example, if the handwriting looks like 'Pandl' or 'Brufn', you MUST correct it to 'Panadol' and 'Brufen' respectively. Do not just blindly transcribe typos. Standardizing the name is required for database searching. " +
                 "Return ONLY a valid JSON object that follows the schema below. " +
                 "Do not include markdown, explanations, or code fences. " +
                 "The root object must contain:\n" +
@@ -47,8 +50,9 @@ public class GeminiExtractionService(
                 "- extractionConfidence (number between 0.0 and 1.0)\n" +
                 "- medicines (array, never null)\n\n" +
                 "Each medicine object must contain the following fields:\n" +
-                "- medicineName (string, required)\n" +
-                "- genericName (string or null)\n" +
+                "- originalMedicineName (string, required): The EXACT literal text written in the prescription (before correction).\n" +
+                "- medicineName (string, required): The CORRECTED commercial/brand name of the drug.\n" +
+                "- genericName (string or null): The active ingredient(s) of the drug.\n" +
                 "- strength (string or null)\n" +
                 "- dosageForm (string or null)\n" +
                 "- dose (string or null)\n" +
@@ -74,6 +78,7 @@ public class GeminiExtractionService(
                 "  \"extractionConfidence\": 0.95,\n" +
                 "  \"medicines\": [\n" +
                 "    {\n" +
+                "      \"originalMedicineName\": \"string\",\n" +
                 "      \"medicineName\": \"string\",\n" +
                 "      \"genericName\": null,\n" +
                 "      \"strength\": null,\n" +
@@ -203,6 +208,7 @@ public class GeminiExtractionService(
 
                 medicinesList.Add(new ExtractedMedicineItem
                 {
+                    OriginalMedicineName = item.OriginalMedicineName,
                     MedicineName = item.MedicineName,
                     GenericName = item.GenericName,
                     Strength = item.Strength,
@@ -308,6 +314,7 @@ public class GeminiExtractionService(
 
     private class GeminiExtractedMedicineItem
     {
+        public string? OriginalMedicineName { get; set; }
         public string MedicineName { get; set; } = string.Empty;
         public string? GenericName { get; set; }
         public string? Strength { get; set; }

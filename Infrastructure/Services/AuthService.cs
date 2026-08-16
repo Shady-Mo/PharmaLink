@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using Google.Apis.Auth;
 
 namespace Infrastructure.Services;
 
@@ -7,6 +8,7 @@ public class AuthService(
     IJwtTokenGeneratorService tokenGenerator,
     AppDbContext dbContext,
     IEmailService emailService,
+    IConfiguration configuration,
     ILogger<AuthService> logger) : IAuthService
 {
     public async Task<Result<RegisterResponseDTO>> RegisterPatientAsync(
@@ -266,6 +268,7 @@ public class AuthService(
             return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
 
         var existingRefreshToken = user.RefreshTokens.First(t => t.Token == refreshToken && t.IsActive);
+        
         existingRefreshToken.RevokedOn = DateTime.UtcNow;
 
         var roles = await userManager.GetRolesAsync(user);
@@ -345,5 +348,71 @@ public class AuthService(
         using var rng = RandomNumberGenerator.Create();
         rng.GetBytes(randomNumber);
         return Convert.ToBase64String(randomNumber);
+    }
+
+    public async Task<Result<LoginResponseDTO>> GoogleLoginAsync(
+        GoogleLoginRequestDTO request,
+        CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            var clientId = configuration["GoogleAuth:ClientId"];
+            if (string.IsNullOrEmpty(clientId) || clientId == "YOUR_GOOGLE_CLIENT_ID")
+            {
+                logger.LogError("Google Client ID is not configured.");
+                return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+            }
+
+            var settings = new GoogleJsonWebSignature.ValidationSettings()
+            {
+                Audience = new List<string>() { clientId }
+            };
+
+            var payload = await GoogleJsonWebSignature.ValidateAsync(request.IdToken, settings);
+
+            if (payload == null)
+            {
+                return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+            }
+
+            var email = payload.Email;
+            var user = await userManager.FindByEmailAsync(email);
+
+            if (user == null)
+            {
+                user = new Patient
+                {
+                    UserName = email,
+                    Email = email,
+                    FullName = payload.Name ?? "User",
+                    EmailConfirmed = true,
+                    CreatedAt = DateTime.UtcNow
+                };
+
+                var createResult = await userManager.CreateAsync(user, $"Google_{Guid.NewGuid()}!1A");
+                if (!createResult.Succeeded)
+                {
+                    logger.LogError("Failed to create user from Google Login: {Errors}", string.Join(", ", createResult.Errors.Select(e => e.Description)));
+                    return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+                }
+
+                await userManager.AddToRoleAsync(user, AppRoles.Patient);
+            }
+
+            var roles = await userManager.GetRolesAsync(user);
+            var roleName = roles.FirstOrDefault() ?? AppRoles.Patient;
+
+            return await GenerateTokenForUserAsync(user, roleName, cancellationToken);
+        }
+        catch (InvalidJwtException ex)
+        {
+            logger.LogError(ex, "Invalid Google JWT token.");
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Error during Google Login.");
+            return Result.Failure<LoginResponseDTO>(AuthErrors.InvalidCredentials);
+        }
     }
 }

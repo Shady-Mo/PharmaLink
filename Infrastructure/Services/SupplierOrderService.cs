@@ -1,4 +1,4 @@
-﻿using Application.DTOs.Supplier;
+using Application.DTOs.Supplier;
 using Google;
 using System;
 using System.Collections.Generic;
@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Infrastructure.Services
 {
-    public class SupplierOrderService(AppDbContext _context) : ISupplierOrderService
+    public class SupplierOrderService(AppDbContext _context, IWebPushNotificationService pushNotificationService) : ISupplierOrderService
     {
 
         public async Task<Result<List<SupplierOrderDto>>> GetOrdersBySupplierAsync(Guid supplierId, POStatus? status = null)
@@ -40,6 +40,9 @@ namespace Infrastructure.Services
         public async Task<Result> AcceptOrderAsync(Guid orderId, Guid supplierId)
         {
             var order = await _context.PurchaseOrders
+                .Include(po => po.Branch)
+                .ThenInclude(b => b.Pharmacy)
+                .ThenInclude(p => p.Admins)
                 .FirstOrDefaultAsync(po => po.Id == orderId && po.SupplierId == supplierId);
 
             if (order == null)
@@ -50,6 +53,16 @@ namespace Infrastructure.Services
 
             order.Status = POStatus.AcceptedBySupplier;
 
+            foreach (var admin in order.Branch.Pharmacy.Admins)
+            {
+                await pushNotificationService.SendNotificationAsync(
+                    admin.Id,
+                    "تم قبول طلب الشراء ✅",
+                    $"قام المورد بقبول طلب الشراء رقم {order.Id.ToString()[..8].ToUpper()}.",
+                    "/owner/inventory"
+                );
+            }
+
             await _context.SaveChangesAsync();
             return Result.Success(true);
         }
@@ -57,6 +70,9 @@ namespace Infrastructure.Services
         public async Task<Result> RejectOrderAsync(Guid orderId, Guid supplierId)
         {
             var order = await _context.PurchaseOrders
+                .Include(po => po.Branch)
+                .ThenInclude(b => b.Pharmacy)
+                .ThenInclude(p => p.Admins)
                 .FirstOrDefaultAsync(po => po.Id == orderId && po.SupplierId == supplierId);
 
             if (order == null)
@@ -65,9 +81,17 @@ namespace Infrastructure.Services
             if (order.Status != POStatus.SentToSupplier)
                 return Result.Failure(SupplierOrderErrors.BadRequest);
 
-
-
             order.Status = POStatus.RejectedBySupplier;
+
+            foreach (var admin in order.Branch.Pharmacy.Admins)
+            {
+                await pushNotificationService.SendNotificationAsync(
+                    admin.Id,
+                    "تم رفض طلب الشراء ❌",
+                    $"قام المورد برفض طلب الشراء رقم {order.Id.ToString()[..8].ToUpper()}.",
+                    "/owner/inventory"
+                );
+            }
 
             await _context.SaveChangesAsync();
             return Result.Success(true);
@@ -132,6 +156,13 @@ namespace Infrastructure.Services
             order.SupplierId = supplierId;
             order.Status = POStatus.SentToSupplier;
             order.ApprovedAt = DateTime.UtcNow;
+
+            await pushNotificationService.SendNotificationAsync(
+                supplierId,
+                "طلب شراء جديد 📦",
+                $"تم تعيين طلب شراء جديد إليك رقم {order.Id.ToString()[..8].ToUpper()}.",
+                "/supplier/orders"
+            );
 
             await _context.SaveChangesAsync();
 

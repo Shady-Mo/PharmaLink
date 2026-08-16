@@ -152,6 +152,7 @@ public static class DependencyInjection
 
 
             services.AddScoped<CartCacheService>();
+            services.AddScoped<IWebPushNotificationService, WebPushNotificationService>();
             services.AddScoped<ICartService, CartService>();
 
             var webhookSettings = configuration

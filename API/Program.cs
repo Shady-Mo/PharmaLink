@@ -2,6 +2,7 @@ using API.Hubs;
 using API.Middlewares;
 using API.Notification;
 using API.Services;
+using Application.Abstractions;
 using Application.Hubs;
 using Hangfire;
 
@@ -11,6 +12,7 @@ builder.Services.AddApiServices();
 builder.Services.AddApplicationServices();
 builder.Services.AddInfrastructureServices(builder.Configuration);
 builder.Services.AddScoped<IReminderPushService, SignalRReminderPushService>();
+builder.Services.AddScoped<ILiveNotificationService, LiveNotificationService>();
 
 builder.Services.AddHealthChecks();
 builder.Services.AddSignalR();
@@ -68,13 +70,12 @@ RecurringJob.AddOrUpdate<IMedicineReminderService>(
 RecurringJob.AddOrUpdate<IRecurringPrescriptionService>(
     "recurring-prescriptions-daily",
     job => job.ProcessDueRecurringAsync(),
-    "0 8 * * *"); // 8 AM daily
+    "0 8 * * *"); 
 
 RecurringJob.AddOrUpdate<IRecurringPrescriptionService>(
     "recurring-prescriptions-auto-confirm",
     job => job.AutoConfirmExpiredRunsAsync(),
-    "0 */6 * * *"); // every 6 hours
-
+    "0 */6 * * *"); 
 
 app.MapControllers();
 
@@ -83,5 +84,6 @@ app.MapHealthChecks("/health");
 app.MapHub<InventoryHub>("/inventory-hub");
 app.MapHub<DeliveryHub>("/hubs/delivery");
 app.MapHub<MedicineReminderHub>("/hubs/reminders");
+app.MapHub<NotificationHub>("/hubs/notification");
 
 app.Run();

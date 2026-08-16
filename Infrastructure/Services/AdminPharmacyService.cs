@@ -1,6 +1,6 @@
 namespace Infrastructure.Services.Pharmacy
 {
-    public class AdminPharmacyService(AppDbContext context, IMapper mapper, IWebHostEnvironment env) : IAdminPharmacyService
+    public class AdminPharmacyService(AppDbContext context, IMapper mapper, IWebHostEnvironment env, IWebPushNotificationService pushNotificationService) : IAdminPharmacyService
     {
         public async Task<Result<PaginatedList<AdminPharmacySummaryDTO>>> GetAllPharmaciesAsync(
             GetAdminPharmaciesRequest request,
@@ -177,11 +177,44 @@ namespace Infrastructure.Services.Pharmacy
                 return Result.Failure(PharmacyErrors.PharmacyNotFound);
 
             pharmacy.VerificationStatus = status;
+            
+            var title = "";
+            var message = "";
+            
+            switch (status)
+            {
+                case VerificationStatus.Verified:
+                    title = "تم الموافقة على صيدليتك ✅";
+                    message = "مبروك! تمت الموافقة على تسجيل صيدليتك في منصة فارما لينك.";
+                    break;
+                case VerificationStatus.Rejected:
+                    title = "تم رفض صيدليتك ❌";
+                    message = "نأسف لإبلاغك بأنه تم رفض طلب انضمام صيدليتك. يرجى التواصل مع الدعم الفني للتفاصيل.";
+                    break;
+                case VerificationStatus.Pending:
+                case VerificationStatus.Deleted:
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(status), status, null);
+            }
+
             if (status == VerificationStatus.Deleted || status == VerificationStatus.Rejected)
             {
                 foreach (var adminUser in pharmacy.Admins)
                 {
                     adminUser.IsSuperAdmin = false;
+                }
+            }
+            
+            if (!string.IsNullOrEmpty(title))
+            {
+                foreach (var adminUser in pharmacy.Admins)
+                {
+                    await pushNotificationService.SendNotificationAsync(
+                        adminUser.Id, 
+                        title, 
+                        message, 
+                        "/owner/dashboard");
                 }
             }
 

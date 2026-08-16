@@ -1,6 +1,12 @@
 namespace Domain.Entities;
 
-public enum ReminderChannel { Email = 1, WhatsApp = 2, SMS = 3 }
+public enum ReminderChannel
+{
+    Email = 1,
+    WhatsApp = 2,
+    SMS = 3,
+    PushNotification = 4
+}
 
 public class MedicineReminderLog
 {
@@ -10,6 +16,6 @@ public class MedicineReminderLog
     public ReminderChannel Channel { get; set; }
     public bool IsSuccess { get; set; }
     public string? ErrorMessage { get; set; }
-    
+
     public MedicineReminder Reminder { get; set; } = null!;
 }

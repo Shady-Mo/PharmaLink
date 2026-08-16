@@ -267,6 +267,10 @@ public class OrderSplittingService(
 
         algoSw.Stop();
 
+        order.AiRoutingDescription = !string.IsNullOrWhiteSpace(plan.RouteSummary?.Description)
+            ? plan.RouteSummary.Description
+            : plan.Reasoning;
+
         var splitResult = MapPlanToSplittingResult(plan, pendingItems);
         logger.LogInformation(
             "[OrderId={OrderId}] AI-FulfillmentEngine ({Strategy}) completed in {ElapsedMs}ms. Legs={LegCount}, Assigned={AssignedCount}, Unassigned={UnassignedCount}, TotalDistanceKm={TotalKm:F2}",

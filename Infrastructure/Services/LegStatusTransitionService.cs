@@ -6,11 +6,14 @@ using Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
+using Application.Abstractions;
+
 namespace Infrastructure.Services;
 
 public class LegStatusTransitionService(
     AppDbContext context,
-    ILogger<LegStatusTransitionService> logger) : ILegStatusTransitionService
+    ILogger<LegStatusTransitionService> logger,
+    IWebPushNotificationService pushNotificationService) : ILegStatusTransitionService
 {
     public async Task<Result> UpdateLegStatusAsync(
         Guid legId, LegStatus newStatus, List<Guid> pharmacistBranchIds, CancellationToken cancellationToken)
@@ -92,10 +95,25 @@ public class LegStatusTransitionService(
             leg.CompletedAt = DateTime.UtcNow;
             
             bool anyIncomplete = await context.OrderFulfillmentLegs
-                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Delivered, cancellationToken);
+                .AnyAsync(l => l.OrderId == leg.OrderId && l.LegId != leg.LegId && l.LegStatus != LegStatus.Delivered && l.LegStatus != LegStatus.Cancelled, cancellationToken);
 
             if (!anyIncomplete)
+            {
                 leg.Order.OrderStatus = OrderStatus.Completed;
+                await pushNotificationService.SendNotificationAsync(leg.Order.PatientUserId, "تم التسليم بنجاح!", "تم توصيل طلبك بالكامل. شكراً لاستخدامك PharmaLink.", $"/patient/orders/{leg.OrderId}");
+            }
+            else
+            {
+                await pushNotificationService.SendNotificationAsync(leg.Order.PatientUserId, "تم توصيل جزء من الطلب", "تم تسليم جزء من طلبك بنجاح.", $"/patient/orders/{leg.OrderId}");
+            }
+        }
+        else if (newStatus == LegStatus.OutForDelivery)
+        {
+            await pushNotificationService.SendNotificationAsync(leg.Order.PatientUserId, "طلبك في الطريق!", "الطيار في طريقه إليك لتوصيل الطلب.", $"/patient/orders/{leg.OrderId}");
+        }
+        else if (newStatus == LegStatus.ReadyForPickup)
+        {
+            await pushNotificationService.SendNotificationAsync(leg.Order.PatientUserId, "الطلب جاهز للاستلام", "طلبك جاهز الآن للاستلام من الصيدلية.", $"/patient/orders/{leg.OrderId}");
         }
 
         await context.SaveChangesAsync(cancellationToken);

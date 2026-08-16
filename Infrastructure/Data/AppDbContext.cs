@@ -8,7 +8,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
-        
+
         builder.Entity<AppUser>().OwnsMany(u => u.RefreshTokens, a =>
         {
             a.WithOwner().HasForeignKey("UserId");
@@ -37,7 +37,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<OrderFulfillmentLeg> OrderFulfillmentLegs { get; set; }
     public DbSet<PhoneVerificationOtp> PhoneVerificationOtps { get; set; }
-    public DbSet<OrderFulfillmentLegStatusAudit> OrderFulfillmentLegStatusAudits { get;  set; }
+    public DbSet<OrderFulfillmentLegStatusAudit> OrderFulfillmentLegStatusAudits { get; set; }
     public DbSet<Cart> Carts { get; set; }
     public DbSet<CartItem> CartItems { get; set; }
     public DbSet<PrescriptionReview> PrescriptionReviews { get; set; }
@@ -45,9 +45,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<MedicalInquiry> MedicalInquiries { get; set; }
     public DbSet<PharmacistAssignment> PharmacistAssignments { get; set; }
 
-    public DbSet<PharmacyMissingStockLog> PharmacyMissingStockLog { get;    set; }  
+    public DbSet<PharmacyMissingStockLog> PharmacyMissingStockLog { get; set; }
 
-    public DbSet<PharmacyReport> PharmacyReport     { get; set; }   
+    public DbSet<PharmacyReport> PharmacyReport { get; set; }
     public DbSet<PurchaseOrder> PurchaseOrders { get; set; }
     public DbSet<InventoryForecastLog> InventoryForecastLogs { get; set; }
     public DbSet<Supplier> Suppliers { get; set; }
@@ -61,5 +61,6 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<MedicineReminderLog> MedicineReminderLogs { get; set; }
     public DbSet<RecurringPrescription> RecurringPrescriptions { get; set; }
     public DbSet<RecurringPrescriptionRun> RecurringPrescriptionRuns { get; set; }
+    public DbSet<PushSubscription> PushSubscriptions { get; set; }
+    public DbSet<AppNotification> AppNotifications { get; set; }
 }
-

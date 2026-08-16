@@ -12,7 +12,8 @@ public class PrescriptionReviewService(
     IValidator<UpdatePrescriptionReviewDTO> updateValidator,
     IBackgroundJobClient backgroundJobClient,
     ILogger<PrescriptionReviewService> logger,
-    IWebHostEnvironment env)
+    IWebHostEnvironment env,
+    IWebPushNotificationService pushNotificationService)
     : IPrescriptionReviewService
 {
     public async Task<Result<PrescriptionReviewUploadResponseDTO>> UploadAndExtractAsync(
@@ -479,6 +480,12 @@ public class PrescriptionReviewService(
 
         await context.SaveChangesAsync();
 
+        await pushNotificationService.SendNotificationAsync(
+            review.PatientUserId, 
+            "تم قبول الروشتة ✅", 
+            "تمت مراجعة الروشتة الخاصة بك وقبولها بنجاح.", 
+            "/patient/prescriptions");
+
         backgroundJobClient.Enqueue<IPrescriptionEmbeddingJob>(
             job => job.ProcessAsync(review.PrescriptionReviewId, CancellationToken.None));
 
@@ -506,6 +513,13 @@ public class PrescriptionReviewService(
         review.UpdatedAt = DateTime.UtcNow;
 
         await context.SaveChangesAsync();
+        
+        await pushNotificationService.SendNotificationAsync(
+            review.PatientUserId, 
+            "عذراً، تم رفض الروشتة ❌", 
+            "تم مراجعة الروشتة الخاصة بك وتم رفضها. " + (string.IsNullOrEmpty(dto.Notes) ? "" : $"السبب: {dto.Notes}"), 
+            "/patient/prescriptions");
+            
         return Result.Success();
     }
 
