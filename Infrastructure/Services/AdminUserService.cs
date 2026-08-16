@@ -29,8 +29,8 @@ public class AdminUserService(
         {
             var search = filter.Search.Trim().ToLower();
             query = query.Where(u =>
-                u.FullName.Contains(search, StringComparison.CurrentCultureIgnoreCase) || (u.Email != null &&
-                    u.Email.Contains(search, StringComparison.CurrentCultureIgnoreCase)));
+                u.FullName.Contains(search) || (u.Email != null &&
+                    u.Email.Contains(search)));
         }
 
         if (filter.Status.HasValue)
