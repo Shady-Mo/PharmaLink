@@ -11,7 +11,7 @@ public sealed class PrescriptionAnalyticsController(IPrescriptionAnalyticsRagSer
     [HttpPost("ask")]
     [ProducesResponseType(typeof(PrescriptionAnalyticsAnswerResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [Authorize(Roles = $"{AppRoles.Admin} , {AppRoles.PharmacyAdmin} , {AppRoles.PharmacyAdmin}")]
+    [Authorize(Roles = $"{AppRoles.Admin} , {AppRoles.Pharmacist} , {AppRoles.PharmacyAdmin}")]
 
     public async Task<IActionResult> Ask(
         [FromBody] PrescriptionAnalyticsQuestionRequest request,
