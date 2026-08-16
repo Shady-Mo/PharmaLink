@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Text.Json;
 using Application.DTOs.OrderRouting;
+using Application.DTOs.Routing;
 using Infrastructure.Services;
 using Microsoft.SemanticKernel;
 
@@ -17,6 +18,8 @@ public sealed class PharmacyInventoryPlugin(
 
     public FulfillmentMode DefaultFulfillmentMode { get; init; } = FulfillmentMode.Delivery;
 
+    public OsrmMatrixResultDto? LastMatrixResult { get; private set; }
+    public Dictionary<Guid, int>? LastBranchCoordIndex { get; private set; }
 
     [KernelFunction("evaluate_candidate_branches")]
     [Description(
@@ -42,8 +45,6 @@ public sealed class PharmacyInventoryPlugin(
         return JsonSerializer.Serialize(evaluations, JsonOptions);
     }
 
-
-
     public async Task<IReadOnlyList<BranchFulfillmentEvaluation>> EvaluateAsync(
         GeoLocation patientLocation,
         IReadOnlyList<CartItemDto> cartItems,
@@ -56,7 +57,6 @@ public sealed class PharmacyInventoryPlugin(
         logger.LogInformation(
             "PharmacyInventoryPlugin.EvaluateAsync — {ItemCount} cart items from ({Lat},{Lng}), mode={Mode}",
             cartItems.Count, patientLocation.Latitude, patientLocation.Longitude, fulfillmentMode);
-
 
         await using var scope = scopeFactory.CreateAsyncScope();
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
@@ -79,7 +79,6 @@ public sealed class PharmacyInventoryPlugin(
             drugNames.TryGetValue(drugId, out var n)
                 ? (string.IsNullOrWhiteSpace(n.En) ? cartNameByDrug.GetValueOrDefault(drugId, string.Empty) : n.En, n.Ar)
                 : (cartNameByDrug.GetValueOrDefault(drugId, string.Empty), string.Empty);
-
 
         var today = DateTime.UtcNow.DayOfWeek;
 
@@ -105,7 +104,6 @@ public sealed class PharmacyInventoryPlugin(
                     .FirstOrDefault()))
             .ToListAsync(cancellationToken);
 
-
         var requestedCount = drugIds.Count;
 
         var branchGroups = stockRows.GroupBy(r => r.BranchId).ToList();
@@ -115,8 +113,45 @@ public sealed class PharmacyInventoryPlugin(
         foreach (var branchGroup in branchGroups)
         {
             var first = branchGroup.First();
+
+            if (first.TodaySchedule != null)
+            {
+                var schedule = first.TodaySchedule;
+                if (schedule.IsClosed)
+                {
+                    logger.LogDebug(
+                        "PharmacyInventoryPlugin — Branch {BranchId} Pre-filtered: closed today.",
+                        first.BranchId);
+                    continue;
+                }
+
+                if (schedule.CloseTime.HasValue)
+                {
+                    var cairoTz = TimeZoneInfo.FindSystemTimeZoneById("Egypt Standard Time");
+                    var nowCairo = TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, cairoTz);
+                    var nowTime = TimeOnly.FromDateTime(nowCairo);
+
+                    if (nowTime >= schedule.CloseTime.Value)
+                    {
+                        logger.LogDebug(
+                            "PharmacyInventoryPlugin — Branch {BranchId} Pre-filtered: past closing time ({Time}).",
+                            first.BranchId, schedule.CloseTime.Value);
+                        continue;
+                    }
+                }
+            }
+
             if (first.Latitude is { } lat && first.Longitude is { } lng)
             {
+                var straightLineKm = CalculateHaversineDistance(patientLocation.Latitude, patientLocation.Longitude, lat, lng);
+                if (straightLineKm > MaxDistanceKm)
+                {
+                    logger.LogDebug(
+                        "PharmacyInventoryPlugin — Branch {BranchId} Pre-filtered: straight-line distance {Dist:F2}km > {MaxKm}km",
+                        first.BranchId, straightLineKm, MaxDistanceKm);
+                    continue;
+                }
+
                 branchCoordIndex[first.BranchId] = coords.Count;
                 coords.Add((lat, lng));
             }
@@ -127,6 +162,35 @@ public sealed class PharmacyInventoryPlugin(
         {
             logger.LogWarning("PharmacyInventoryPlugin — OSRM /table failed: {Msg}. Falling back to MaxValue distances.", matrix.Message);
         }
+
+        LastMatrixResult = matrix;
+        LastBranchCoordIndex = branchCoordIndex;
+
+        //if (matrix.IsSuccess && matrix.DistancesKm != null)
+        //{
+        //    var sb = new System.Text.StringBuilder();
+        //    sb.AppendLine($"OSRM Matrix Result: {coords.Count} points (Patient + {coords.Count - 1} branches).");
+        //    sb.AppendLine("Patient to Branches Distances:");
+            
+        //    var branchIds = branchCoordIndex.Keys.ToList();
+        //    foreach (var bId in branchIds)
+        //    {
+        //        var idx = branchCoordIndex[bId];
+        //        sb.AppendLine($"  - Patient -> Branch {bId}: {matrix.DistancesKm[0][idx]:F2} km");
+        //    }
+            
+        //    sb.AppendLine("Branch to Branch Distances:");
+        //    for (int i = 0; i < branchIds.Count; i++)
+        //    {
+        //        var idx1 = branchCoordIndex[branchIds[i]];
+        //        for (int j = i + 1; j < branchIds.Count; j++)
+        //        {
+        //            var idx2 = branchCoordIndex[branchIds[j]];
+        //            sb.AppendLine($"  - Branch {branchIds[i]} <-> Branch {branchIds[j]}: {matrix.DistancesKm[idx1][idx2]:F2} km");
+        //        }
+        //    }
+        //    logger.LogInformation("PharmacyInventoryPlugin — OSRM Call Summary:\n{Summary}", sb.ToString());
+        //}
 
         var evaluations = new List<BranchFulfillmentEvaluation>();
 
@@ -165,17 +229,9 @@ public sealed class PharmacyInventoryPlugin(
                 continue;
             }
 
-            if (fulfillmentMode == FulfillmentMode.Delivery && first.TodaySchedule != null)
+            if (first.TodaySchedule != null)
             {
                 var schedule = first.TodaySchedule;
-                if (schedule.IsClosed)
-                {
-                    logger.LogDebug(
-                        "PharmacyInventoryPlugin — Branch {BranchId} excluded: closed today.",
-                        first.BranchId);
-                    continue;
-                }
-
                 var durationMin = double.MaxValue;
                 if (matrix.IsSuccess && matrix.DurationsMinutes.Length > 0 && branchCoordIndex.TryGetValue(first.BranchId, out var idx))
                 {
@@ -184,7 +240,7 @@ public sealed class PharmacyInventoryPlugin(
 
                 if (durationMin < double.MaxValue && schedule.CloseTime.HasValue)
                 {
-                    var estimatedArrival = DateTime.UtcNow.AddMinutes(durationMin + 10); // +10min prep buffer
+                    var estimatedArrival = DateTime.UtcNow.AddMinutes(durationMin + 10);
                     var todayClose = DateTime.UtcNow.Date.Add(schedule.CloseTime.Value.ToTimeSpan());
 
                     if (estimatedArrival >= todayClose)
@@ -198,8 +254,6 @@ public sealed class PharmacyInventoryPlugin(
             }
 
             evaluations.Add(new BranchFulfillmentEvaluation
-
-
             {
                 PharmacyId = first.PharmacyId,
                 PharmacyName = first.PharmacyName,
@@ -213,57 +267,49 @@ public sealed class PharmacyInventoryPlugin(
                 Latitude = first.Latitude,
                 Longitude = first.Longitude,
                 ServiceRadiusKm = first.ServiceRadiusKm,
-
                 SupportsDelivery = first.SupportsDelivery,
                 SupportsPickup = first.SupportsPickup
             });
         }
 
         evaluations = evaluations
-            .OrderByDescending(e => e.AvailableItemsCount)
-            .ThenBy(e => e.DistanceKm)
+            .OrderBy(e => e.DistanceKm)
             .ToList();
 
-        const int MaxCandidateBranches = 20;
-        if (evaluations.Count > MaxCandidateBranches)
+        const int MaxBranchesPerDrug = 4;
+        var drugQuota = drugIds.ToDictionary(d => d, _ => MaxBranchesPerDrug);
+        var finalCandidates = new HashSet<BranchFulfillmentEvaluation>();
+
+        foreach (var eval in evaluations)
         {
-            var capped = evaluations.Take(MaxCandidateBranches).ToList();
-
-            var coveredDrugs = capped
-                .SelectMany(e => e.AvailableItems.Select(a => a.DrugId))
-                .ToHashSet();
-
-            var drugsStockedSomewhere = evaluations
-                .SelectMany(e => e.AvailableItems.Select(a => a.DrugId))
-                .ToHashSet();
-
-            var uncovered = drugsStockedSomewhere.Except(coveredDrugs).ToHashSet();
-            if (uncovered.Count > 0)
+            bool useful = false;
+            foreach (var item in eval.AvailableItems)
             {
-                var rescued = evaluations
-                    .Skip(MaxCandidateBranches)
-                    .Where(e => e.AvailableItems.Any(a => uncovered.Contains(a.DrugId)))
-                    .Where(e => !capped.Contains(e));
-
-                foreach (var branch in rescued)
+                if (drugQuota.TryGetValue(item.DrugId, out int remaining) && remaining > 0)
                 {
-                    if (uncovered.Count == 0) break;
-                    capped.Add(branch);
-                    foreach (var a in branch.AvailableItems)
-                        uncovered.Remove(a.DrugId);
+                    useful = true;
+                    drugQuota[item.DrugId] = remaining - 1;
                 }
             }
 
-            evaluations = capped;
+            if (useful)
+            {
+                finalCandidates.Add(eval);
+            }
+
+            if (drugQuota.Values.All(v => v == 0))
+            {
+                break;
+            }
         }
 
+        evaluations = evaluations.Where(e => finalCandidates.Contains(e)).ToList();
+
         logger.LogDebug(
-            "PharmacyInventoryPlugin.EvaluateAsync produced {BranchCount} branch evaluations (capped ~{Cap} for AI performance, coverage preserved)",
-            evaluations.Count, MaxCandidateBranches);
+            "PharmacyInventoryPlugin.EvaluateAsync produced {BranchCount} branch evaluations (capped using {Max} branches per drug quota)",
+            evaluations.Count, MaxBranchesPerDrug);
 
         return evaluations;
-
-
     }
 
     private static IReadOnlyList<CartItemDto> DeserializeCart(string cartItemsJson)
@@ -300,6 +346,17 @@ public sealed class PharmacyInventoryPlugin(
 
     private sealed record DrugNames(string En, string Ar);
 
+    private static double CalculateHaversineDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double R = 6371;
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return R * c;
+    }
+
+    private static double ToRadians(double angle) => Math.PI * angle / 180.0;
 }
-
-

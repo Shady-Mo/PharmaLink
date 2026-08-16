@@ -66,15 +66,12 @@ public sealed class GeoDistancePlugin(
         catch (JsonException)
         {
             logger.LogWarning("GeoDistancePlugin.calculate_trip_distance_km received invalid JSON: {Json}", orderedStopsJson);
-            return -1; // signal invalid input to the model
+            return -1;
         }
 
         if (stops is null || stops.Count == 0)
             return 0;
 
-        // Build the ordered coordinate list: patient (index 0) → stop0 → stop1 → ... Then a SINGLE
-        // OSRM /table request gives every pairwise distance, and we sum only the consecutive legs
-        // (0→1, 1→2, ...). This replaces one point-to-point call per leg with a single request.
         var coords = new List<(double Lat, double Lon)> { (patientLatitude, patientLongitude) };
         coords.AddRange(stops.Select(s => (s.Lat, s.Lng)));
 
@@ -84,7 +81,7 @@ public sealed class GeoDistancePlugin(
             logger.LogWarning(
                 "GeoDistancePlugin.calculate_trip_distance_km — OSRM /table failed ({Msg}); trip marked infeasible.",
                 matrix.Message);
-            return -1; // let the model discard this ordering
+            return -1;
         }
 
         double total = 0;
@@ -96,7 +93,7 @@ public sealed class GeoDistancePlugin(
                 logger.LogWarning(
                     "GeoDistancePlugin.calculate_trip_distance_km — leg {From}->{To} is unroutable; trip marked infeasible.",
                     i, i + 1);
-                return -1; // infeasible leg → let the model discard this ordering
+                return -1;
             }
 
             total += legKm;

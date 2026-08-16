@@ -195,11 +195,29 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         var kernel = _kernelProvider.GetKernel(ModelRole.Chat).Clone();
         kernel.Plugins.Clear();
 
-        var coords = new List<(double Lat, double Lon)> { (patientLocation.Latitude, patientLocation.Longitude) };
-        coords.AddRange(evaluations.Select(e => (e.Latitude ?? 0d, e.Longitude ?? 0d)));
+        var cachedMatrix = _inventoryPlugin.LastMatrixResult;
+        var cachedIndices = _inventoryPlugin.LastBranchCoordIndex;
 
-        var matrix = await _osrmRoutingService.GetDistanceMatrixAsync(coords, cancellationToken);
-        var haveMatrix = matrix.IsSuccess && matrix.DistancesKm.Length == coords.Count;
+        double[][]? promptMatrix = null;
+        if (cachedMatrix is { IsSuccess: true, DistancesKm: not null } && cachedIndices is not null)
+        {
+            int n = evaluations.Count;
+            promptMatrix = new double[n + 1][];
+            for (int i = 0; i <= n; i++)
+                promptMatrix[i] = new double[n + 1];
+
+            for (int i = 0; i <= n; i++)
+            {
+                int globalI = (i == 0) ? 0 : cachedIndices[evaluations[i - 1].BranchId];
+                for (int j = 0; j <= n; j++)
+                {
+                    int globalJ = (j == 0) ? 0 : cachedIndices[evaluations[j - 1].BranchId];
+                    promptMatrix[i][j] = cachedMatrix.DistancesKm[globalI][globalJ];
+                }
+            }
+        }
+
+        var haveMatrix = promptMatrix is not null;
 
         var slimBranches = evaluations.Select((e, i) => new
         {
@@ -217,13 +235,13 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         string distanceText;
         if (haveMatrix)
         {
-            distanceText = FormatDistancesForPrompt(matrix.DistancesKm, evaluations);
+            distanceText = FormatDistancesForPrompt(promptMatrix!, evaluations);
         }
         else
         {
             _logger.LogWarning(
                 "OrderRoutingOrchestrator — OSRM distance matrix unavailable ({Msg}); the router will optimize " +
-                "on patient->branch distances only (no branch<->branch data).", matrix.Message);
+                "on patient->branch distances only (no branch<->branch data).", cachedMatrix?.Message ?? "Not found");
             var sb2 = new StringBuilder();
             sb2.AppendLine("Patient → branches (nearest first):");
             var sorted = evaluations
@@ -323,14 +341,14 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
         {
             _logger.LogWarning(
                 "OrderRoutingOrchestrator — AI FALLBACK CAUSE #1a: the router LLM returned an empty message.");
-            return (null, haveMatrix ? matrix.DistancesKm : null);
+            return (null, haveMatrix ? promptMatrix : null);
         }
 
         _logger.LogInformation(
             "OrderRoutingOrchestrator — Raw router message ({Len} chars): {Raw}",
             raw.Length, raw.Length > 2000 ? raw[..2000] + "…(truncated)" : raw);
 
-        return (ParseRouterDecision(raw), haveMatrix ? matrix.DistancesKm : null);
+        return (ParseRouterDecision(raw), haveMatrix ? promptMatrix : null);
     }
 
     private OrderRoutingPlan? SelectBestCluster(
@@ -930,18 +948,30 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
             .ToDictionary(g => g.Key, g => (Lat: g.First().Latitude!.Value, Lon: g.First().Longitude!.Value));
 
         var legs = plan.Legs.ToList();
-        var haveAllCoords = legs.All(l => coordByBranch.ContainsKey(l.BranchId));
-
-        var coords = new List<(double Lat, double Lon)> { (patientLocation.Latitude, patientLocation.Longitude) };
-        if (haveAllCoords)
-            coords.AddRange(legs.Select(l => coordByBranch[l.BranchId]));
 
         double[][]? dist = null;
-        if (haveAllCoords)
+        var cachedMatrix = _inventoryPlugin.LastMatrixResult;
+        var cachedIndices = _inventoryPlugin.LastBranchCoordIndex;
+
+        if (cachedMatrix is { IsSuccess: true, DistancesKm: not null } && cachedIndices is not null)
         {
-            var matrix = await _osrmRoutingService.GetDistanceMatrixAsync(coords, cancellationToken);
-            if (matrix.IsSuccess && matrix.DistancesKm.Length == coords.Count)
-                dist = matrix.DistancesKm;
+            if (legs.All(l => cachedIndices.ContainsKey(l.BranchId)))
+            {
+                int n = legs.Count;
+                dist = new double[n + 1][];
+                for (int i = 0; i <= n; i++)
+                    dist[i] = new double[n + 1];
+
+                for (int i = 0; i <= n; i++)
+                {
+                    int globalI = (i == 0) ? 0 : cachedIndices[legs[i - 1].BranchId];
+                    for (int j = 0; j <= n; j++)
+                    {
+                        int globalJ = (j == 0) ? 0 : cachedIndices[legs[j - 1].BranchId];
+                        dist[i][j] = cachedMatrix.DistancesKm[globalI][globalJ];
+                    }
+                }
+            }
         }
 
         IReadOnlyList<int> order;

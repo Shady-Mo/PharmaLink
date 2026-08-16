@@ -51,7 +51,7 @@ public class AdminOrdersController(
         var result = await orderSplittingService.ResplitOrderV2Async(orderId, User.GetUserId(), cancellationToken);
 
         return result.IsSuccess
-            ? Ok(new { message = "Order re-split completed successfully." })
+            ? Ok(new { message = "تمت إعادة تقسيم الطلب بنجاح." })
             : result.ToProblem();
     }
 
