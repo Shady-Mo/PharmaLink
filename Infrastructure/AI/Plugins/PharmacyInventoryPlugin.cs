@@ -166,31 +166,31 @@ public sealed class PharmacyInventoryPlugin(
         LastMatrixResult = matrix;
         LastBranchCoordIndex = branchCoordIndex;
 
-        if (matrix.IsSuccess && matrix.DistancesKm != null)
-        {
-            var sb = new System.Text.StringBuilder();
-            sb.AppendLine($"OSRM Matrix Result: {coords.Count} points (Patient + {coords.Count - 1} branches).");
-            sb.AppendLine("Patient to Branches Distances:");
+        //if (matrix.IsSuccess && matrix.DistancesKm != null)
+        //{
+        //    var sb = new System.Text.StringBuilder();
+        //    sb.AppendLine($"OSRM Matrix Result: {coords.Count} points (Patient + {coords.Count - 1} branches).");
+        //    sb.AppendLine("Patient to Branches Distances:");
             
-            var branchIds = branchCoordIndex.Keys.ToList();
-            foreach (var bId in branchIds)
-            {
-                var idx = branchCoordIndex[bId];
-                sb.AppendLine($"  - Patient -> Branch {bId}: {matrix.DistancesKm[0][idx]:F2} km");
-            }
+        //    var branchIds = branchCoordIndex.Keys.ToList();
+        //    foreach (var bId in branchIds)
+        //    {
+        //        var idx = branchCoordIndex[bId];
+        //        sb.AppendLine($"  - Patient -> Branch {bId}: {matrix.DistancesKm[0][idx]:F2} km");
+        //    }
             
-            sb.AppendLine("Branch to Branch Distances:");
-            for (int i = 0; i < branchIds.Count; i++)
-            {
-                var idx1 = branchCoordIndex[branchIds[i]];
-                for (int j = i + 1; j < branchIds.Count; j++)
-                {
-                    var idx2 = branchCoordIndex[branchIds[j]];
-                    sb.AppendLine($"  - Branch {branchIds[i]} <-> Branch {branchIds[j]}: {matrix.DistancesKm[idx1][idx2]:F2} km");
-                }
-            }
-            logger.LogInformation("PharmacyInventoryPlugin — OSRM Call Summary:\n{Summary}", sb.ToString());
-        }
+        //    sb.AppendLine("Branch to Branch Distances:");
+        //    for (int i = 0; i < branchIds.Count; i++)
+        //    {
+        //        var idx1 = branchCoordIndex[branchIds[i]];
+        //        for (int j = i + 1; j < branchIds.Count; j++)
+        //        {
+        //            var idx2 = branchCoordIndex[branchIds[j]];
+        //            sb.AppendLine($"  - Branch {branchIds[i]} <-> Branch {branchIds[j]}: {matrix.DistancesKm[idx1][idx2]:F2} km");
+        //        }
+        //    }
+        //    logger.LogInformation("PharmacyInventoryPlugin — OSRM Call Summary:\n{Summary}", sb.ToString());
+        //}
 
         var evaluations = new List<BranchFulfillmentEvaluation>();
 
