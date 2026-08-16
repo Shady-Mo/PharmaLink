@@ -103,7 +103,6 @@ public sealed class PharmacyInventoryPlugin(
                     .Where(s => s.Day == today)
                     .Select(s => new ScheduleInfo(s.IsClosed, s.CloseTime))
                     .FirstOrDefault()))
-
             .ToListAsync(cancellationToken);
 
 
