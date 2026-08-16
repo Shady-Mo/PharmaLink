@@ -93,7 +93,7 @@ public sealed class PrescriptionAnalyticsRagService(
             }
         }, cancellationToken);
 
-        var (answer, reasoning, filteredIdStrings) = ParseLlmResponse(aiResult.RawResponse);
+        var (answer, reasoning, filteredIdStrings, relevantMedicines) = ParseLlmResponse(aiResult.RawResponse);
 
         if (!string.IsNullOrWhiteSpace(reasoning))
         {
@@ -111,17 +111,82 @@ public sealed class PrescriptionAnalyticsRagService(
                 .ToList();
         }
 
+        var topPrescribedDrugs = new List<PrescribedDrugMetricDTO>();
+        var mostRequestedCategories = new List<CategoryMetricDTO>();
+
+        if (finalSources.Count > 0 && relevantMedicines != null && relevantMedicines.Count > 0)
+        {
+            var allSourceMedicines = finalSources
+                .SelectMany(s => s.Medicines.Select(m => new { Source = s, Medicine = m }))
+                .ToList();
+
+            var groupedDrugs = relevantMedicines
+                .Where(m => !string.IsNullOrWhiteSpace(m.MedicineName))
+                .GroupBy(m => m.MedicineName!.Trim(), StringComparer.OrdinalIgnoreCase)
+                .Select(g =>
+                {
+                    var medName = g.Key;
+                    var category = g.First().Category?.Trim() ?? "عام";
+
+                    var matchingItems = allSourceMedicines
+                        .Where(x => x.Medicine.MedicineName.Equals(medName, StringComparison.OrdinalIgnoreCase) ||
+                                    x.Medicine.MedicineName.Contains(medName, StringComparison.OrdinalIgnoreCase) ||
+                                    medName.Contains(x.Medicine.MedicineName, StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+
+                    var mentionCount = matchingItems.Select(x => x.Source.PrescriptionId).Distinct().Count();
+                    if (mentionCount == 0) mentionCount = 1;
+
+                    var totalQty = matchingItems.Sum(x => x.Medicine.Quantity > 0 ? x.Medicine.Quantity : 1);
+                    if (totalQty == 0) totalQty = mentionCount;
+
+                    var pct = Math.Round((double)mentionCount / finalSources.Count * 100, 1);
+
+                    return new PrescribedDrugMetricDTO
+                    {
+                        MedicineName = medName,
+                        Category = category,
+                        MentionCount = mentionCount,
+                        TotalQuantity = totalQty,
+                        Percentage = pct
+                    };
+                })
+                .OrderByDescending(d => d.MentionCount)
+                .ThenByDescending(d => d.TotalQuantity)
+                .ToList();
+
+            topPrescribedDrugs = groupedDrugs;
+
+            var totalMentions = groupedDrugs.Sum(d => d.MentionCount);
+            var palette = new[] { "#007671", "#0f9d76", "#2563eb", "#d97706", "#9333ea", "#e11d48", "#0891b2" };
+
+            mostRequestedCategories = groupedDrugs
+                .GroupBy(d => d.Category ?? "عام", StringComparer.OrdinalIgnoreCase)
+                .Select((g, index) => new CategoryMetricDTO
+                {
+                    CategoryName = g.Key,
+                    Count = g.Sum(d => d.MentionCount),
+                    Percentage = totalMentions > 0 ? Math.Round((double)g.Sum(d => d.MentionCount) / totalMentions * 100, 1) : 0,
+                    ColorHint = palette[index % palette.Length]
+                })
+                .OrderByDescending(c => c.Count)
+                .ToList();
+        }
+
         return new PrescriptionAnalyticsAnswerResponse
         {
             Answer = answer,
-            Sources = finalSources
+            Sources = finalSources,
+            TotalPrescriptionsAnalyzed = finalSources.Count,
+            TopPrescribedDrugs = topPrescribedDrugs,
+            MostRequestedCategories = mostRequestedCategories
         };
     }
 
-    private static (string Answer, string? Reasoning, List<string>? FilteredIdStrings) ParseLlmResponse(string rawResponse)
+    private static (string Answer, string? Reasoning, List<string>? FilteredIdStrings, List<LlmMedicineCategory>? RelevantMedicines) ParseLlmResponse(string rawResponse)
     {
         if (string.IsNullOrWhiteSpace(rawResponse))
-            return (rawResponse, null, null);
+            return (rawResponse, null, null, null);
 
         try
         {
@@ -145,7 +210,7 @@ public sealed class PrescriptionAnalyticsRagService(
 
             if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Answer))
             {
-                return (parsed.Answer, parsed.Reasoning, parsed.RelevantPrescriptionIds);
+                return (parsed.Answer, parsed.Reasoning, parsed.RelevantPrescriptionIds, parsed.RelevantMedicines);
             }
         }
         catch
@@ -153,7 +218,7 @@ public sealed class PrescriptionAnalyticsRagService(
             // Ignore parse errors and fallback to raw response
         }
 
-        return (rawResponse, null, null);
+        return (rawResponse, null, null, null);
     }
 
     private class PrescriptionAnalyticsLlmOutput
@@ -166,6 +231,18 @@ public sealed class PrescriptionAnalyticsRagService(
 
         [JsonPropertyName("relevant_prescription_ids")]
         public List<string>? RelevantPrescriptionIds { get; set; }
+
+        [JsonPropertyName("relevant_medicines")]
+        public List<LlmMedicineCategory>? RelevantMedicines { get; set; }
+    }
+
+    private class LlmMedicineCategory
+    {
+        [JsonPropertyName("medicineName")]
+        public string? MedicineName { get; set; }
+
+        [JsonPropertyName("category")]
+        public string? Category { get; set; }
     }
 
     public async Task<int> QueueReindexAsync(CancellationToken cancellationToken = default)

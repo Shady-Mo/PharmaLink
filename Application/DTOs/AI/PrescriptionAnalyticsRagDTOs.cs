@@ -5,11 +5,31 @@ public sealed class PrescriptionAnalyticsQuestionRequest
     public required string Question { get; init; }
 }
 
+public sealed class PrescribedDrugMetricDTO
+{
+    public required string MedicineName { get; init; }
+    public string? Category { get; init; }
+    public int MentionCount { get; init; }
+    public int TotalQuantity { get; init; }
+    public double Percentage { get; init; }
+}
+
+public sealed class CategoryMetricDTO
+{
+    public required string CategoryName { get; init; }
+    public int Count { get; init; }
+    public double Percentage { get; init; }
+    public string? ColorHint { get; init; }
+}
+
 public sealed class PrescriptionAnalyticsAnswerResponse
 {
     public required string Answer { get; init; }
     public required IReadOnlyList<PrescriptionAnalyticsSourceDTO> Sources { get; init; }
     public bool HasMatches => Sources.Count > 0;
+    public int TotalPrescriptionsAnalyzed { get; init; }
+    public IReadOnlyList<PrescribedDrugMetricDTO> TopPrescribedDrugs { get; init; } = [];
+    public IReadOnlyList<CategoryMetricDTO> MostRequestedCategories { get; init; } = [];
 }
 
 public sealed class PrescriptionAnalyticsSourceDTO
