@@ -13,7 +13,7 @@ public sealed class PharmacyInventoryPlugin(
 {
     private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
 
-    private const double MaxDistanceKm = 200.0;
+    private const double MaxDistanceKm = 50.0;
 
     public FulfillmentMode DefaultFulfillmentMode { get; init; } = FulfillmentMode.Delivery;
 
@@ -103,7 +103,6 @@ public sealed class PharmacyInventoryPlugin(
                     .Where(s => s.Day == today)
                     .Select(s => new ScheduleInfo(s.IsClosed, s.CloseTime))
                     .FirstOrDefault()))
-
             .ToListAsync(cancellationToken);
 
 

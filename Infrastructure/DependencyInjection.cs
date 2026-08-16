@@ -183,19 +183,27 @@ public static class DependencyInjection
 
         services.AddScoped<RoleSeeder>();
         services.AddScoped<AdminSeeder>();
+        services.AddScoped<OsmPharmacySeeder>();
+        services.AddScoped<InventorySeeder>();
 
 
         // Program.cs / DependencyInjection.cs
         services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
+        services.AddScoped<IPrescriptionAnalyticsVectorService, QdrantPrescriptionAnalyticsVectorService>();
         services.AddScoped<IPrescriptionHistoryRagService, PrescriptionHistoryRagService>();
+        services.AddScoped<IPrescriptionAnalyticsRagService, PrescriptionAnalyticsRagService>();
         services.AddScoped<PatientPrescriptionSearchPlugin>();
         services.AddScoped<IPrescriptionEmbeddingJob, PrescriptionEmbeddingJob>();
         services.AddScoped<PatientPrescriptionCollectionInitializer>();
+        services.AddScoped<PrescriptionAnalyticsCollectionInitializer>();
 
 
         services
             .AddHttpClient<IChefaaApiClient,
-                ChefaaApiClient>(client => { client.BaseAddress = new Uri("https://meilisearch.chefaa.com/"); });
+                ChefaaApiClient>(client =>
+            {
+                client.BaseAddress = new Uri("https://meilisearch.chefaa.com/");
+            });
         services
             .AddScoped<IChefaaImporterService,
                 ChefaaImporterService>();

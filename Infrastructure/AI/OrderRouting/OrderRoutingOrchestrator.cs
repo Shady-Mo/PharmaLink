@@ -503,7 +503,22 @@ public sealed class OrderRoutingOrchestrator : IOrderRoutingOrchestrator
 
             var result = SolveOpenTourHeldKarp(subDist);
 
-            if (result.TotalKm < absoluteMinDistance)
+            bool isBetter = false;
+            const double EPSILON = 0.001;
+
+            if (result.TotalKm < absoluteMinDistance - EPSILON)
+            {
+                isBetter = true;
+            }
+            else if (Math.Abs(result.TotalKm - absoluteMinDistance) <= EPSILON)
+            {
+                if (cluster.Count < winningCluster.Count)
+                {
+                    isBetter = true;
+                }
+            }
+
+            if (isBetter)
             {
                 absoluteMinDistance = result.TotalKm;
                 winningCluster = cluster;

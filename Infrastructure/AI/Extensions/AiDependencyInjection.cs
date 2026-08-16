@@ -1,5 +1,3 @@
-using DocumentFormat.OpenXml.Bibliography;
-using DocumentFormat.OpenXml.Spreadsheet;
 using Infrastructure.AI.Abstractions;
 using Infrastructure.AI.Execution.Providers;
 using Infrastructure.AI.Execution.Resilience;
@@ -9,8 +7,6 @@ using Infrastructure.AI.Options;
 using Infrastructure.AI.Providers;
 using Infrastructure.AI.Services;
 using Qdrant.Client;
-using Qdrant.Client.Grpc;
-using System.Runtime.InteropServices;
 
 namespace Infrastructure.AI.Extensions;
 
@@ -47,20 +43,16 @@ public static class AiDependencyInjection
         services.AddScoped<PromptExecutionService>();
         services.AddScoped<EmbeddingService>();
 
-        // RAG Framework Services
-        services.AddScoped<Domain.Abstractions.RAG.IRagVectorStore<Domain.Entities.RAG.PrescriptionVectorIndex, Application.DTOs.AI.RAG.PrescriptionMetadataFilter>,
-            Infrastructure.AI.RAG.PrescriptionVectorStore>();
-        services.AddScoped<Application.Services.AI.RAG.IPrescriptionAnalyticsRagService,
-            Infrastructure.AI.RAG.PrescriptionAnalyticsRagService>();
+
 
         services.AddHttpClient<TranscriptionService>();
         services.AddScoped<AiHealthService>();
 
-        
+
         // for qdrant client
-        
+
         services.Configure<QdrantOptions>(configuration.GetSection(QdrantOptions.SectionName));
-        
+
         services.AddSingleton(sp =>
         {
             var options = sp.GetRequiredService<IOptions<QdrantOptions>>().Value;
