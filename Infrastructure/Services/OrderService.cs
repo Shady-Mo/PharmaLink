@@ -3,11 +3,8 @@ using Application.DTOs.Order.Responses;
 using Application.DTOs.OrderRouting;
 using System.Text;
 using System.IO;
-
-using System.Text;
-using System.IO;
-
-
+using Microsoft.Extensions.Configuration;
+using Application.Services;
 using Application.Abstractions;
 
 namespace Infrastructure.Services;
@@ -17,7 +14,9 @@ public class OrderService(
     IOrderSplittingService orderSplittingService,
     CartCacheService cartCacheService,
     IInventoryService inventoryService,
-    IWebPushNotificationService webPushService) : IOrderService
+    IWebPushNotificationService webPushService,
+    IStripePaymentService stripePaymentService,
+    IConfiguration configuration) : IOrderService
 {
     public async Task<Result<OrderCreatedResponseDTO>> CreateOrder(Guid patientUserId,
         CreateOrderDTO createOrderDTO)
@@ -79,7 +78,9 @@ public class OrderService(
             DeliveryAddressId = createOrderDTO.DeliveryAddressId,
             FulfillmentMode = createOrderDTO.FulfillmentMode,
             OrderStatus = OrderStatus.Pending,
-            TotalAmount = totalAmount
+            TotalAmount = totalAmount,
+            PaymentMethod = createOrderDTO.PaymentMethod,
+            PaymentStatus = PaymentStatus.Pending
         };
 
         if (requiresPrescription && validPrescription != null)
@@ -148,6 +149,20 @@ public class OrderService(
 
 
         var response = BuildOrderCreatedResponse(order.OrderId, finalStatus, plan);
+
+        if (order.PaymentMethod == PaymentMethod.Stripe)
+        {
+            var baseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:4200";
+            var successUrl = $"{baseUrl}/checkout/payment/success";
+            var cancelUrl = $"{baseUrl}/checkout/payment/cancel";
+            
+            var sessionUrl = await stripePaymentService.CreateCheckoutSessionAsync(order, successUrl, cancelUrl);
+            
+            context.Orders.Update(order);
+            await context.SaveChangesAsync();
+            
+            response.PaymentUrl = sessionUrl;
+        }
 
         return Result.Success<OrderCreatedResponseDTO>(response);
     }

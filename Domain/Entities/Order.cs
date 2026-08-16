@@ -13,6 +13,11 @@ public class Order
     public OrderStatus OrderStatus { get; set; }
     public decimal TotalAmount { get; set; }
 
+    public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
+    public PaymentStatus PaymentStatus { get; set; } = PaymentStatus.Pending;
+    public string? StripeSessionId { get; set; }
+    public string? StripePaymentIntentId { get; set; }
+
     // Required to correctly determine "recent"/"current" order — do not
     // rely on OrderId (Guid) ordering, it is not chronologically sortable.
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

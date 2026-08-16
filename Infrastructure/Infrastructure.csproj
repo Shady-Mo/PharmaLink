@@ -31,6 +31,7 @@
     <PackageReference Include="Polly" Version="8.7.0" />
     <PackageReference Include="Polly.Core" Version="8.7.0" />
     <PackageReference Include="Qdrant.Client" Version="1.19.0" />
+    <PackageReference Include="Stripe.net" Version="52.3.0" />
     <PackageReference Include="System.Linq.Dynamic.Core" Version="1.7.2" />
     <PackageReference Include="Twilio" Version="7.5.1" />
     <PackageReference Include="WebPush" Version="1.0.13" />

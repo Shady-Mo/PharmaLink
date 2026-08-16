@@ -119,3 +119,17 @@ public enum PrescriptionMedicineMatchStatus : byte
     AlternativeSuggested = 3,
     Unavailable = 4
 }
+
+public enum PaymentMethod : byte
+{
+    CashOnDelivery = 1,
+    Stripe = 2
+}
+
+public enum PaymentStatus : byte
+{
+    Pending = 1,
+    Paid = 2,
+    Failed = 3,
+    Refunded = 4
+}
