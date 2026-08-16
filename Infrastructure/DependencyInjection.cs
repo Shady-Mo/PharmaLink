@@ -176,6 +176,7 @@ public static class DependencyInjection
         {
             client.BaseAddress = new Uri("https://router.project-osrm.org/");
             client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.Add("User-Agent", "PharmaLink/1.0 (Contact: pharmaa.link@gmail.com)");
         });
         // Singleton: OsrmRoutingService is stateless (only depends on IHttpClientFactory + ILogger),
         // and it is consumed by the singleton PharmacyInventoryPlugin, so it must not be scoped.
