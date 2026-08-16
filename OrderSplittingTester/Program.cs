@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Application.Services.OrderSplitting;
 using Application.Services.OrderSplitting.Models;
@@ -25,7 +26,7 @@ class Program
         var serviceProvider = services.BuildServiceProvider();
         var osrmRoutingService = serviceProvider.GetRequiredService<IOsrmRoutingService>();
 
-        var connectionString = "Server=; Database=; User Id=; Password=; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;";
+        var connectionString = "Server=db58883.public.databaseasp.net; Database=db58883; User Id=db58883; Password=4e%ZT=8hbK+7; Encrypt=True; TrustServerCertificate=True; MultipleActiveResultSets=True;";
         var optionsBuilder = new DbContextOptionsBuilder<AppDbContext>();
         optionsBuilder.UseSqlServer(connectionString, x => x.UseNetTopologySuite());
         
@@ -33,8 +34,8 @@ class Program
 
         Console.WriteLine("Connecting to Live Database...");
 
-        var drugNames = new[] { "1+1 دراكون | مزيل عرق رول أون مبيض بدون رائحة | 50 مل",
-                                "1+1 إينفنيتي | تريتو بلسم لترطيب وتعزيز نمو الشعر | 250مل"};
+        var drugNames = new[] { "1+1 اكس | مزيل العرق آيس تشيل 48 ساعة برائحة النعناع والليمون للرجال | 150مل",
+                                "1+1 اوميجالوكس اوميجا 3 | 30 كبسولة"};
         var targetDrugs = dbContext.Drugs
             .Where(d => drugNames.Any(name => d.ArabicName.Contains(name) || d.BrandName.Contains(name)))
             .Distinct()
@@ -68,15 +69,33 @@ class Program
         var userLat = 30.12914915195177;
         var userLng = 31.27714977862994; 
 
-        Console.WriteLine("\nCalculating driving distances via OSRM...");
+        var coords = new List<(double Lat, double Lon)> { (userLat, userLng) };
+        var branchIndexMap = new Dictionary<Guid, int>();
+
         foreach (var group in branchesGrouped)
         {
             var branch = group.First().Branch;
             double branchLat = branch.GeoLocation != null ? branch.GeoLocation.Y : 30.0;
             double branchLng = branch.GeoLocation != null ? branch.GeoLocation.X : 31.0;
+            
+            branchIndexMap[branch.BranchId] = coords.Count;
+            coords.Add((branchLat, branchLng));
+        }
 
-            var routeResult = await osrmRoutingService.GetDrivingRouteAsync(userLat, userLng, branchLat, branchLng);
-            var distance = routeResult.IsSuccess ? routeResult.DistanceKm : 999; 
+        Console.WriteLine("\nCalculating driving distances matrix via OSRM...");
+        var matrixResult = await osrmRoutingService.GetDistanceMatrixAsync(coords, CancellationToken.None);
+        
+        if (!matrixResult.IsSuccess)
+        {
+            Console.WriteLine("OSRM Matrix calculation failed: " + matrixResult.Message);
+            return;
+        }
+
+        foreach (var group in branchesGrouped)
+        {
+            var branch = group.First().Branch;
+            var idx = branchIndexMap[branch.BranchId];
+            var distanceToPatient = matrixResult.DistancesKm[0][idx];
             
             var stockDict = new Dictionary<Guid, int>();
             foreach (var inv in group)
@@ -87,7 +106,7 @@ class Program
             candidateBranches.Add(new CandidateBranch(
                 branch.BranchId, 
                 branch.BranchName ?? "Unknown Branch", 
-                distance, 
+                distanceToPatient, 
                 true, 
                 true, 
                 stockDict));
@@ -97,9 +116,9 @@ class Program
 
         var context = new SplittingContext(Guid.NewGuid(), FulfillmentMode.Delivery, items, candidateBranches);
 
-        var bruteForceAlgo = new BruteForceOrderSplittingAlgorithm();
+        var bruteForceAlgo = new BruteForceOrderSplittingAlgorithm(matrixResult.DistancesKm, branchIndexMap);
         
-        Console.WriteLine("Running Brute Force Algorithm...");
+        Console.WriteLine("Running Brute Force Algorithm (with TSP Distance Matrix)...");
         var bruteForceResult = bruteForceAlgo.Execute(context);
 
         Console.WriteLine("\n--- Brute Force Results (Absolute Optimal) ---");
@@ -108,7 +127,6 @@ class Program
 
     static void PrintResult(SplittingResult result, List<CandidateBranch> allBranches)
     {
-        double totalDistance = 0;
         var uniqueBranches = new HashSet<Guid>();
         
         if (!result.Assignments.Any())
@@ -117,17 +135,16 @@ class Program
             return;
         }
 
+        double finalTspDistance = 0;
         foreach (var assignment in result.Assignments)
         {
             var branchName = allBranches.Find(b => b.BranchId == assignment.BranchId)?.BranchName;
-            Console.WriteLine($"Item Assigned -> {branchName} | OSM Driving Dist: {Math.Round(assignment.Decision.DistanceKm, 2)} KM");
-            if (uniqueBranches.Add(assignment.BranchId))
-            {
-                totalDistance += assignment.Decision.DistanceKm;
-            }
+            Console.WriteLine($"Item Assigned -> {branchName}");
+            uniqueBranches.Add(assignment.BranchId);
+            finalTspDistance = assignment.Decision.DistanceKm;
         }
         
         Console.WriteLine($"\nTotal Unique Branches Used: {uniqueBranches.Count}");
-        Console.WriteLine($"Total Driving Distance: {Math.Round(totalDistance, 2)} KM");
+        Console.WriteLine($"Total TSP Driving Distance: {Math.Round(finalTspDistance, 2)} KM");
     }
 }

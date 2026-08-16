@@ -8,7 +8,16 @@ namespace OrderSplittingTester
 {
     public class BruteForceOrderSplittingAlgorithm : IOrderSplittingAlgorithm
     {
-        public string AlgorithmName => "Brute Force (Absolute Optimal)";
+        private readonly double[][] _distanceMatrix;
+        private readonly Dictionary<Guid, int> _branchIndexMap;
+
+        public BruteForceOrderSplittingAlgorithm(double[][] distanceMatrix, Dictionary<Guid, int> branchIndexMap)
+        {
+            _distanceMatrix = distanceMatrix;
+            _branchIndexMap = branchIndexMap;
+        }
+
+        public string AlgorithmName => "Brute Force (Absolute Optimal TSP)";
 
         public SplittingResult Execute(SplittingContext context)
         {
@@ -35,15 +44,26 @@ namespace OrderSplittingTester
 
             foreach (var combination in allCombinations)
             {
-                double currentDistance = combination
-                    .GroupBy(b => b.BranchId)
-                    .Select(g => g.First().DistanceKm)
-                    .Sum();
-
-                if (currentDistance < minTotalDistance)
+                var uniqueBranches = combination.GroupBy(b => b.BranchId).Select(g => g.First()).ToList();
+                
+                // Calculate TSP trip distance
+                double tripDistance = CalculateShortestTrip(uniqueBranches);
+                
+                if (tripDistance < minTotalDistance)
                 {
-                    minTotalDistance = currentDistance;
+                    minTotalDistance = tripDistance;
                     bestCombination = combination;
+                }
+                else if (Math.Abs(tripDistance - minTotalDistance) < 0.001)
+                {
+                    if (bestCombination != null)
+                    {
+                        var bestUniqueCount = bestCombination.GroupBy(b => b.BranchId).Count();
+                        if (uniqueBranches.Count < bestUniqueCount)
+                        {
+                            bestCombination = combination;
+                        }
+                    }
                 }
             }
 
@@ -58,11 +78,40 @@ namespace OrderSplittingTester
                     assignedBranch.BranchId,
                     item.DrugId,
                     item.QuantityNeeded,
-                    new AssignmentDecision(AlgorithmName, 1, assignedBranch.DistanceKm, 0)
+                    new AssignmentDecision(AlgorithmName, bestCombination.GroupBy(b => b.BranchId).Count(), minTotalDistance, 0)
                 ));
             }
 
             return new SplittingResult(assignments, new List<Guid>());
+        }
+
+        private double CalculateShortestTrip(List<CandidateBranch> branches)
+        {
+            var indices = branches.Select(b => _branchIndexMap[b.BranchId]).ToList();
+            var permutations = GetPermutations(indices, indices.Count);
+            
+            double minTrip = double.MaxValue;
+            foreach (var perm in permutations)
+            {
+                var list = perm.ToList();
+                double trip = 0;
+                int current = 0;
+                foreach (var next in list)
+                {
+                    trip += _distanceMatrix[current][next];
+                    current = next;
+                }
+                if (trip < minTrip) minTrip = trip;
+            }
+            return minTrip;
+        }
+
+        private IEnumerable<IEnumerable<T>> GetPermutations<T>(IEnumerable<T> list, int length)
+        {
+            if (length == 1) return list.Select(t => new T[] { t });
+            return GetPermutations(list, length - 1)
+                .SelectMany(t => list.Where(e => !t.Contains(e)),
+                    (t1, t2) => t1.Concat(new T[] { t2 }));
         }
 
         private List<List<CandidateBranch>> GenerateCombinations(List<List<CandidateBranch>> lists)
