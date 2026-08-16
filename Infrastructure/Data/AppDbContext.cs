@@ -63,4 +63,5 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<RecurringPrescriptionRun> RecurringPrescriptionRuns { get; set; }
     public DbSet<PushSubscription> PushSubscriptions { get; set; }
     public DbSet<AppNotification> AppNotifications { get; set; }
+    public DbSet<PaymentTransaction> PaymentTransactions { get; set; }
 }

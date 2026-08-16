@@ -159,6 +159,20 @@ public class OrderService(
             var sessionUrl = await stripePaymentService.CreateCheckoutSessionAsync(order, successUrl, cancelUrl);
             
             context.Orders.Update(order);
+
+            var paymentTransaction = new PaymentTransaction
+            {
+                OrderId = order.OrderId,
+                StripeSessionId = order.StripeSessionId,
+                StripePaymentIntentId = order.StripePaymentIntentId,
+                Amount = order.TotalAmount,
+                Currency = "egp",
+                Status = "Created",
+                EventType = "checkout.session.created",
+                CreatedAt = DateTime.UtcNow
+            };
+            context.PaymentTransactions.Add(paymentTransaction);
+
             await context.SaveChangesAsync();
             
             response.PaymentUrl = sessionUrl;

@@ -39,10 +39,43 @@ public class PaymentsController(
                                 order.OrderStatus = OrderStatus.Processing;
                             }
 
+                            var transaction = new PaymentTransaction
+                            {
+                                OrderId = order.OrderId,
+                                StripeSessionId = session.Id,
+                                StripePaymentIntentId = session.PaymentIntentId,
+                                Amount = (decimal)(session.AmountTotal ?? 0) / 100m,
+                                Currency = session.Currency ?? "egp",
+                                Status = "Succeeded",
+                                EventType = stripeEvent.Type,
+                                RawData = json
+                            };
+                            context.PaymentTransactions.Add(transaction);
+
                             await context.SaveChangesAsync();
                             logger.LogInformation($"Order {orderId} payment succeeded via Stripe.");
                         }
                     }
+                }
+            }
+            else if (stripeEvent.Type == EventTypes.CheckoutSessionExpired || stripeEvent.Type == EventTypes.CheckoutSessionAsyncPaymentFailed)
+            {
+                var session = stripeEvent.Data.Object as Session;
+                if (session != null && Guid.TryParse(session.ClientReferenceId, out var orderId))
+                {
+                    var transaction = new PaymentTransaction
+                    {
+                        OrderId = orderId,
+                        StripeSessionId = session.Id,
+                        StripePaymentIntentId = session.PaymentIntentId,
+                        Amount = (decimal)(session.AmountTotal ?? 0) / 100m,
+                        Currency = session.Currency ?? "egp",
+                        Status = "Failed",
+                        EventType = stripeEvent.Type,
+                        RawData = json
+                    };
+                    context.PaymentTransactions.Add(transaction);
+                    await context.SaveChangesAsync();
                 }
             }
 

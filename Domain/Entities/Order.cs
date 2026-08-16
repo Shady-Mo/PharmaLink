@@ -36,4 +36,5 @@ public class Order
     public Prescription? Prescription { get; set; }
     public ICollection<OrderItem> Items { get; set; } = new HashSet<OrderItem>();
     public ICollection<OrderFulfillmentLeg> FulfillmentLegs { get; set; } = new HashSet<OrderFulfillmentLeg>();
+    public ICollection<PaymentTransaction> PaymentTransactions { get; set; } = new HashSet<PaymentTransaction>();
 }
