@@ -1,10 +1,13 @@
-﻿namespace Application.DTOs.Order.Responses
+namespace Application.DTOs.Order.Responses
 {
     public class OrderCreatedResponseDTO
     {
         public Guid OrderId { get; set; }
         public OrderStatus Status { get; set; }
         public string Message { get; set; } = default!;
+
+        /// <summary>URL to redirect the user for payment if Stripe is selected.</summary>
+        public string? PaymentUrl { get; set; }
 
         /// <summary>Optimization strategy used by the fulfillment engine (e.g. "AI-MultiAgent").</summary>
         public string Strategy { get; set; } = string.Empty;

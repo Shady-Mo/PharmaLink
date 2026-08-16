@@ -8,6 +8,8 @@ namespace Application.DTOs.Order.Requests
 
         public Guid? TemporaryPrescriptionId { get; set; }
 
+        public PaymentMethod PaymentMethod { get; set; } = PaymentMethod.CashOnDelivery;
+
         //public ICollection<OrderItemRequestDTO> Items { get; set; } = new HashSet<OrderItemRequestDTO>();
     }
 }
