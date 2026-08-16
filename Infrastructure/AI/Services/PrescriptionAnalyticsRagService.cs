@@ -126,7 +126,7 @@ public sealed class PrescriptionAnalyticsRagService(
                 .Select(g =>
                 {
                     var medName = g.Key;
-                    var category = g.First().Category?.Trim() ?? "عام";
+                    var category = CleanCategory(g.First().Category);
 
                     var matchingItems = allSourceMedicines
                         .Where(x => x.Medicine.MedicineName.Equals(medName, StringComparison.OrdinalIgnoreCase) ||
@@ -301,5 +301,18 @@ public sealed class PrescriptionAnalyticsRagService(
 
         var formatted = string.Join(", ", parts);
         return string.IsNullOrWhiteSpace(formatted) ? null : formatted;
+    }
+
+    private static string CleanCategory(string? rawCategory)
+    {
+        if (string.IsNullOrWhiteSpace(rawCategory)) return "أدوية عامة";
+        var cat = rawCategory.Trim();
+
+        var dosageForms = new[] { "أقراص", "حبوب", "كبسولات", "حقن", "شراب", "قطرات", "مرهم", "دش مهبلي", "لبوس", "بخاخ", "دهان", "جل" };
+        if (dosageForms.Any(df => cat.Equals(df, StringComparison.OrdinalIgnoreCase)))
+        {
+            return "أدوية عامة";
+        }
+        return cat;
     }
 }
