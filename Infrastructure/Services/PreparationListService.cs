@@ -15,7 +15,7 @@ namespace Infrastructure.Services
                 .Any(pa => pa.PharmacistId == id && pa.IsActive) 
                 && p.LegStatus != LegStatus.Delivered
                 && p.LegStatus != LegStatus.OutForDelivery
-                && p.LegStatus != LegStatus.Cancelled)
+                && p.LegStatus != LegStatus.Cancelled && p.Order.OrderStatus != OrderStatus.Cancelled)
                 .AsQueryable();
 
             if (parameters.Status.HasValue)
