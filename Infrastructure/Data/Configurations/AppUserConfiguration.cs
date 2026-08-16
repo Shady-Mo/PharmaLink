@@ -15,6 +15,7 @@ public class AppUserConfiguration : IEntityTypeConfiguration<AppUser>
             .HasValue<SystemAdmin>("SystemAdmin")
             .HasValue<PharmacyAdmin>("PharmacyAdmin")
             .HasValue<Supplier>("Supplier")
-            .HasValue<DeliveryDriver>("DeliveryDriver");
+            .HasValue<DeliveryDriver>("DeliveryDriver")
+            .HasValue<ReviewTeam>("ReviewTeam");
     }
 }

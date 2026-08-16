@@ -28,17 +28,15 @@ public class AdminUserService : IAdminUserService
     ];
 
     private readonly IWebPushNotificationService _pushNotificationService;
-    private readonly AppDbContext context;
 
     public AdminUserService(
         UserManager<AppUser> userManager, 
         RoleManager<IdentityRole<Guid>> roleManager,
-        IWebPushNotificationService pushNotificationService, AppDbContext context)
+        IWebPushNotificationService pushNotificationService)
     {
         _userManager = userManager;
         _roleManager = roleManager;
         _pushNotificationService = pushNotificationService;
-        this.context = context;
     }
 
     public async Task<Result<PaginatedList<AdminUserDto>>> GetUsersAsync(AdminUserFilterDto filter, CancellationToken cancellationToken = default)
@@ -195,10 +193,6 @@ public class AdminUserService : IAdminUserService
         {
             return Result.Failure<AdminUserDto>(AdminUserErrors.RoleUpdateFailed);
         }
-
-        await context.Users.Where(u => u.Id == user.Id).ExecuteUpdateAsync(x => x.SetProperty(a => EF.Property<string>(a, "UserType"), selectedRole == "PrescriptionReviewTeam" ? "ReviewTeam" : selectedRole));
-
-        await context.SaveChangesAsync();
 
         return Result.Success(ToDto(user, selectedRole));
     }
