@@ -220,50 +220,43 @@ public sealed class PharmacyInventoryPlugin(
         }
 
         evaluations = evaluations
-            .OrderByDescending(e => e.AvailableItemsCount)
-            .ThenBy(e => e.DistanceKm)
+            .OrderBy(e => e.DistanceKm)
             .ToList();
 
-        const int MaxCandidateBranches = 20;
-        if (evaluations.Count > MaxCandidateBranches)
+        const int MaxBranchesPerDrug = 4;
+        var drugQuota = drugIds.ToDictionary(d => d, _ => MaxBranchesPerDrug);
+        var finalCandidates = new HashSet<BranchFulfillmentEvaluation>();
+
+        foreach (var eval in evaluations)
         {
-            var capped = evaluations.Take(MaxCandidateBranches).ToList();
-
-            var coveredDrugs = capped
-                .SelectMany(e => e.AvailableItems.Select(a => a.DrugId))
-                .ToHashSet();
-
-            var drugsStockedSomewhere = evaluations
-                .SelectMany(e => e.AvailableItems.Select(a => a.DrugId))
-                .ToHashSet();
-
-            var uncovered = drugsStockedSomewhere.Except(coveredDrugs).ToHashSet();
-            if (uncovered.Count > 0)
+            bool useful = false;
+            foreach (var item in eval.AvailableItems)
             {
-                var rescued = evaluations
-                    .Skip(MaxCandidateBranches)
-                    .Where(e => e.AvailableItems.Any(a => uncovered.Contains(a.DrugId)))
-                    .Where(e => !capped.Contains(e));
-
-                foreach (var branch in rescued)
+                if (drugQuota.TryGetValue(item.DrugId, out int remaining) && remaining > 0)
                 {
-                    if (uncovered.Count == 0) break;
-                    capped.Add(branch);
-                    foreach (var a in branch.AvailableItems)
-                        uncovered.Remove(a.DrugId);
+                    useful = true;
+                    drugQuota[item.DrugId] = remaining - 1;
                 }
             }
 
-            evaluations = capped;
+            if (useful)
+            {
+                finalCandidates.Add(eval);
+            }
+
+            if (drugQuota.Values.All(v => v == 0))
+            {
+                break;
+            }
         }
 
+        evaluations = evaluations.Where(e => finalCandidates.Contains(e)).ToList();
+
         logger.LogDebug(
-            "PharmacyInventoryPlugin.EvaluateAsync produced {BranchCount} branch evaluations (capped ~{Cap} for AI performance, coverage preserved)",
-            evaluations.Count, MaxCandidateBranches);
+            "PharmacyInventoryPlugin.EvaluateAsync produced {BranchCount} branch evaluations (capped using {Max} branches per drug quota)",
+            evaluations.Count, MaxBranchesPerDrug);
 
         return evaluations;
-
-
     }
 
     private static IReadOnlyList<CartItemDto> DeserializeCart(string cartItemsJson)
