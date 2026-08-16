@@ -1,9 +1,8 @@
 <div align="center">
-  <img src="https://ui-avatars.com/api/?name=Pharma+Link&background=0D8ABC&color=fff&size=128" alt="PharmaLink Logo" />
   <h1>PharmaLink Backend Ecosystem</h1>
   <p><strong>A Next-Generation Healthcare, Supply Chain & Logistics Ecosystem Powered by Generative AI</strong></p>
   
-  [![Backend](https://img.shields.io/badge/Backend-.NET_8-512BD4.svg?logo=dotnet)](https://dotnet.microsoft.com/)
+  [![Backend](https://img.shields.io/badge/Backend-.NET_10-512BD4.svg?logo=dotnet)](https://dotnet.microsoft.com/)
   [![AI](https://img.shields.io/badge/AI-Semantic_Kernel-0078D4.svg)](https://github.com/microsoft/semantic-kernel)
 </div>
 
@@ -119,7 +118,7 @@ This suite powers the core intelligence of the platform by deeply integrating Mi
 To run the PharmaLink Backend locally, you must configure multiple third-party services and connections.
 
 ### 1. Prerequisites
-- **.NET 8 SDK**
+- **.NET 10 SDK**
 - **SQL Server**
 - **Redis Server**
 - **Qdrant Vector Database** (Local or Cloud)
