@@ -137,11 +137,11 @@ public sealed class AssistantController(
             // Client disconnected — this is normal, not an error.
             logger.LogDebug("ChatStream cancelled for user {UserId} (client disconnected)", userId);
         }
-        catch (Exception ex) when (ex.ToString().Contains("429"))
+        catch (Exception ex) when (ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504"))
         {
-            logger.LogWarning("Rate limit exceeded for user {UserId}", userId);
+            logger.LogWarning("AI rate limit or transient error for user {UserId}", userId);
             var errorData =
-                "data: عذراً، لقد تجاوزت الحد الأقصى للطلبات المجانية للذكاء الاصطناعي. يرجى الانتظار لمدة دقيقة والمحاولة مرة أخرى.\n\n";
+                "data: عذراً، الخدمة مشغولة حالياً (ضغط على الذكاء الاصطناعي). يرجى الانتظار والمحاولة مرة أخرى.\n\n";
             await Response.Body.WriteAsync(Encoding.UTF8.GetBytes(errorData), ct);
             await Response.Body.FlushAsync(ct);
         }
@@ -187,12 +187,12 @@ public sealed class AssistantController(
 
             return Ok(result);
         }
-        catch (Exception ex) when (ex.ToString().Contains("429"))
+        catch (Exception ex) when (ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504"))
         {
-            return StatusCode(429,
+            return StatusCode(503,
                 new
                 {
-                    error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى."
+                    error = "الخدمة مشغولة حالياً (ضغط على الذكاء الاصطناعي). يرجى الانتظار قليلاً والمحاولة مرة أخرى."
                 });
         }
     }
@@ -233,12 +233,12 @@ public sealed class AssistantController(
             var result = await drugInfoService.CheckInteractionsAsync(request.DrugNames, ct);
             return Ok(result);
         }
-        catch (Exception ex) when (ex.ToString().Contains("429"))
+        catch (Exception ex) when (ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504"))
         {
-            return StatusCode(429,
+            return StatusCode(503,
                 new
                 {
-                    error = "الذكاء الاصطناعي مشغول حالياً بسبب كثرة الطلبات. يرجى الانتظار قليلاً والمحاولة مرة أخرى."
+                    error = "الخدمة مشغولة حالياً (ضغط على الذكاء الاصطناعي). يرجى الانتظار قليلاً والمحاولة مرة أخرى."
                 });
         }
     }

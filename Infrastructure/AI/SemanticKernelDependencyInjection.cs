@@ -53,8 +53,8 @@ public static class SemanticKernelDependencyInjection
             var provider = providers.FirstOrDefault(p => p.Provider == aiProvider)
                            ?? throw new InvalidOperationException($"No IKernelProvider found for {aiProvider}");
 
-            // Resolve base kernel from the provider
-            var baseKernel = provider.GetKernel(ModelRole.Chat);
+            // Resolve base kernel from the provider (Explicitly forcing gemini-3.5-flash for DrugInfoService as requested)
+            var baseKernel = provider.GetKernel(ModelRole.Chat, "gemini-3.5-flash");
 
             // Clone the kernel to add plugins safely without mutating the shared provider cache
             var kernel = baseKernel.Clone();

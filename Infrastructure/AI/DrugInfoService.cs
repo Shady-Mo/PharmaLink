@@ -90,15 +90,15 @@ public sealed class DrugInfoService(
 
                 return DeserializeDrugInfo(json, drugName);
             }
-            catch (Exception ex) when (ex.ToString().Contains("429") && i < maxRetries - 1)
+            catch (Exception ex) when ((ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504")) && i < maxRetries - 1)
             {
-                logger.LogWarning("Rate limit hit (429) for Gemini. Retrying {RetryCount}/{MaxRetries} in 3 seconds...", i + 1, maxRetries - 1);
+                logger.LogWarning("Transient server error or rate limit hit for Gemini. Retrying {RetryCount}/{MaxRetries} in 3 seconds...", i + 1, maxRetries - 1);
                 await Task.Delay(3000, ct);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "DrugInfoService.GetDrugInfoAsync failed for {DrugName}", drugName);
-                if (ex.ToString().Contains("429")) throw; // Rethrow so controller returns 429
+                if (ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504")) throw; // Rethrow to controller returns 429
                 break;
             }
         }
@@ -147,15 +147,15 @@ public sealed class DrugInfoService(
 
                 return DeserializeInteractionResult(json, drugNames);
             }
-            catch (Exception ex) when (ex.ToString().Contains("429") && i < maxRetries - 1)
+            catch (Exception ex) when ((ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504")) && i < maxRetries - 1)
             {
-                logger.LogWarning("Rate limit hit (429) for Gemini interactions. Retrying {RetryCount}/{MaxRetries} in 3 seconds...", i + 1, maxRetries - 1);
+                logger.LogWarning("Transient server error or rate limit hit for Gemini interactions. Retrying {RetryCount}/{MaxRetries} in 3 seconds...", i + 1, maxRetries - 1);
                 await Task.Delay(3000, ct);
             }
             catch (Exception ex)
             {
                 logger.LogError(ex, "DrugInfoService.CheckInteractionsAsync failed");
-                if (ex.ToString().Contains("429")) throw; // Rethrow to controller
+                if (ex.ToString().Contains("429") || ex.ToString().Contains("503") || ex.ToString().Contains("500") || ex.ToString().Contains("502") || ex.ToString().Contains("504")) throw; // Rethrow to controller
                 break;
             }
         }
