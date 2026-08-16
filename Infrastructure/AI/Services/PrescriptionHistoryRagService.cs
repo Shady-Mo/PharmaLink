@@ -4,6 +4,8 @@ using Application.Services.AI;
 using Application.Services.AI.Models;
 using Hangfire;
 using Microsoft.EntityFrameworkCore;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace Infrastructure.AI.Services;
 
@@ -14,9 +16,6 @@ public sealed class PrescriptionHistoryRagService(
     IBackgroundJobClient backgroundJobClient,
     ILogger<PrescriptionHistoryRagService> logger) : IPrescriptionHistoryRagService
 {
-    private const int MaxSources = 3;
-    // Qdrant may contain points from a prior local database. Fetch extra candidates,
-    // hydrate them from SQL, then keep only the best valid records.
     private const int CandidateLimit = 20;
     private const double MinimumRelevanceScore = 0.35;
 
@@ -54,7 +53,6 @@ public sealed class PrescriptionHistoryRagService(
         var sources = relevantResults
             .Where(result => reviewsById.ContainsKey(result.PrescriptionId))
             .Select(result => MapSource(reviewsById[result.PrescriptionId], result.Score))
-            .Take(MaxSources)
             .ToList();
 
         if (sources.Count == 0)
@@ -70,7 +68,18 @@ public sealed class PrescriptionHistoryRagService(
             };
         }
 
-        var contextJson = JsonSerializer.Serialize(sources);
+        var contextForLlm = sources.Select(s => new
+        {
+            shortId = s.PrescriptionId.ToString()[..8],
+            doctorName = s.DoctorName,
+            specialty = s.Specialty,
+            clinicOrHospital = s.ClinicOrHospital,
+            visitDate = s.VisitDate,
+            diagnosisNotes = s.DiagnosisNotes,
+            medicines = s.Medicines
+        }).ToList();
+
+        var contextJson = JsonSerializer.Serialize(contextForLlm);
         var aiResult = await promptExecutionService.ExecuteAsync(new PromptExecutionRequest
         {
             PromptName = "PrescriptionHistoryRag",
@@ -83,11 +92,79 @@ public sealed class PrescriptionHistoryRagService(
             }
         }, cancellationToken);
 
+        var (answer, reasoning, filteredIdStrings) = ParseLlmResponse(aiResult.RawResponse);
+
+        if (!string.IsNullOrWhiteSpace(reasoning))
+        {
+            logger.LogInformation("History RAG Reasoning for Patient {PatientId}: {Reasoning}", patientId, reasoning);
+        }
+
+        var finalSources = sources;
+        if (filteredIdStrings != null)
+        {
+            finalSources = sources
+                .Where(s => filteredIdStrings.Any(idStr =>
+                    !string.IsNullOrWhiteSpace(idStr) &&
+                    (s.PrescriptionId.ToString().StartsWith(idStr.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                     idStr.Trim().StartsWith(s.PrescriptionId.ToString()[..8], StringComparison.OrdinalIgnoreCase))))
+                .ToList();
+        }
+
         return new PrescriptionHistoryAnswerResponse
         {
-            Answer = aiResult.RawResponse,
-            Sources = sources
+            Answer = answer,
+            Sources = finalSources
         };
+    }
+
+    private static (string Answer, string? Reasoning, List<string>? FilteredIdStrings) ParseLlmResponse(string rawResponse)
+    {
+        if (string.IsNullOrWhiteSpace(rawResponse))
+            return (rawResponse, null, null);
+
+        try
+        {
+            var cleaned = rawResponse.Trim();
+            if (cleaned.StartsWith("```json", StringComparison.OrdinalIgnoreCase))
+            {
+                cleaned = cleaned.Substring(7);
+                if (cleaned.EndsWith("```"))
+                    cleaned = cleaned.Substring(0, cleaned.Length - 3);
+            }
+            else if (cleaned.StartsWith("```"))
+            {
+                cleaned = cleaned.Substring(3);
+                if (cleaned.EndsWith("```"))
+                    cleaned = cleaned.Substring(0, cleaned.Length - 3);
+            }
+
+            cleaned = cleaned.Trim();
+            var options = new JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+            var parsed = JsonSerializer.Deserialize<PrescriptionHistoryLlmOutput>(cleaned, options);
+
+            if (parsed != null && !string.IsNullOrWhiteSpace(parsed.Answer))
+            {
+                return (parsed.Answer, parsed.Reasoning, parsed.RelevantPrescriptionIds);
+            }
+        }
+        catch
+        {
+            // Fallback to raw response if parsing fails
+        }
+
+        return (rawResponse, null, null);
+    }
+
+    private class PrescriptionHistoryLlmOutput
+    {
+        [JsonPropertyName("reasoning")]
+        public string? Reasoning { get; set; }
+
+        [JsonPropertyName("answer")]
+        public string? Answer { get; set; }
+
+        [JsonPropertyName("relevant_prescription_ids")]
+        public List<string>? RelevantPrescriptionIds { get; set; }
     }
 
     public async Task<int> QueueReindexAsync(Guid? patientId = null, CancellationToken cancellationToken = default)
