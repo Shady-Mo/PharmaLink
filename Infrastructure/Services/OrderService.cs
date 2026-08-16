@@ -153,8 +153,8 @@ public class OrderService(
         if (order.PaymentMethod == PaymentMethod.Stripe)
         {
             var baseUrl = configuration["Frontend:BaseUrl"] ?? "http://localhost:4200";
-            var successUrl = $"{baseUrl}/checkout/payment/success";
-            var cancelUrl = $"{baseUrl}/checkout/payment/cancel";
+            var successUrl = $"{baseUrl}/patient/checkout/payment/success";
+            var cancelUrl = $"{baseUrl}/patient/checkout/payment/cancel";
             
             var sessionUrl = await stripePaymentService.CreateCheckoutSessionAsync(order, successUrl, cancelUrl);
             
