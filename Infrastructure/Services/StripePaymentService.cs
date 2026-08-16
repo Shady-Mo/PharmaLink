@@ -23,7 +23,7 @@ public class StripePaymentService : IStripePaymentService
     {
         var lineItems = new List<SessionLineItemOptions>();
 
-        if (order.Items != null && order.Items.Any())
+        if (order.Items != null && order.Items.Any() && order.Items.All(i => i.Drug != null))
         {
             foreach (var item in order.Items)
             {
