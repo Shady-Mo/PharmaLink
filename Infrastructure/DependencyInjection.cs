@@ -190,10 +190,13 @@ public static class DependencyInjection
 
             // Program.cs / DependencyInjection.cs
             services.AddScoped<IPatientPrescriptionVectorService, QdrantPatientPrescriptionVectorService>();
+            services.AddScoped<IPrescriptionAnalyticsVectorService, QdrantPrescriptionAnalyticsVectorService>();
             services.AddScoped<IPrescriptionHistoryRagService, AI.Services.PrescriptionHistoryRagService>();
+            services.AddScoped<IPrescriptionAnalyticsRagService, AI.Services.PrescriptionAnalyticsRagService>();
             services.AddScoped<PatientPrescriptionSearchPlugin>();
             services.AddScoped<IPrescriptionEmbeddingJob, PrescriptionEmbeddingJob>();
             services.AddScoped<PatientPrescriptionCollectionInitializer>();
+            services.AddScoped<PrescriptionAnalyticsCollectionInitializer>();
 
 
             services.AddHttpClient<Infrastructure.Services.Chefaa.IChefaaApiClient, Infrastructure.Services.Chefaa.ChefaaApiClient>(client =>
